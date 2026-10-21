@@ -14,7 +14,8 @@ file and one adapter driver. Nothing else in the workflow changes.
 | Storefront entry | Which provider and profile does this storefront use, with which features, currency and credentials? | `config/storefronts.local.json` (gitignored; template in `config/storefronts.example.json`) | A storefront is added or reconfigured |
 
 A storefront's **mapping** (its categories, tier types and tag IDs) stays per storefront in
-`resources/storefront-mappings/<storefront-id>/`, as PRD §15 requires. Profiles describe structure,
+`config/mappings/<storefront-id>.local.json` (gitignored), as PRD §15 requires; edit it with
+`/edit-mappings`. Profiles describe structure,
 mappings describe one storefront's values, and neither is shared across storefronts at runtime.
 
 ## Supported providers

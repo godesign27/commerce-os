@@ -26,7 +26,7 @@ SKILL_OWNERS = {
     "reconciliation": "review-publishing",
 }
 # Administrator skills run directly from their command in the main session; no agent routes them.
-ADMIN_SKILLS = {"storefront-setup"}
+ADMIN_SKILLS = {"storefront-setup", "catalog-mappings"}
 SPECIALISTS = sorted(set(SKILL_OWNERS.values()))
 ROUTER = "commerce-lead"
 

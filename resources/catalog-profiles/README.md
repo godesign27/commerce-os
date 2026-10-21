@@ -2,7 +2,7 @@
 
 One JSON file per product-data shape a storefront application can have. A profile describes
 structure only. Each storefront's actual values (categories, tier types, tag IDs) live in its own
-mapping under `resources/storefront-mappings/<storefront-id>/`.
+mapping, `config/mappings/<storefront-id>.local.json`.
 
 Profiles are written from a storefront's application schema and sanitized samples, never from
 guesses. The model is explained in [docs/storefront-connections.md](../../docs/storefront-connections.md).

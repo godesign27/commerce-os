@@ -37,7 +37,7 @@ Every factual field is stored as a record, never as a bare value:
    stock, availability, dimensions, material, brand, vendor, SKU, GTIN, tax, shipping,
    safety/certification, and image rights.
 3. A **similar** catalog item is never evidence for any field of a new product. Similar items may only
-   inform structure, option names, category template and writing style.
+   inform structure, option names, product type and writing style.
 4. Copy may rephrase supported facts. It must not add unverified claims such as "handmade", "organic",
    "premium", "one of a kind", or exact sizing.
 5. Color seen under uneven lighting is `observed` with low confidence and a review issue, not a fact.

@@ -1,0 +1,91 @@
+{
+  "storefront": "storefront-x",
+  "version": 2,
+  "environments": [
+    "development",
+    "production"
+  ],
+  "changes": [
+    {
+      "version": 1,
+      "date": "2026-01-01",
+      "by": "example",
+      "summary": "Initial lists."
+    },
+    {
+      "version": 2,
+      "date": "2026-01-02",
+      "by": "example",
+      "summary": "Added a proposed new tag."
+    }
+  ],
+  "tier_types": [
+    "Standard"
+  ],
+  "categories": [
+    {
+      "key": "goods",
+      "name": {
+        "development": "Goods",
+        "production": "Goods"
+      },
+      "slug": "goods",
+      "id": {
+        "development": "00000000-0000-4000-8000-000000000001",
+        "production": "00000000-0000-4000-8000-000000000002"
+      },
+      "status": "in_scope"
+    },
+    {
+      "key": "journal",
+      "name": {
+        "production": "Journal"
+      },
+      "slug": "journal",
+      "id": {},
+      "status": "excluded",
+      "notes": "Not sellable products."
+    }
+  ],
+  "tags": [
+    {
+      "key": "widget",
+      "name": {
+        "development": "Widget",
+        "production": "Widget"
+      },
+      "slug": null,
+      "id": {},
+      "status": "in_scope",
+      "kind": "type"
+    },
+    {
+      "key": "sparkly",
+      "name": {},
+      "slug": null,
+      "id": {},
+      "status": "proposed_new",
+      "notes": "Does not exist in the storefront yet. Creating it is a storefront write that needs an approved change set.",
+      "kind": "descriptive"
+    },
+    {
+      "key": "gizmo",
+      "name": {},
+      "slug": null,
+      "id": {},
+      "status": "excluded",
+      "merged_into": "widget",
+      "notes": "Example of a retired entry merged into another.",
+      "kind": "type"
+    }
+  ],
+  "product_types": {
+    "hat": {
+      "category": "goods",
+      "type_tags": [
+        "widget"
+      ],
+      "proposed": false
+    }
+  }
+}

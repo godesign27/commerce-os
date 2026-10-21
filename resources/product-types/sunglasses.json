@@ -1,0 +1,18 @@
+{
+  "id": "sunglasses",
+  "display_name": "Sunglasses",
+  "version": 1,
+  "status": "draft",
+  "kind": "tangible",
+  "aliases": [
+    "wayfarers"
+  ],
+  "options": {
+    "color": "allowed",
+    "size": "not_applicable"
+  },
+  "variant_model": "One variant per observed frame or lens color.",
+  "required_facts": [
+    "price"
+  ]
+}

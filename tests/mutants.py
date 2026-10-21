@@ -9,7 +9,7 @@ P = "plugins/commerce-os"
 # (description, file, find, replace, test module that must fail)
 MUTANTS = [
  ("manifest versions drift", ".claude-plugin/marketplace.json",
-  '"version": "0.2.0"', '"version": "0.0.9"', "tests.test_manifests"),
+  '"version": "0.3.0"', '"version": "0.0.9"', "tests.test_manifests"),
  ("an agent gains a shell", f"{P}/agents/catalog-draft.md",
   "tools: Read, Grep, Glob, Write", "tools: Read, Grep, Glob, Write, Bash", "tests.test_guardrails"),
  ("an agent gains a storefront MCP tool", f"{P}/agents/review-publishing.md",
@@ -51,6 +51,18 @@ MUTANTS = [
   "| `supabase` |", "| supabase |", "tests.test_providers"),
  ("setup skill routed to a specialist", "plugins/commerce-os/agents/catalog-draft.md",
   "## Boundaries", "Also `${CLAUDE_PLUGIN_ROOT}/skills/storefront-setup/SKILL.md`.\n\n## Boundaries", "tests.test_frontmatter"),
+ ("artwork gains a color option", "resources/product-types/artwork.json",
+  '"color": "not_applicable"', '"color": "allowed"', "tests.test_mappings"),
+ ("product type README drifts from files", "resources/product-types/README.md",
+  "| `sunglasses` | tangible | allowed | not_applicable |", "| `sunglasses` | tangible | allowed | supplied_only |", "tests.test_mappings"),
+ ("example mapping references a missing category", "config/mappings/storefront.example.json",
+  '"category": "goods"', '"category": "gadgets"', "tests.test_mappings"),
+ ("mapping edit skips its change record", "config/mappings/storefront.example.json",
+  '"version": 2,', '"version": 3,', "tests.test_mappings"),
+ ("catalog-mappings loses its Forbidden actions section", "plugins/commerce-os/skills/catalog-mappings/SKILL.md",
+  "## Forbidden actions", "## Notes", "tests.test_frontmatter"),
+ ("merged entry points at a missing key", "config/mappings/storefront.example.json",
+  '"merged_into": "widget"', '"merged_into": "gadget"', "tests.test_mappings"),
  ("PRD open question untracked", "BACKLOG.md",
   "| B-013 |", "| B-099 |", "tests.test_backlog"),
 ]

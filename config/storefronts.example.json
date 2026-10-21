@@ -13,7 +13,7 @@
       "features": ["is_sold", "show_in_gallery"],
       "currency": "USD",
       "env_prefix": "STOREFRONT_A",
-      "mapping": "resources/storefront-mappings/storefront-a",
+      "mapping": "config/mappings/storefront-a.local.json",
       "asset_upload": "not_authorized",
       "writes_enabled": false
     },
@@ -25,7 +25,7 @@
       "features": ["color_variants", "tier_quantity"],
       "currency": "USD",
       "env_prefix": "STOREFRONT_B",
-      "mapping": "resources/storefront-mappings/storefront-b",
+      "mapping": "config/mappings/storefront-b.local.json",
       "asset_upload": "not_authorized",
       "writes_enabled": false
     }

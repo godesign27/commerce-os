@@ -1,6 +1,6 @@
 ---
 name: canonical-drafting
-description: Build the versioned canonical product and variant draft from a product proposal using the approved category template — structured fields with field-level evidence, option definitions, ordered asset roles and required-field validation. Use whenever someone asks to draft the product, fill in the listing, write the title or description, check required fields, or see what's still missing.
+description: Build the versioned canonical product and variant draft from a product proposal using the product type's rules — structured fields with field-level evidence, option definitions, ordered asset roles and required-field validation. Use whenever someone asks to draft the product, fill in the listing, write the title or description, check required fields, or see what's still missing.
 argument-hint: "<submission id>"
 ---
 
@@ -15,8 +15,8 @@ evidence so the reviewer sees what is known, what is guessed, and what is missin
 ## Inputs
 
 - The product proposal, including any reviewer decisions already recorded.
-- The category template from `resources/categories/` (versioned): required fields, permitted
-  attributes, option vocabulary.
+- The product type from `resources/product-types/<type>.json` (versioned): `required_facts`, `options`,
+  `variant_model`.
 
 ## Outputs
 
@@ -32,19 +32,19 @@ Read on the proposal and templates; Write under `.commerce-os/out/` only.
 ## Forbidden actions
 
 - Filling a required field to make validation pass.
-- Adding attributes the category template does not permit.
+- Adding options the product type does not permit (e.g. a color option on artwork).
 - Putting price, currency, stock, tax or destination status in the canonical draft.
 - Writing copy that adds unverified claims (handmade, organic, premium, exact sizing).
 - Editing a previous revision in place.
 
 ## Workflow
 
-1. Start a new revision; record `source_snapshot_id` and all policy and template versions.
+1. Start a new revision; record `source_snapshot_id`, the product type and its version, and all policy versions.
 2. Carry every field from the proposal with its evidence record unchanged.
 3. Draft `title` and `description` only from supported facts. Mark them `inferred` with the facts they
    rephrase as evidence. Unknown facts are left out of the copy, not hedged into it.
 4. Dimensions carry value and unit; unknown stays `null`.
-5. Validate against the template: each missing required field becomes a blocking issue naming the
+5. Validate against the product type's `required_facts`: each missing required field becomes a blocking issue naming the
    evidence needed and who can supply it.
 6. Detect duplicate-candidate issues carried from catalog-retrieval and keep them blocking until a
    human decides.
@@ -57,7 +57,7 @@ Read on the proposal and templates; Write under `.commerce-os/out/` only.
 
 ## Failure behavior
 
-Template missing for the category: stop, raise a blocking issue, keep the proposal as-is.
+Product type file missing: stop, raise a blocking issue, keep the proposal as-is.
 
 ## Evidence requirements
 
@@ -65,4 +65,4 @@ Per [evidence-policy.md](../../shared/evidence-policy.md). Copy fields cite the 
 
 ## Current status
 
-Specification only. Category templates are not populated (B-005); contracts arrive in Phase 1 (B-020).
+Specification only. Draft product types exist; contracts arrive in Phase 1 (B-020).

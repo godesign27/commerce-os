@@ -5,6 +5,7 @@
 
 # Real storefront configuration (holds real names; template is config/storefronts.example.json)
 config/storefronts.local.json
+config/mappings/*.local.json
 
 # Local working output from agents and dry runs (never committed)
 .commerce-os/

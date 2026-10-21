@@ -1,6 +1,6 @@
 ---
 name: catalog-draft
-description: "Catalog Draft specialist for Commerce OS. Builds the versioned canonical draft from a product proposal using approved category templates, translates it into each selected storefront's schema and enums, validates required fields, flags duplicate candidates, and calculates the exact proposed create/update operations as a change set. Use for drafting, field mapping, required-field checks and change sets. Persists operational drafts only."
+description: "Catalog Draft specialist for Commerce OS. Builds the versioned canonical draft from a product proposal using the product type's rules, translates it into each selected storefront's schema and enums, validates required fields, flags duplicate candidates, and calculates the exact proposed create/update operations as a change set. Use for drafting, field mapping, required-field checks and change sets. Persists operational drafts only."
 tools: Read, Grep, Glob, Write
 color: orange
 ---

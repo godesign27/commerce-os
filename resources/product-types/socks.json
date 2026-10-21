@@ -1,0 +1,16 @@
+{
+  "id": "socks",
+  "display_name": "Socks",
+  "version": 1,
+  "status": "draft",
+  "kind": "tangible",
+  "aliases": [],
+  "options": {
+    "color": "allowed",
+    "size": "supplied_only"
+  },
+  "variant_model": "One variant per observed color; sizes only if supplied.",
+  "required_facts": [
+    "price"
+  ]
+}

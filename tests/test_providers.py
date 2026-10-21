@@ -87,7 +87,7 @@ class StorefrontConfig(unittest.TestCase):
             self.assertIn(s["catalog_profile"], self.profiles, s["id"])
             optional = set(self.profiles[s["catalog_profile"]]["optional_features"])
             self.assertTrue(set(s["features"]) <= optional, f"{s['id']}: unknown feature")
-            self.assertEqual(s["mapping"], f"resources/storefront-mappings/{s['id']}")
+            self.assertEqual(s["mapping"], f"config/mappings/{s['id']}.local.json")
 
     def test_isolation_unique_ids_and_prefixes(self):
         ids = [s["id"] for s in self.cfg["storefronts"]]

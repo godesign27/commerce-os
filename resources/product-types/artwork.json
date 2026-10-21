@@ -1,0 +1,24 @@
+{
+  "id": "artwork",
+  "display_name": "Artwork",
+  "version": 1,
+  "status": "draft",
+  "kind": "artwork",
+  "aliases": [
+    "painting",
+    "original",
+    "print",
+    "canvas print"
+  ],
+  "options": {
+    "color": "not_applicable",
+    "size": "from_tiers"
+  },
+  "variant_model": "Pricing tiers (e.g. Original, Print, Canvas Print by size). No color option: a differently colored image is a different artwork or a different view, never a color variant.",
+  "required_facts": [
+    "price",
+    "medium",
+    "dimensions"
+  ],
+  "notes": "An Original tier with stock 1 is typical. Edition, authenticity and is_original claims need supplied or human-confirmed evidence."
+}

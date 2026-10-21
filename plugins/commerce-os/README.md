@@ -1,7 +1,7 @@
 # Commerce OS plugin
 
 Governed product preparation for independent storefronts. A router and four specialist agents run
-twelve pipeline skills, plus a setup skill, that turn a product submission into an evidence-backed draft for human review. No agent
+twelve pipeline skills, plus two administrator skills, that turn a product submission into an evidence-backed draft for human review. No agent
 writes to a storefront; publication is server-side and human-approved.
 
 > **Phase 0b.** Pipeline skills are specifications. Nothing is connected: no Drive, no storefront, no workflow
@@ -26,6 +26,7 @@ writes to a storefront; publication is server-side and human-approved.
 | `/dry-run <submission> <storefront>` | publishing, dry-run mode |
 | `/publish <submission> <storefront>` | publishing, request mode (needs a valid human approval) |
 | `/setup-storefront [id \| operational]` | storefront-setup: choose a database provider and catalog profile |
+| `/edit-mappings <storefront-id \| product-types>` | catalog-mappings: add, edit or retire categories, tags and product types |
 
 ## Shared policies
 

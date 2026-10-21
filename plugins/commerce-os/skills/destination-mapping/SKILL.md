@@ -15,7 +15,9 @@ destination, from its own mapping specification, and nothing crosses from one st
 ## Inputs
 
 - The canonical draft at a specific revision.
-- Exactly one destination and its mapping from `resources/storefront-mappings/<destination>/` (versioned).
+- Exactly one destination, its storefront entry in `config/storefronts.local.json` (provider, catalog
+  profile, features) and its mapping `config/mappings/<destination>.local.json` (versioned): categories,
+  tags and tier types per environment, and product type → category and tag mapping.
 - Destination-only values (price, currency, availability, requested visibility) with their sources:
   `supplied` by the submission or `human_confirmed`. Never from the other storefront.
 
@@ -40,7 +42,12 @@ update; Write under `.commerce-os/out/` only.
 ## Workflow
 
 1. Load the destination's mapping; record its version.
-2. Map category and option values to the destination's enums. Unmapped value: blocking issue.
+2. Map the product type to the destination's category and type tags from the mapping. Resolve each to
+   the target environment's ID: recorded `id`, else verified `slug`, else exact `name`. Unresolved,
+   `excluded` or `proposed_new` entries: blocking issue. Mappings marked `proposed` get a warning.
+2a. **Colors:** if the product has more than one color and the destination lacks the `color_variants`
+   feature, raise a blocking issue for this destination only: the reviewer publishes one color here or
+   skips this destination. Never split colors into separate products automatically.
 3. Add destination-only fields with their sources. Missing required ones: blocking issue.
 4. Money is integer minor units plus currency, or exact decimal. Never floating point.
 5. Create-first (B-007): an update to an existing product needs human-confirmed identity and a
@@ -64,4 +71,4 @@ Destination values follow the evidence policy for that destination only.
 ## Current status
 
 Not runnable yet. Both storefronts' structure is captured in the `replit-artstore-v1` catalog profile;
-per-storefront mappings in `resources/storefront-mappings/` are not written yet.
+both storefronts' mappings exist locally in `config/mappings/`; no storefront connection exists yet.

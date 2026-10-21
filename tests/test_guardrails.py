@@ -70,6 +70,35 @@ class NoSecrets(unittest.TestCase):
         self.assertRegex(read(REPO / ".gitignore"), r"(?m)^\.env$")
 
 
+def real_storefront_names():
+    """Real names from the gitignored discovery index, so the test itself never contains them."""
+    index = REPO / "discovery" / "raw" / "README.md"
+    if not index.exists():
+        return []
+    return [m.group(1).strip() for m in re.finditer(r"^\| Storefront [A-Z] \| ([^|]+) \|", read(index), re.M)]
+
+
+class NoRealNames(unittest.TestCase):
+    def test_tracked_files_never_name_a_real_storefront(self):
+        names = real_storefront_names()
+        if not names:
+            self.skipTest("no discovery index on this machine")
+        ignored = ("discovery/raw/", "config/mappings/", "config/storefronts.local.json")
+        hits = []
+        for p in repo_files():
+            rel = str(p.relative_to(REPO))
+            if rel.startswith(ignored) or ".local." in p.name:
+                continue
+            try:
+                text = read(p).lower()
+            except UnicodeDecodeError:
+                continue
+            for n in names:
+                if n.lower() in text or n.lower().replace(" ", "") in text:
+                    hits.append(f"{rel}: {n[0]}…")
+        self.assertEqual(hits, [], "real storefront names in tracked files:\n" + "\n".join(hits))
+
+
 class Independence(unittest.TestCase):
     def test_no_reference_to_the_sibling_repo(self):
         hits = []

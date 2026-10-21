@@ -6,9 +6,11 @@ discovery; empty now.
 - `providers/`: database provider types a storefront or the operational database can use
   (see [docs/storefront-connections.md](../docs/storefront-connections.md)).
 - `catalog-profiles/`: product-data shapes of storefront applications.
-- `categories/`: category taxonomy and templates (BACKLOG B-005).
+- `product-types/`: Commerce OS's shared product types and their option rules, e.g. which types can
+  have colors (B-030).
 - `image-recipes/`: versioned derivative recipes (B-006).
-- `storefront-mappings/storefront-a/`, `storefront-mappings/storefront-b/`: per-storefront schema and enum mappings (B-001).
+- Per-storefront categories, tags and tier types are not here: they hold real IDs, so they live in
+  gitignored `config/mappings/<storefront-id>.local.json`.
 
 The evidence policy is not here: it lives in `plugins/commerce-os/shared/evidence-policy.md` so the
 installed plugin can read it.

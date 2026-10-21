@@ -44,6 +44,9 @@ From schema-only dumps of both storefronts. Detail: [discovery/storefront-schema
 |---|---|---|
 | Pluggable database providers: each storefront and the operational database choose a provider from `resources/providers/`; storefronts also choose a catalog profile | Owner request after discovery showed both storefronts on Replit-managed Postgres, not Supabase. New hosting types are added as a provider file plus a driver. | A third provider is needed. |
 | One catalog profile (`replit-artstore-v1`) describes both storefronts' shared structure; each storefront keeps its own features, mapping, credentials and schema fingerprint | Both apps share a schema lineage. PRD §15 forbids assuming matching schemas; the profile is backed by both schemas, and per-storefront contract tests still run separately. | A storefront's schema diverges from the profile. |
+| Color is a product-type rule (B-030): artwork never has a color option; tangible goods may. A multi-color product is blocked only for a destination without color support | Owner decision. Keeps artwork free of color options and lets tangible goods carry colors where the storefront supports them. | A storefront adds color support. |
+| Product types replace PRD "category templates"; storefront categories and tags are separate, per-storefront, per-environment lists | Storefront categories differ by site and environment (IDs, names); Commerce OS needs one stable classification. | — |
+| Real mappings are gitignored local files | The GitHub repo is public; mappings hold real names and IDs. | The repo becomes private. |
 | `gallery_items` excluded from product mapping | Both owners' recommendation; it is editorial content, not sellable products. | Commerce OS should manage gallery content. |
 
 ## Assumptions (unconfirmed)

@@ -1,0 +1,18 @@
+{
+  "id": "blanket",
+  "display_name": "Blanket",
+  "version": 1,
+  "status": "draft",
+  "kind": "tangible",
+  "aliases": [
+    "throw"
+  ],
+  "options": {
+    "color": "allowed",
+    "size": "supplied_only"
+  },
+  "variant_model": "One variant per observed color; dimensions only if supplied.",
+  "required_facts": [
+    "price"
+  ]
+}

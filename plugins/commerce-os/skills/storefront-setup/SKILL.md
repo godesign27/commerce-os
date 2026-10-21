@@ -58,7 +58,7 @@ Read and Glob in the working directory; Write and Edit on `config/storefronts.lo
 5. **Features:** offer the chosen profile's `optional_features`; record only the ones this storefront has.
 6. **Identity:** lowercase `id` (e.g. `storefront-c`), `display_name`, `currency`, and an `env_prefix`
    in upper snake case that no other entry uses. The mapping path is
-   `resources/storefront-mappings/<id>`.
+   `config/mappings/<id>.local.json`; create its lists with `/edit-mappings <id>`.
 7. Write the entry with `writes_enabled: false` and `asset_upload: "not_authorized"`. Show the diff
    before writing, and ask before overwriting an existing entry.
 8. List the `.env` variable names from the provider's `connection.env_suffixes`, prefixed.
