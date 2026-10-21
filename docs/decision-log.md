@@ -5,7 +5,7 @@ with IDs in [BACKLOG.md](../BACKLOG.md).
 
 ## Confirmed (from the PRD's source conversation)
 
-- Two ecommerce sites currently use Supabase.
+- Two ecommerce sites currently use Supabase. **Contradicted by the schema dumps; see Discovered below (B-023).**
 - New product images originate in a Google Drive folder.
 - Agents prepare images, identify product types (e.g. artwork, hats, blankets), use similar catalog
   entries to help populate product information, and handle multiple colors.
@@ -25,6 +25,26 @@ with IDs in [BACKLOG.md](../BACKLOG.md).
 | All 12 PRD §6.1 skills scaffolded (§18 listed 9) | §6.1 is the requirement; §18 is illustrative. | — |
 | Canonical agent-facing policies live in `plugins/commerce-os/shared/`; `AGENTS.md`, `CLAUDE.md`, the Cursor rule and `docs/` point to them | One source per rule; the plugin can't read outside its own folder once installed. | — |
 | Agent tools limited to Read, Grep, Glob, Write (router adds Agent) | Least privilege; no shell, no network. | Phase 1 |
+
+## Discovered in Phase 0b (2026-10-21)
+
+From schema-only dumps of both storefronts. Detail: [discovery/storefront-schemas.md](discovery/storefront-schemas.md).
+
+- **Contradicts a confirmed fact:** both storefronts run on Replit-managed PostgreSQL (Neon), not
+  Supabase as PRD §1.1 states. Awaiting owner confirmation (B-023). The PRD is unchanged until then.
+- Both sites share one schema lineage. Storefront B adds `color_variants`; Storefront A adds
+  `show_in_gallery`, `is_sold` and its own boards and show tables.
+- There is no variants table; options are JSONB on `products`.
+- `products.status` defaults to `'active'`, so an insert without an explicit status is live.
+- Customer data shares each catalog database, and row-level security is off.
+
+## Decided in Phase 0b (2026-10-21)
+
+| Decision | Why | Revisit when |
+|---|---|---|
+| Pluggable database providers: each storefront and the operational database choose a provider from `resources/providers/`; storefronts also choose a catalog profile | Owner request after discovery showed both storefronts on Replit-managed Postgres, not Supabase. New hosting types are added as a provider file plus a driver. | A third provider is needed. |
+| One catalog profile (`replit-artstore-v1`) describes both storefronts' shared structure; each storefront keeps its own features, mapping, credentials and schema fingerprint | Both apps share a schema lineage. PRD §15 forbids assuming matching schemas; the profile is backed by both schemas, and per-storefront contract tests still run separately. | A storefront's schema diverges from the profile. |
+| `gallery_items` excluded from product mapping | Both owners' recommendation; it is editorial content, not sellable products. | Commerce OS should manage gallery content. |
 
 ## Assumptions (unconfirmed)
 

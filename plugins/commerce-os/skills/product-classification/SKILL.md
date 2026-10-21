@@ -56,6 +56,6 @@ No confident fit: category `other`, status `unknown`, blocking issue asking the 
 `observed` for what is visible; `inferred` for category when it is a judgment; `supplied` when the
 manifest states it. Confidence never stands in for evidence.
 
-## Phase 0a status
+## Current status
 
 Specification only. The taxonomy in `resources/categories/` is not populated yet.

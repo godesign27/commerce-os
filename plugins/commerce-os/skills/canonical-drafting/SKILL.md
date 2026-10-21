@@ -63,6 +63,6 @@ Template missing for the category: stop, raise a blocking issue, keep the propos
 
 Per [evidence-policy.md](../../shared/evidence-policy.md). Copy fields cite the facts they rephrase.
 
-## Phase 0a status
+## Current status
 
 Specification only. Category templates are not populated (B-005); contracts arrive in Phase 1 (B-020).

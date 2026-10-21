@@ -1,0 +1,36 @@
+{
+  "id": "replit-postgres",
+  "display_name": "Replit-managed PostgreSQL (Neon)",
+  "engine": "postgresql",
+  "status": "documented",
+  "used_for": ["storefront", "operational"],
+  "connection": {
+    "method": "postgres-url",
+    "env_suffixes": {
+      "read_url": "DB_URL",
+      "write_url": "WRITE_DB_URL"
+    },
+    "tls": "required",
+    "notes": "Observed: PostgreSQL 16 on Neon; database names neondb (production) and heliumdb (development)."
+  },
+  "roles": {
+    "read": "Dedicated login with SELECT on the catalog profile's catalog tables only.",
+    "write": "Dedicated login with INSERT and UPDATE on the profile's write tables only. Phase 3, server-side only.",
+    "never": "The application's own owner credential."
+  },
+  "isolation": {
+    "row_level_security": "Available in Postgres; disabled on every table in the observed storefronts, so isolation relies on role grants."
+  },
+  "assets": {
+    "store": "Replit App Storage (Google Cloud Storage client)",
+    "reference_format": "/objects/uploads/<id>",
+    "upload": "Application-mediated: request signed upload URL, PUT file, finalize with visibility, store returned object path. Requires application admin authorization.",
+    "commerce_os_upload": "not_authorized"
+  },
+  "schema_changes": "Replit deployments apply schema migrations to production (recorded in _system.replit_database_migrations_v1). A mapping version is bound to a schema fingerprint; Gate 4 refuses writes when it changes.",
+  "verify_before_use": [
+    "Whether Replit-managed databases support creating additional least-privilege login roles.",
+    "Connection limits and pooling for an external worker.",
+    "Whether the application exposes a server-to-server upload authorization suitable for Commerce OS."
+  ]
+}

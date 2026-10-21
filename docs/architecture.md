@@ -30,6 +30,12 @@ Google Drive intake folders
 | Adapters | `packages/adapters/storefront-*/` | Their own storefront only | Separate code, mapping and credentials per storefront. |
 | Contracts and policy | `packages/contracts/`, `packages/policy/` | Nothing | Shared schemas and rules used by all of the above. |
 
+## Database providers
+
+Each storefront and the operational database choose a provider (`replit-postgres`, `supabase`, more
+later) and storefronts choose a catalog profile. Adapters are provider drivers plus a profile, configured
+per storefront. See [storefront-connections.md](storefront-connections.md).
+
 ## Three database boundaries
 
 Storefront A, Storefront B and the operational database each have their own project, URL and

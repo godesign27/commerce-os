@@ -1,0 +1,36 @@
+{
+  "id": "supabase",
+  "display_name": "Supabase (Postgres + Storage)",
+  "engine": "postgresql",
+  "status": "documented",
+  "used_for": ["storefront", "operational"],
+  "connection": {
+    "method": "postgres-url",
+    "env_suffixes": {
+      "read_url": "DB_URL",
+      "write_url": "WRITE_DB_URL"
+    },
+    "tls": "required",
+    "notes": "Direct or pooled Postgres connection. The Supabase REST API and service-role keys are not used by adapters."
+  },
+  "roles": {
+    "read": "Dedicated Postgres role with SELECT on the catalog profile's catalog tables only.",
+    "write": "Dedicated Postgres role with INSERT and UPDATE on the profile's write tables only. Phase 3, server-side only.",
+    "never": "The service-role key or the postgres superuser, which bypass row-level security."
+  },
+  "isolation": {
+    "row_level_security": "Commonly enabled on Supabase projects. A storefront's policies must be read during discovery before choosing roles."
+  },
+  "assets": {
+    "store": "Supabase Storage buckets",
+    "reference_format": "Depends on the storefront: bucket path or public URL. Recorded per storefront mapping.",
+    "upload": "Storage API with a scoped key or signed upload URL.",
+    "commerce_os_upload": "not_authorized"
+  },
+  "schema_changes": "Migrations via the Supabase CLI or dashboard. A mapping version is bound to a schema fingerprint; Gate 4 refuses writes when it changes.",
+  "verify_before_use": [
+    "Current Supabase guidance for creating custom least-privilege Postgres roles.",
+    "Connection pooler mode suitable for a long-running worker.",
+    "Storage upload authorization that does not require a service-role key."
+  ]
+}

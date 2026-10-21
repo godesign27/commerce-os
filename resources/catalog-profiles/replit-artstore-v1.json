@@ -1,0 +1,72 @@
+{
+  "id": "replit-artstore-v1",
+  "display_name": "Replit art-store template (Drizzle, products with JSONB tiers)",
+  "sources": [
+    "Schema-only dumps of both discovery storefronts (2026-10-21)",
+    "Both storefronts' shared/schema.ts and owner handoffs (2026-10-21)"
+  ],
+  "catalog_tables": ["products", "categories", "tags"],
+  "write_tables": ["products"],
+  "product": {
+    "table": "products",
+    "required_on_insert": ["id", "name", "slug", "price", "status"],
+    "identity": {
+      "primary_key": "id",
+      "commerce_os_supplies_id": true,
+      "unique": ["id", "slug", "sku"]
+    },
+    "money": {
+      "columns": ["price"],
+      "type": "numeric(10,2)",
+      "unit": "major",
+      "currency_column": null
+    },
+    "status": {
+      "column": "status",
+      "values": ["active", "draft", "archived"],
+      "hidden_on_create": "draft",
+      "database_default": "active",
+      "always_set_explicitly": true
+    },
+    "concurrency": "row-hash",
+    "category": {"column": "category_id", "references": "categories.id"},
+    "images": {"column": "images", "shape": "string[]", "reference_format": "/objects/uploads/<id>", "order_significant": true},
+    "tags": {"column": "tags", "shape": "string[]", "references": "tags.id"}
+  },
+  "variants": {
+    "location": "products.pricing_tiers",
+    "shape": {"id": "string", "size": "string", "price": "number", "type": "string", "stock": "number", "description": "string"},
+    "identity": "id",
+    "id_format": "tier-<epoch milliseconds>",
+    "size_is_free_text": true,
+    "type_values": "per storefront mapping (case-sensitive)"
+  },
+  "optional_features": {
+    "color_variants": {
+      "column": "products.color_variants",
+      "shape": {"id": "string", "name": "string", "hex": "string", "imageIndices": "number[]"},
+      "meaning": "Color options that select images by position in products.images."
+    },
+    "tier_quantity": {
+      "column": "products.pricing_tiers[].quantity",
+      "shape": "number (optional)",
+      "meaning": "Optional per-tier quantity field."
+    },
+    "is_sold": {
+      "column": "products.is_sold",
+      "shape": "boolean",
+      "meaning": "Sold original: product stays visible, Original tier unpurchasable, other tiers still for sale. Independent of status."
+    },
+    "show_in_gallery": {
+      "column": "products.show_in_gallery",
+      "shape": "boolean",
+      "meaning": "Also list the product on the gallery page."
+    }
+  },
+  "out_of_scope_tables": ["gallery_items"],
+  "placeholders": ["Enter description"],
+  "evidence_notes": [
+    "medium is material; rarity, authenticity and is_original are rights/authenticity claims requiring supplied or human_confirmed evidence.",
+    "Do not infer tier type from is_original; observed products contradict it."
+  ]
+}

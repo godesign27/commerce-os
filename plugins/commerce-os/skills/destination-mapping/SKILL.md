@@ -61,6 +61,7 @@ Mapping missing or stale for the category: stop, raise a blocking issue for the 
 
 Destination values follow the evidence policy for that destination only.
 
-## Phase 0a status
+## Current status
 
-Not runnable: storefront schemas and mappings are unknown (B-001, B-015).
+Not runnable yet. Both storefronts' structure is captured in the `replit-artstore-v1` catalog profile;
+per-storefront mappings in `resources/storefront-mappings/` are not written yet.

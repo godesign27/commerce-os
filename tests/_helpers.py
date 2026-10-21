@@ -25,12 +25,14 @@ SKILL_OWNERS = {
     "publishing": "review-publishing",
     "reconciliation": "review-publishing",
 }
+# Administrator skills run directly from their command in the main session; no agent routes them.
+ADMIN_SKILLS = {"storefront-setup"}
 SPECIALISTS = sorted(set(SKILL_OWNERS.values()))
 ROUTER = "commerce-lead"
 
 SKILL_SECTIONS = [
     "Inputs", "Outputs", "Allowed tools", "Forbidden actions", "Workflow",
-    "Validation", "Failure behavior", "Evidence requirements", "Phase 0a status",
+    "Validation", "Failure behavior", "Evidence requirements", "Current status",
 ]
 
 SKIP_DIRS = {".git", "node_modules", ".commerce-os", "__pycache__"}

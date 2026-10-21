@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "commerce-os",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Marketplace for the Commerce OS plugin.",
   "owner": {
     "name": "Commerce OS"

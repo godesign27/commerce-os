@@ -33,7 +33,7 @@ when invoked directly.
 ## Every skill has the same sections
 
 `Inputs`, `Outputs`, `Allowed tools`, `Forbidden actions`, `Workflow`, `Validation`, `Failure behavior`,
-`Evidence requirements`, `Phase 0a status` (PRD §6.1). `tests/test_frontmatter.py` enforces this.
+`Evidence requirements`, `Current status` (PRD §6.1). `tests/test_frontmatter.py` enforces this.
 
 ## What's deliberately absent
 

@@ -60,6 +60,6 @@ review.
 
 Alt text is `observed` and limited to visible content. Image rights are never inferred from presence.
 
-## Phase 0a status
+## Current status
 
 Specification only. No recipes exist yet (`resources/image-recipes/` is empty) and no pipeline runs.

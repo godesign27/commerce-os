@@ -59,6 +59,6 @@ Workflow interface unavailable: stop. Never fall back to any other route to the 
 
 None asserted; this skill reports adapter and workflow results verbatim.
 
-## Phase 0a status
+## Current status
 
 Not runnable: no workflow interface or adapter exists. The command `/publish` explains this and stops.

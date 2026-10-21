@@ -62,7 +62,7 @@ finding the submitter can act on.
 
 None asserted. This skill describes files, not products.
 
-## Phase 0a status
+## Current status
 
 Specification only. Signature and checksum checks can run on local fixtures; decoding and quality
 checks arrive with `packages/image-pipeline` in Phase 1.

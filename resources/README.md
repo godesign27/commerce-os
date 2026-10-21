@@ -3,6 +3,9 @@
 Versioned runtime resources. Every draft records the versions it used. Populated in Phase 0b after
 discovery; empty now.
 
+- `providers/`: database provider types a storefront or the operational database can use
+  (see [docs/storefront-connections.md](../docs/storefront-connections.md)).
+- `catalog-profiles/`: product-data shapes of storefront applications.
 - `categories/`: category taxonomy and templates (BACKLOG B-005).
 - `image-recipes/`: versioned derivative recipes (B-006).
 - `storefront-mappings/storefront-a/`, `storefront-mappings/storefront-b/`: per-storefront schema and enum mappings (B-001).

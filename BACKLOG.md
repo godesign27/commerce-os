@@ -7,7 +7,7 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 
 | ID | Item | Why | Owner | Status |
 |---|---|---|---|---|
-| B-001 | Storefront A and B names, schemas, product APIs, visibility fields, asset storage | Adapters, mappings and the schema proposal depend on the real schemas. Default: fake adapters, no writes. | Owner | Open |
+| B-001 | Storefront A and B names, schemas, product APIs, visibility fields, asset storage | Adapters, mappings and the schema proposal depend on the real schemas. Default: fake adapters, no writes. Schemas received 2026-10-21; visibility values and asset storage still open (B-024, B-025). | Owner | In progress |
 | B-002 | Which Drive accounts/folders map to which storefront; can one product target both | Intake policy and destination suggestions. Default: reviewer selects destinations. | Owner | Open |
 | B-003 | What signals a complete upload | Readiness rule for drive-intake. Proposed: product folder plus ready manifest. | Owner | Open |
 | B-004 | Authoritative source for SKU, price, stock, sizes, dimensions, materials, rights | Without one, those fields stay unknown and block publication. | Owner | Open |
@@ -15,7 +15,7 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 | B-006 | Image sizes, crops, formats, background edits, storage policy per storefront | Image recipes and asset-validation limits. | Owner | Open |
 | B-007 | Create-only first, or updates permitted | Scope of change sets and identity confirmation. Proposed: create-first. | Owner | Open |
 | B-008 | Reviewer vs approver roles; is a second person required | Separation-of-duty policy for Gate 3. | Owner | Open |
-| B-009 | Runtime, hosting, model provider, operational DB service, queue | Needed before Phase 1 code. Suggested: TypeScript monorepo, separate Supabase project for ops DB. | Owner | Open |
+| B-009 | Runtime, hosting, model provider, operational DB service, queue | Needed before Phase 1 code. Suggested: TypeScript monorepo, a separate Postgres project for the ops DB (Supabase or Neon). | Owner | Open |
 | B-010 | Daily volume, latency, cost, retention, recovery objectives | Instrument before committing targets. | Owner | Open |
 | B-011 | Which live fields Commerce OS may own after publication | Default: never overwrite live fields without an approved operation. | Owner | Open |
 | B-012 | Handling sold-out, deleted, renamed, or moved source products | Default: no automatic deletion or unpublication. | Owner | Open |
@@ -26,7 +26,7 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 | ID | Item | Why | Owner | Status |
 |---|---|---|---|---|
 | B-014 | Phase 0a: repo and plugin scaffold (agents, skills, commands, policies, tests) | Reviewable structure before any runtime code. | Eng | Done |
-| B-015 | Phase 0b: read-only inspection of Storefront A and B schemas | Schema proposal and mappings. Needs owner-approved read-only access or schema dumps. | Eng | Blocked |
+| B-015 | Phase 0b: read-only inspection of Storefront A and B schemas | Schema proposal and mappings. Done from owner-supplied schema dumps; see docs/discovery/storefront-schemas.md. | Eng | Done |
 | B-016 | Phase 0b: collect representative sample images per MVP category | Fixtures and the labeled evaluation corpus. | Owner | Open |
 | B-017 | Phase 0b: verify current Google Drive push-notification and changes API docs | PRD §7.2 requires validating provider docs before choosing the mechanism. | Eng | Open |
 | B-018 | Phase 0b: operational schema proposal and sample review package | Phase 0 deliverables (PRD §19). | Eng | Open |
@@ -39,3 +39,21 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 | B-020 | Machine-readable contracts (JSON Schema) for skill inputs/outputs in `packages/contracts/` | Skills currently describe schemas in prose; validation needs real schemas. | Eng | Open |
 | B-021 | Plugin eval suite (`claude plugin eval`) for no-invented-facts and prompt-injection cases | Structural tests cannot prove the model follows a skill. | Eng | Open |
 | B-022 | Decide whether to bind commerce-lead as the default agent in `settings.json` | Currently opt-in via `claude --agent commerce-os:commerce-lead`. | Owner | Open |
+
+## Phase 0b discovery findings (2026-10-21)
+
+| ID | Item | Why | Owner | Status |
+|---|---|---|---|---|
+| B-023 | Confirm both storefronts run on Replit-managed Postgres (Neon), not Supabase | The dumps contradict PRD §1.1. Confirmed by both handoffs (Replit App Storage, Replit-managed databases). Led to the pluggable provider model (B-034). | Owner | Done |
+| B-024 | JSONB shapes (`images`, `pricing_tiers`, `color_variants`, `tags`) and allowed `products.status` values per storefront | Answered by both owners' handoffs; recorded in docs/discovery/storefront-schemas.md. | Owner | Done |
+| B-025 | Where each storefront's product images are stored, and whether Commerce OS may upload there | Both use Replit App Storage via an admin-authorized signed-upload flow. Upload is NOT authorized for Commerce OS on either; treated as read-only until the owner approves (Phase 3). | Owner | Blocked |
+| B-026 | Currency per storefront | Both USD, prices in major units (exact decimal). | Owner | Done |
+| B-027 | Restricted database roles per storefront: read (catalog tables only) and write (products only) | Customer data shares the database and RLS is disabled. | Eng | Open |
+| B-028 | Schema fingerprint per mapping version, checked at Gate 4 | Replit deployments can change production schemas. | Eng | Open |
+| B-029 | Local Storefront A and B test databases built from the schema dumps | Real-schema adapter contract tests without touching either site. | Eng | Open |
+| B-030 | How to publish multi-color products to Storefront A, which has no color field | Separate products, images only, or B only. | Owner | Open |
+| B-031 | Is the `gallery_items` table in scope | Excluded from product mapping, per both owners' recommendation. Revisit only if Commerce OS should manage gallery content. | Owner | Done |
+| B-032 | Which environment the unlabeled Storefront A dump comes from | Development database (`heliumdb`). | Owner | Done |
+| B-033 | Remove the development fallback credential from Storefront A's upload authorization code | Reported by A's owner. Precondition before granting any external integration upload access. | Owner | Open |
+| B-034 | Pluggable database providers and catalog profiles, with `/setup-storefront` | Owner request: choose Replit-managed Postgres or Supabase per database, and add more later. | Eng | Done |
+| B-035 | Write per-storefront mappings in `resources/storefront-mappings/` (categories, tier types, tag IDs) | Needed before destination-mapping can run. Needs category and tag lists from each storefront. | Eng | Open |

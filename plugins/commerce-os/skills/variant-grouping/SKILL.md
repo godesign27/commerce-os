@@ -61,6 +61,6 @@ showing both interpretations.
 Observed colors are `observed` with confidence; supplied options are `supplied`. SKU and GTIN are
 `supplied` or `null`, never generated.
 
-## Phase 0a status
+## Current status
 
 Specification only. Runs on fixtures once the Phase 1 contracts exist (B-020).

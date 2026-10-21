@@ -1,10 +1,10 @@
 # Commerce OS plugin
 
-Governed product preparation for two independent storefronts. A router and four specialist agents run
-twelve skills that turn a product submission into an evidence-backed draft for human review. No agent
+Governed product preparation for independent storefronts. A router and four specialist agents run
+twelve pipeline skills, plus a setup skill, that turn a product submission into an evidence-backed draft for human review. No agent
 writes to a storefront; publication is server-side and human-approved.
 
-> **Phase 0a.** Skills are specifications. Nothing is connected: no Drive, no storefront, no workflow
+> **Phase 0b.** Pipeline skills are specifications. Nothing is connected: no Drive, no storefront, no workflow
 > service. Skills that need those stop and say so.
 
 ## Agents
@@ -25,6 +25,7 @@ writes to a storefront; publication is server-side and human-approved.
 | `/review <submission>` | review-packaging |
 | `/dry-run <submission> <storefront>` | publishing, dry-run mode |
 | `/publish <submission> <storefront>` | publishing, request mode (needs a valid human approval) |
+| `/setup-storefront [id \| operational]` | storefront-setup: choose a database provider and catalog profile |
 
 ## Shared policies
 
@@ -32,6 +33,9 @@ writes to a storefront; publication is server-side and human-approved.
 - [evidence-policy.md](shared/evidence-policy.md): field evidence and no-invented-facts rules.
 - [WORKFLOW.md](shared/WORKFLOW.md): states, gates, transitions.
 - [CONNECTORS.md](shared/CONNECTORS.md): tool categories and what is connected (nothing yet).
+
+Each storefront and the operational database choose a database provider (Replit-managed Postgres or
+Supabase today) with `/setup-storefront`; see `docs/storefront-connections.md` in the repository.
 
 Local output goes to `.commerce-os/out/<submission-id>/` in your working directory.
 

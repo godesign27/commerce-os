@@ -58,7 +58,7 @@ storefront's review is not blocked.
 Candidate facts are evidence about the candidate only. A field may become `verified_catalog` only after
 a human confirms identity, and only for that storefront.
 
-## Phase 0a status
+## Current status
 
-Not runnable: no storefront connection exists and schemas are unknown (B-001, B-015). Do not simulate
-candidates and present them as real.
+Not runnable: no storefront connection exists. Schemas are known from discovery
+(`docs/discovery/storefront-schemas.md`). Do not simulate candidates and present them as real.

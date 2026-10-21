@@ -56,6 +56,6 @@ recommend retrying reconciliation, not publication.
 
 Each verdict cites the receipt and live-record IDs compared.
 
-## Phase 0a status
+## Current status
 
 Not runnable: no publication attempts exist.

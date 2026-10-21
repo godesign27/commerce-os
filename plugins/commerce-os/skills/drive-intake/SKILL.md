@@ -67,7 +67,7 @@ and what the submitter should do. Never produce a partial manifest marked ready.
 Supplied metadata is `supplied` with a reference to the manifest field. Nothing else in this skill
 asserts a product fact.
 
-## Phase 0a status
+## Current status
 
 Local folders only. No Drive connection, notification channel or cursor exists yet (B-017). Mark output
 `simulated: true`.
