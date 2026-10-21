@@ -1,0 +1,27 @@
+---
+description: Commerce OS operating boundaries and policy pointers
+alwaysApply: true
+---
+
+# Commerce OS
+
+The operating boundaries for this repository are in `AGENTS.md` at the repo root. Follow them. This
+rule only points to the canonical files so the business logic lives in one place:
+
+- `AGENTS.md`: hard boundaries (independence, three databases, no agent writes, no invented facts,
+  untrusted input, no secrets, no self-approval).
+- `plugins/commerce-os/shared/COMMERCE-CONTEXT.md`: operating constraints for every agent and skill.
+- `plugins/commerce-os/shared/evidence-policy.md`: field evidence and no-invented-facts policy.
+- `plugins/commerce-os/shared/WORKFLOW.md`: states, gates, and allowed transitions.
+
+## Entry points in Cursor
+
+Cursor does not execute the Claude Code plugin manifest. The same workflows are available by asking
+the agent to follow a skill file directly, for example:
+
+- Intake inspection: follow `plugins/commerce-os/skills/drive-intake/SKILL.md`.
+- Review package: follow `plugins/commerce-os/skills/review-packaging/SKILL.md`.
+- Dry run: follow `plugins/commerce-os/skills/publishing/SKILL.md` in dry-run mode.
+
+Publishing is never performed from the editor. It requires server-side human approval (Gate 3) and
+execution revalidation (Gate 4).

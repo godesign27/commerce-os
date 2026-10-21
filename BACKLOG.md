@@ -1,0 +1,41 @@
+# Backlog
+
+Permanent `B-nnn` IDs. Never delete or reuse an ID. Statuses: `Open`, `In progress`, `Blocked`, `Done`.
+Owner `Owner` means the product owner must decide; `Eng` means implementation work.
+
+## Open decisions (PRD §22)
+
+| ID | Item | Why | Owner | Status |
+|---|---|---|---|---|
+| B-001 | Storefront A and B names, schemas, product APIs, visibility fields, asset storage | Adapters, mappings and the schema proposal depend on the real schemas. Default: fake adapters, no writes. | Owner | Open |
+| B-002 | Which Drive accounts/folders map to which storefront; can one product target both | Intake policy and destination suggestions. Default: reviewer selects destinations. | Owner | Open |
+| B-003 | What signals a complete upload | Readiness rule for drive-intake. Proposed: product folder plus ready manifest. | Owner | Open |
+| B-004 | Authoritative source for SKU, price, stock, sizes, dimensions, materials, rights | Without one, those fields stay unknown and block publication. | Owner | Open |
+| B-005 | MVP categories and option vocabularies | Category templates and variant-grouping vocab. Start: artwork, hats, blankets. | Owner | Open |
+| B-006 | Image sizes, crops, formats, background edits, storage policy per storefront | Image recipes and asset-validation limits. | Owner | Open |
+| B-007 | Create-only first, or updates permitted | Scope of change sets and identity confirmation. Proposed: create-first. | Owner | Open |
+| B-008 | Reviewer vs approver roles; is a second person required | Separation-of-duty policy for Gate 3. | Owner | Open |
+| B-009 | Runtime, hosting, model provider, operational DB service, queue | Needed before Phase 1 code. Suggested: TypeScript monorepo, separate Supabase project for ops DB. | Owner | Open |
+| B-010 | Daily volume, latency, cost, retention, recovery objectives | Instrument before committing targets. | Owner | Open |
+| B-011 | Which live fields Commerce OS may own after publication | Default: never overwrite live fields without an approved operation. | Owner | Open |
+| B-012 | Handling sold-out, deleted, renamed, or moved source products | Default: no automatic deletion or unpublication. | Owner | Open |
+| B-013 | More organizations beyond these two sites | Isolation keys preserved now; broader multi-tenancy deferred. | Owner | Open |
+
+## Phase 0
+
+| ID | Item | Why | Owner | Status |
+|---|---|---|---|---|
+| B-014 | Phase 0a: repo and plugin scaffold (agents, skills, commands, policies, tests) | Reviewable structure before any runtime code. | Eng | Done |
+| B-015 | Phase 0b: read-only inspection of Storefront A and B schemas | Schema proposal and mappings. Needs owner-approved read-only access or schema dumps. | Eng | Blocked |
+| B-016 | Phase 0b: collect representative sample images per MVP category | Fixtures and the labeled evaluation corpus. | Owner | Open |
+| B-017 | Phase 0b: verify current Google Drive push-notification and changes API docs | PRD §7.2 requires validating provider docs before choosing the mechanism. | Eng | Open |
+| B-018 | Phase 0b: operational schema proposal and sample review package | Phase 0 deliverables (PRD §19). | Eng | Open |
+| B-019 | Phase 0b: local fake storefront adapters | Lets Phase 1 run end to end without external systems. | Eng | Open |
+
+## Phase 1 and later
+
+| ID | Item | Why | Owner | Status |
+|---|---|---|---|---|
+| B-020 | Machine-readable contracts (JSON Schema) for skill inputs/outputs in `packages/contracts/` | Skills currently describe schemas in prose; validation needs real schemas. | Eng | Open |
+| B-021 | Plugin eval suite (`claude plugin eval`) for no-invented-facts and prompt-injection cases | Structural tests cannot prove the model follows a skill. | Eng | Open |
+| B-022 | Decide whether to bind commerce-lead as the default agent in `settings.json` | Currently opt-in via `claude --agent commerce-os:commerce-lead`. | Owner | Open |

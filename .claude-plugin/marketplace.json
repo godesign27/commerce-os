@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "commerce-os",
+  "version": "0.1.0",
+  "description": "Marketplace for the Commerce OS plugin.",
+  "owner": {
+    "name": "Commerce OS"
+  },
+  "plugins": [
+    {
+      "name": "commerce-os",
+      "description": "Commerce OS: governed product preparation for two independent storefronts. Four specialist agents (intake and assets, product intelligence, catalog drafting, review and publishing) and twelve skills prepare evidence-backed drafts for human review. Agents never write to a storefront; publication is server-side and human-approved.",
+      "source": "./plugins/commerce-os",
+      "category": "commerce"
+    }
+  ]
+}

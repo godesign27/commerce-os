@@ -1,0 +1,29 @@
+# Secrets — only .env.example (fake values) is committed
+.env
+.env.*
+!.env.example
+
+# Local working output from agents and dry runs (never committed)
+.commerce-os/
+
+# Raw discovery material: real schemas, real product images, Drive exports.
+# Genericize before promoting anything out of here.
+discovery/raw/
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.venv/
+__pycache__/
+*.py[cod]
+
+# Logs and test reports
+*.log
+TEST*.xml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

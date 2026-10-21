@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.sh text eol=lf
+tests/hooks/* text eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.tif binary
+*.tiff binary
+*.zip binary
