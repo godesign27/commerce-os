@@ -1,0 +1,39 @@
+{
+  "contract": "change-set",
+  "contract_version": 1,
+  "change_set_id": "cs-art-002-a",
+  "submission_id": "sub-art-002",
+  "destination": "storefront-a",
+  "environment": "production",
+  "canonical_revision": 4,
+  "mapping_version": 3,
+  "schema_fingerprint": "010b0e628c9f63b9811ff16bf2d35d634b6c2ff2b0a457e9c0a73b4548601d58",
+  "asset_manifest_hash": "d0b0ccd8251b63c717a996d33afda4281d55a565ec517169dc4651007dc00368",
+  "requested_status": "active",
+  "operations": [
+    {
+      "seq": 1,
+      "op": "update",
+      "entity": "product",
+      "key": "fake-product-001",
+      "precondition": {
+        "expected_row_hash": "2388b2ea96d62fb64e50a32d300d6235594c5cdf09a12a43ebe376ba0581b1ae"
+      },
+      "fields": {
+        "is_sold": {
+          "value": true,
+          "status": "human_confirmed"
+        }
+      }
+    }
+  ],
+  "not_touched": [
+    "status",
+    "price",
+    "pricing_tiers",
+    "images"
+  ],
+  "blockers": [],
+  "change_set_hash": null,
+  "simulated": true
+}

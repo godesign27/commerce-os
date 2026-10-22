@@ -1,7 +1,7 @@
 {
   "version": 1,
   "operational_database": {
-    "provider": "supabase",
+    "provider": "neon",
     "env_prefix": "OPS"
   },
   "storefronts": [
@@ -10,7 +10,10 @@
       "display_name": "Storefront A",
       "provider": "replit-postgres",
       "catalog_profile": "replit-artstore-v1",
-      "features": ["is_sold", "show_in_gallery"],
+      "features": [
+        "is_sold",
+        "show_in_gallery"
+      ],
       "currency": "USD",
       "env_prefix": "STOREFRONT_A",
       "mapping": "config/mappings/storefront-a.local.json",
@@ -22,7 +25,10 @@
       "display_name": "Storefront B",
       "provider": "replit-postgres",
       "catalog_profile": "replit-artstore-v1",
-      "features": ["color_variants", "tier_quantity"],
+      "features": [
+        "color_variants",
+        "tier_quantity"
+      ],
       "currency": "USD",
       "env_prefix": "STOREFRONT_B",
       "mapping": "config/mappings/storefront-b.local.json",

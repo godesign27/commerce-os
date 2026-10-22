@@ -47,6 +47,9 @@ From schema-only dumps of both storefronts. Detail: [discovery/storefront-schema
 | Color is a product-type rule (B-030): artwork never has a color option; tangible goods may. A multi-color product is blocked only for a destination without color support | Owner decision. Keeps artwork free of color options and lets tangible goods carry colors where the storefront supports them. | A storefront adds color support. |
 | Product types replace PRD "category templates"; storefront categories and tags are separate, per-storefront, per-environment lists | Storefront categories differ by site and environment (IDs, names); Commerce OS needs one stable classification. | — |
 | Real mappings are gitignored local files | The GitHub repo is public; mappings hold real names and IDs. | The repo becomes private. |
+| **Stack (B-009): Python backend, TypeScript dashboard.** Workflow service, workers, image pipeline and storefront adapters in Python; the review dashboard in TypeScript/React | Owner decision. Python has strong imaging libraries for the pipeline. Skill input/output contracts are JSON Schema in `packages/contracts/` so both languages validate against the same definitions. | — |
+| **Operational database (B-009): a new standalone Neon project** (`neon` provider), separate from both storefronts' Replit-managed projects | Owner decision: same vendor and console already in use; branches give test copies for migrations. | — |
+| Product-type → category mappings confirmed as proposed on both storefronts (B-036); Blog excluded | Owner decision. | A storefront changes its categories. |
 | `gallery_items` excluded from product mapping | Both owners' recommendation; it is editorial content, not sellable products. | Commerce OS should manage gallery content. |
 
 ## Assumptions (unconfirmed)

@@ -35,7 +35,7 @@ writes to a storefront; publication is server-side and human-approved.
 - [WORKFLOW.md](shared/WORKFLOW.md): states, gates, transitions.
 - [CONNECTORS.md](shared/CONNECTORS.md): tool categories and what is connected (nothing yet).
 
-Each storefront and the operational database choose a database provider (Replit-managed Postgres or
+Each storefront and the operational database choose a database provider (Replit-managed Postgres, Neon or
 Supabase today) with `/setup-storefront`; see `docs/storefront-connections.md` in the repository.
 
 Local output goes to `.commerce-os/out/<submission-id>/` in your working directory.

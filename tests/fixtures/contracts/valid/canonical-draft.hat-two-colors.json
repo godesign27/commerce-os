@@ -1,0 +1,134 @@
+{
+  "contract": "canonical-draft",
+  "contract_version": 1,
+  "draft_id": "draft-hat-001",
+  "submission_id": "sub-hat-001",
+  "source_snapshot_id": "snap-hat-001-r1",
+  "revision": 2,
+  "product_type": {
+    "id": "hat",
+    "version": 1
+  },
+  "product": {
+    "title": {
+      "value": "Embroidered Baseball Cap",
+      "status": "human_confirmed",
+      "evidence": [
+        {
+          "kind": "asset",
+          "ref": "file-hat-front-navy"
+        }
+      ],
+      "decision": {
+        "actor": {
+          "kind": "human",
+          "id": "user-reviewer-1",
+          "role": "reviewer"
+        },
+        "at": "2026-10-21T15:00:00Z",
+        "justification": "Title approved as written."
+      }
+    },
+    "description": {
+      "value": "A structured baseball cap with an embroidered front panel.",
+      "status": "inferred",
+      "evidence": [
+        {
+          "kind": "asset",
+          "ref": "file-hat-front-navy"
+        }
+      ],
+      "method": "llm@test"
+    },
+    "material": {
+      "value": "100% cotton twill",
+      "status": "supplied",
+      "evidence": [
+        {
+          "kind": "manifest_field",
+          "ref": "manifest.material"
+        }
+      ]
+    },
+    "brand": {
+      "value": null,
+      "status": "unknown",
+      "evidence": []
+    },
+    "option_definitions": [
+      {
+        "key": "color",
+        "label": "Color",
+        "values": [
+          "navy",
+          "red"
+        ]
+      }
+    ],
+    "assets": [
+      {
+        "file_id": "file-hat-front-navy",
+        "role": "primary",
+        "position": 0
+      },
+      {
+        "file_id": "file-hat-side-navy",
+        "role": "gallery",
+        "position": 1
+      },
+      {
+        "file_id": "file-hat-front-red",
+        "role": "gallery",
+        "position": 2
+      }
+    ]
+  },
+  "variants": [
+    {
+      "variant_id": "var-hat-navy",
+      "option_values": {
+        "color": "navy"
+      },
+      "sku": {
+        "value": null,
+        "status": "unknown",
+        "evidence": []
+      },
+      "gtin": {
+        "value": null,
+        "status": "unknown",
+        "evidence": []
+      },
+      "file_ids": [
+        "file-hat-front-navy",
+        "file-hat-side-navy"
+      ]
+    },
+    {
+      "variant_id": "var-hat-red",
+      "option_values": {
+        "color": "red"
+      },
+      "sku": {
+        "value": null,
+        "status": "unknown",
+        "evidence": []
+      },
+      "gtin": {
+        "value": null,
+        "status": "unknown",
+        "evidence": []
+      },
+      "file_ids": [
+        "file-hat-front-red"
+      ]
+    }
+  ],
+  "review_issues": [],
+  "policy_versions": {
+    "evidence-policy": "0.1.0",
+    "intake-policy": "0.1.0",
+    "product-type:hat": "1"
+  },
+  "simulated": true
+}

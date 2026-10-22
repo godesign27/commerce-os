@@ -1,0 +1,111 @@
+{
+  "contract": "derivative-manifest",
+  "contract_version": 1,
+  "submission_id": "sub-hat-001",
+  "source_snapshot_id": "snap-hat-001-r1",
+  "derivatives": [
+    {
+      "derivative_id": "drv-file-hat-front-navy",
+      "source_file_id": "file-hat-front-navy",
+      "source_sha256": "79e2135e9daf6b250f7a64441c5bcb27afb68ddf7cfb971208230546df846bd5",
+      "recipe": {
+        "id": "preview",
+        "version": 1
+      },
+      "destination": "review",
+      "mime": "image/webp",
+      "width": 1600,
+      "height": 1600,
+      "bytes": 210000,
+      "sha256": "17379641e8ad7a3d692715f4ade6b378a0484fb91e49ef60ce6b03b76f3b931b",
+      "key": "79e2135e9daf6b250f7a64441c5bcb27afb68ddf7cfb971208230546df846bd5/preview@1.webp",
+      "operations": [
+        "orient",
+        "decode_reencode",
+        "resize",
+        "strip_metadata"
+      ],
+      "consequential": false,
+      "alt_text": {
+        "value": "Navy baseball cap, front view",
+        "status": "observed",
+        "evidence": [
+          {
+            "kind": "asset",
+            "ref": "file-hat-front-navy"
+          }
+        ],
+        "method": "vision-model@test"
+      }
+    },
+    {
+      "derivative_id": "drv-file-hat-side-navy",
+      "source_file_id": "file-hat-side-navy",
+      "source_sha256": "b8591e5c048d5fbc74e4c6b39d5490762638bc0375410406898ffd019f9c7c37",
+      "recipe": {
+        "id": "preview",
+        "version": 1
+      },
+      "destination": "review",
+      "mime": "image/webp",
+      "width": 1600,
+      "height": 1600,
+      "bytes": 210000,
+      "sha256": "3cdb5ea0c495d6eb6ffecc17695c73fbc0a3421a93a167905830d3beef78f34b",
+      "key": "b8591e5c048d5fbc74e4c6b39d5490762638bc0375410406898ffd019f9c7c37/preview@1.webp",
+      "operations": [
+        "orient",
+        "decode_reencode",
+        "resize",
+        "strip_metadata"
+      ],
+      "consequential": false,
+      "alt_text": {
+        "value": "Navy baseball cap, front view",
+        "status": "observed",
+        "evidence": [
+          {
+            "kind": "asset",
+            "ref": "file-hat-side-navy"
+          }
+        ],
+        "method": "vision-model@test"
+      }
+    },
+    {
+      "derivative_id": "drv-file-hat-front-red",
+      "source_file_id": "file-hat-front-red",
+      "source_sha256": "e9cc51f056a52531723c34d8eb3259cfb6acadd921a020b0ac25723332d062f7",
+      "recipe": {
+        "id": "preview",
+        "version": 1
+      },
+      "destination": "review",
+      "mime": "image/webp",
+      "width": 1600,
+      "height": 1600,
+      "bytes": 210000,
+      "sha256": "e6601fa4ed6d2b68f8eba6085f8bca4a8106a3e64c5603fa06c83ce4479b907e",
+      "key": "e9cc51f056a52531723c34d8eb3259cfb6acadd921a020b0ac25723332d062f7/preview@1.webp",
+      "operations": [
+        "orient",
+        "decode_reencode",
+        "resize",
+        "strip_metadata"
+      ],
+      "consequential": false,
+      "alt_text": {
+        "value": "Red baseball cap, front view",
+        "status": "observed",
+        "evidence": [
+          {
+            "kind": "asset",
+            "ref": "file-hat-front-red"
+          }
+        ],
+        "method": "vision-model@test"
+      }
+    }
+  ],
+  "simulated": true
+}

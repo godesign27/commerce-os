@@ -1,0 +1,23 @@
+{
+  "contract": "reconciliation-report",
+  "contract_version": 1,
+  "destination": "storefront-b",
+  "environment": "production",
+  "change_set_id": "cs-hat-001-b",
+  "verified_state": "OUTCOME_UNKNOWN",
+  "attempts": [
+    {
+      "attempt_id": "att-1",
+      "state": "OUTCOME_UNKNOWN"
+    }
+  ],
+  "operations": [
+    {
+      "seq": 1,
+      "key": "6f1c2a8e-0000-4000-8000-000000000001",
+      "result": "not_found"
+    }
+  ],
+  "checked_at": "2026-10-21T15:00:00Z",
+  "recommended_action": "recheck"
+}

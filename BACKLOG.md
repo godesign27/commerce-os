@@ -15,7 +15,7 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 | B-006 | Image sizes, crops, formats, background edits, storage policy per storefront | Image recipes and asset-validation limits. | Owner | Open |
 | B-007 | Create-only first, or updates permitted | Scope of change sets and identity confirmation. Proposed: create-first. | Owner | Open |
 | B-008 | Reviewer vs approver roles; is a second person required | Separation-of-duty policy for Gate 3. | Owner | Open |
-| B-009 | Runtime, hosting, model provider, operational DB service, queue | Needed before Phase 1 code. Suggested: TypeScript monorepo, a separate Postgres project for the ops DB (Supabase or Neon). | Owner | Open |
+| B-009 | Runtime, hosting, model provider, operational DB service, queue | Decided 2026-10-21: Python backend (workflow, workers, image pipeline, adapters) + TypeScript/React dashboard; operational DB in a new standalone Neon project. Still open: hosting, model provider, queue (proposed: Postgres-backed, no separate queue service) — B-041. | Owner | Done |
 | B-010 | Daily volume, latency, cost, retention, recovery objectives | Instrument before committing targets. | Owner | Open |
 | B-011 | Which live fields Commerce OS may own after publication | Default: never overwrite live fields without an approved operation. | Owner | Open |
 | B-012 | Handling sold-out, deleted, renamed, or moved source products | Default: no automatic deletion or unpublication. | Owner | Open |
@@ -36,7 +36,7 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 
 | ID | Item | Why | Owner | Status |
 |---|---|---|---|---|
-| B-020 | Machine-readable contracts (JSON Schema) for skill inputs/outputs in `packages/contracts/` | Skills currently describe schemas in prose; validation needs real schemas. | Eng | Open |
+| B-020 | Machine-readable contracts (JSON Schema) for skill inputs/outputs in `packages/contracts/` | Done: nine schemas, valid fixtures for two scenarios, 21 schema and 6 semantic rejection cases. | Eng | Done |
 | B-021 | Plugin eval suite (`claude plugin eval`) for no-invented-facts and prompt-injection cases | Structural tests cannot prove the model follows a skill. | Eng | Open |
 | B-022 | Decide whether to bind commerce-lead as the default agent in `settings.json` | Currently opt-in via `claude --agent commerce-os:commerce-lead`. | Owner | Open |
 
@@ -57,7 +57,11 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 | B-033 | Remove the development fallback credential from Storefront A's upload authorization code | Reported by A's owner. Precondition before granting any external integration upload access. | Owner | Open |
 | B-034 | Pluggable database providers and catalog profiles, with `/setup-storefront` | Owner request: choose Replit-managed Postgres or Supabase per database, and add more later. | Eng | Done |
 | B-035 | Write per-storefront mappings (categories, tier types, tag IDs) | Written to `config/mappings/<id>.local.json` (gitignored) from both owners' lists; editable with `/edit-mappings`. Product-type → category mappings marked `proposed` until confirmed. | Eng | Done |
-| B-036 | Confirm product-type → category mappings and whether `Blog` is excluded on both storefronts | Blog excluded on both (owner, 2026-10-21). Product-type → category mappings still marked `proposed`. | Owner | In progress |
+| B-036 | Confirm product-type → category mappings and whether `Blog` is excluded on both storefronts | Blog excluded on both; all product-type mappings confirmed (owner, 2026-10-21; mappings v3). | Owner | Done |
 | B-037 | Confirm whether Storefront B's development `Cap` and production `Ball Cap` tags mean the same thing | Same tag (owner, 2026-10-21). Merged into one key, `ball-cap`, in mapping v2. | Owner | Done |
 | B-038 | Creating new categories or tags in a storefront (`proposed_new` entries) | A storefront write: needs `categories`/`tags` in the profile's write tables and an approved change set. Phase 3. | Eng | Open |
-| B-039 | Read-only Neon roles for both storefronts, limited to `products`, `categories`, `tags` | Enables Phase 2 catalog reads and list refresh in `/edit-mappings`. Owner creates the role (e.g. in a `psql -h pg.neon.tech` session); its connection URL goes in `.env`. Passwordless psql itself is an owner-role session and is not used by Commerce OS. | Owner | In progress |
+| B-039 | Read-only Neon roles for both storefronts, limited to `products`, `categories`, `tags` | Enables Phase 2 catalog reads and list refresh in `/edit-mappings`. Owner creates the role with SQL per docs/runbooks/read-only-role.md and puts its URL in `.env`; `scripts/check_read_role.py` verifies grants and diffs live lists against the mapping. | Owner | In progress |
+| B-040 | Install a Postgres client (`brew install libpq`) on the machine that runs the read-role check | Installed 2026-10-21: libpq 18.6 via Homebrew (keg-only at /opt/homebrew/opt/libpq/bin; the check script finds it there). | Owner | Done |
+| B-041 | Hosting for the Python services and dashboard, model provider, and job queue | Remaining B-009 choices. Proposed: Postgres-backed queue in the operational DB; decide hosting before Phase 2. | Owner | Open |
+| B-042 | Create the operational Neon project (new, separate from both storefronts) | Owner creates it in the Neon console; Commerce OS gets its own SQL-created roles. Needed before Phase 1 migrations run anywhere but locally. | Owner | Open |
+| B-043 | Implement the contract semantic rules in `packages/policy` (Python) and validate with `jsonschema`/Ajv | `tests/test_contracts.py::semantic_errors` is the executable specification. Phase 1. | Eng | Open |

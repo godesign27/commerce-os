@@ -19,7 +19,7 @@ workflow interface, which enforces read-only scopes and server-side approvals.
 ## Database providers
 
 A storefront category says *which* storefront, not *what kind of database*. Each storefront entry in
-`config/storefronts.local.json` names a provider from `resources/providers/` (today `replit-postgres` or
+`config/storefronts.local.json` names a provider from `resources/providers/` (today `replit-postgres`, `neon` or
 `supabase`) and a catalog profile from `resources/catalog-profiles/`. Skills stay provider-neutral: they
 use the catalog profile's field names and never assume a provider. Set entries up with
 `/setup-storefront`.

@@ -5,7 +5,7 @@ import unittest
 from tests._helpers import AGENTS, PLUGIN, REPO, SKILLS, frontmatter, load_json, read, repo_files
 
 # Folders that must never reference the sibling repository (AC-01).
-INDEPENDENT_DIRS = ["plugins", "apps", "services", "packages", "database", "resources", ".cursor", "tests"]
+INDEPENDENT_DIRS = ["plugins", "apps", "services", "packages", "database", "resources", ".cursor", "tests", "scripts", "config"]
 # Tools no agent may hold in Phase 0a: shell, network, or any MCP server.
 FORBIDDEN_TOOLS = re.compile(r"\b(Bash|WebFetch|WebSearch|mcp__\w+)\b")
 SECRET_PATTERNS = [

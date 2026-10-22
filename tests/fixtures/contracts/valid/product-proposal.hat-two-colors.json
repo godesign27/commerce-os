@@ -1,0 +1,191 @@
+{
+  "contract": "product-proposal",
+  "contract_version": 1,
+  "submission_id": "sub-hat-001",
+  "source_snapshot_id": "snap-hat-001-r1",
+  "revision": 1,
+  "product_type": {
+    "id": "hat",
+    "version": 1,
+    "status": "inferred",
+    "evidence": [
+      {
+        "kind": "asset",
+        "ref": "file-hat-front-navy"
+      }
+    ],
+    "confidence": 0.95,
+    "alternatives": [
+      "bandana"
+    ]
+  },
+  "grouping": [
+    {
+      "file_id": "file-hat-front-navy",
+      "product_key": "P-1",
+      "role": "primary",
+      "variant_key": "V-1",
+      "reason": "Navy cap, front"
+    },
+    {
+      "file_id": "file-hat-side-navy",
+      "product_key": "P-1",
+      "role": "gallery",
+      "variant_key": "V-1",
+      "reason": "Same navy cap, side view"
+    },
+    {
+      "file_id": "file-hat-front-red",
+      "product_key": "P-1",
+      "role": "gallery",
+      "variant_key": "V-2",
+      "reason": "Same design in red"
+    }
+  ],
+  "products": [
+    {
+      "key": "P-1",
+      "option_definitions": [
+        {
+          "key": "color",
+          "label": "Color",
+          "values": [
+            "navy",
+            "red"
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "key": "V-1",
+          "option_values": {
+            "color": "navy"
+          },
+          "asset_ids": [
+            "file-hat-front-navy",
+            "file-hat-side-navy"
+          ],
+          "observed_color": {
+            "value": "navy",
+            "status": "observed",
+            "evidence": [
+              {
+                "kind": "asset",
+                "ref": "file-hat-front-navy"
+              }
+            ],
+            "confidence": 0.9,
+            "method": "vision-model@test"
+          },
+          "sku": {
+            "value": null,
+            "status": "unknown",
+            "evidence": []
+          },
+          "gtin": {
+            "value": null,
+            "status": "unknown",
+            "evidence": []
+          }
+        },
+        {
+          "key": "V-2",
+          "option_values": {
+            "color": "red"
+          },
+          "asset_ids": [
+            "file-hat-front-red"
+          ],
+          "observed_color": {
+            "value": "red",
+            "status": "observed",
+            "evidence": [
+              {
+                "kind": "asset",
+                "ref": "file-hat-front-red"
+              }
+            ],
+            "confidence": 0.9,
+            "method": "vision-model@test"
+          },
+          "sku": {
+            "value": null,
+            "status": "unknown",
+            "evidence": []
+          },
+          "gtin": {
+            "value": null,
+            "status": "unknown",
+            "evidence": []
+          }
+        }
+      ],
+      "fields": {
+        "title": {
+          "value": "Embroidered Baseball Cap",
+          "status": "inferred",
+          "evidence": [
+            {
+              "kind": "asset",
+              "ref": "file-hat-front-navy"
+            }
+          ],
+          "method": "llm@test"
+        },
+        "material": {
+          "value": null,
+          "status": "unknown",
+          "evidence": []
+        },
+        "brand": {
+          "value": null,
+          "status": "unknown",
+          "evidence": []
+        },
+        "visible_attributes": [
+          {
+            "value": "embroidered front panel",
+            "status": "observed",
+            "evidence": [
+              {
+                "kind": "asset",
+                "ref": "file-hat-front-navy"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "catalog_candidates": [
+    {
+      "storefront": "storefront-b",
+      "environment": "production",
+      "external_id": "fake-product-17",
+      "matching": [
+        "same category",
+        "similar embroidered style"
+      ],
+      "conflicting": [
+        "different logo"
+      ],
+      "proposed_use": "structure_only"
+    }
+  ],
+  "review_issues": [
+    {
+      "id": "RI-1",
+      "severity": "blocking",
+      "gate": 2,
+      "target": "product.material",
+      "question": "What is the cap made of? Not visible in the photos.",
+      "resolver": "submitter"
+    }
+  ],
+  "policy_versions": {
+    "evidence-policy": "0.1.0",
+    "intake-policy": "0.1.0",
+    "product-type:hat": "1"
+  },
+  "simulated": true
+}

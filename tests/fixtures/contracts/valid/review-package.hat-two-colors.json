@@ -1,0 +1,60 @@
+{
+  "contract": "review-package",
+  "contract_version": 1,
+  "submission_id": "sub-hat-001",
+  "canonical_revision": 2,
+  "destinations": [
+    "storefront-a",
+    "storefront-b"
+  ],
+  "summary": "One cap in two colors. Ready for storefront B except image upload; blocked for storefront A, which has no color field.",
+  "blockers": [
+    {
+      "id": "RI-3",
+      "severity": "blocking",
+      "gate": 3,
+      "destination": "storefront-a",
+      "target": "option_definitions.color",
+      "question": "Storefront A has no colors. Publish one color there, or skip storefront A?",
+      "resolver": "reviewer"
+    }
+  ],
+  "images": [
+    {
+      "file_id": "file-hat-front-navy",
+      "derivative_ids": [
+        "drv-file-hat-front-navy"
+      ],
+      "consequential_pending": false
+    },
+    {
+      "file_id": "file-hat-side-navy",
+      "derivative_ids": [
+        "drv-file-hat-side-navy"
+      ],
+      "consequential_pending": false
+    },
+    {
+      "file_id": "file-hat-front-red",
+      "derivative_ids": [
+        "drv-file-hat-front-red"
+      ],
+      "consequential_pending": false
+    }
+  ],
+  "fields_needing_decision": [
+    {
+      "path": "product.brand",
+      "status": "unknown",
+      "reason": "unknown_required"
+    }
+  ],
+  "change_set_ids": {
+    "storefront-b": "cs-hat-001-b"
+  },
+  "questions": [
+    "Is there a brand to show on this cap?",
+    "For storefront A: publish navy only, or skip?"
+  ],
+  "simulated": true
+}

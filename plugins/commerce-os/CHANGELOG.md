@@ -26,7 +26,7 @@
 - `storefront-setup` skill and `/setup-storefront` command: choose a database provider and catalog
   profile for a storefront or the operational database, writing a credential-free entry to
   `config/storefronts.local.json`. Never connects and never handles a credential.
-- CONNECTORS.md: a database-providers section; storefront rows note the provider comes from config.
+- CONNECTORS.md: a database-providers section (now listing `replit-postgres`, `neon`, `supabase`); storefront rows note the provider comes from config.
 
 ### Changed
 

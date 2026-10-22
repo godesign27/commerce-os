@@ -1,0 +1,107 @@
+{
+  "contract": "change-set",
+  "contract_version": 1,
+  "change_set_id": "cs-hat-001-b",
+  "submission_id": "sub-hat-001",
+  "destination": "storefront-b",
+  "environment": "production",
+  "canonical_revision": 2,
+  "mapping_version": 3,
+  "schema_fingerprint": "4485bff988fca40fe77fc06bd35986101ef121185f1abc8e46929704250ae739",
+  "asset_manifest_hash": "e8e63747bbe8da5bc2f982144c68457c4fa48bb51e4acf953bda9880b22a270d",
+  "requested_status": "draft",
+  "operations": [
+    {
+      "seq": 1,
+      "op": "create",
+      "entity": "product",
+      "key": "6f1c2a8e-0000-4000-8000-000000000001",
+      "precondition": {
+        "must_not_exist": true
+      },
+      "fields": {
+        "name": {
+          "value": "Embroidered Baseball Cap",
+          "status": "human_confirmed"
+        },
+        "slug": {
+          "value": "embroidered-baseball-cap",
+          "status": "human_confirmed"
+        },
+        "price": {
+          "value": {
+            "amount_minor": 2800,
+            "currency": "USD"
+          },
+          "status": "human_confirmed",
+          "evidence": [
+            {
+              "kind": "human_decision",
+              "ref": "decision-77"
+            }
+          ]
+        },
+        "status": {
+          "value": "draft",
+          "status": "human_confirmed"
+        },
+        "color_variants": {
+          "value": [
+            {
+              "id": "navy",
+              "name": "Navy",
+              "hex": "#1F2A44",
+              "imageIndices": [
+                0,
+                1
+              ]
+            },
+            {
+              "id": "red",
+              "name": "Red",
+              "hex": "#B22234",
+              "imageIndices": [
+                2
+              ]
+            }
+          ],
+          "status": "human_confirmed"
+        }
+      }
+    }
+  ],
+  "assets": [
+    {
+      "derivative_id": "drv-file-hat-front-navy",
+      "destination_key": "/objects/uploads/pending-0",
+      "delivered": false
+    },
+    {
+      "derivative_id": "drv-file-hat-side-navy",
+      "destination_key": "/objects/uploads/pending-1",
+      "delivered": false
+    },
+    {
+      "derivative_id": "drv-file-hat-front-red",
+      "destination_key": "/objects/uploads/pending-2",
+      "delivered": false
+    }
+  ],
+  "not_touched": [
+    "stock",
+    "is_featured"
+  ],
+  "blockers": [
+    {
+      "id": "RI-2",
+      "severity": "blocking",
+      "gate": 3,
+      "destination": "storefront-b",
+      "target": "assets",
+      "question": "Image upload to this storefront is not authorized yet.",
+      "resolver": "administrator"
+    }
+  ],
+  "change_set_hash": "594f9eb0d08131224e6004ee15902843e432ccdf5d0c9c8b5725d46d53fba94b",
+  "simulated": true
+}

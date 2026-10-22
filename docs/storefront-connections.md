@@ -24,10 +24,11 @@ mappings describe one storefront's values, and neither is shared across storefro
 |---|---|---|---|---|
 | `replit-postgres` | Replit-managed PostgreSQL (Neon), images in Replit App Storage | Yes | Yes | Documented from discovery; adapter not built |
 | `supabase` | Supabase Postgres, images in Supabase Storage | Yes | Yes | Documented; details must be verified against current Supabase docs before an adapter is built |
+| `neon` | A standalone Neon project Commerce OS owns (not Replit-managed) | Yes | Yes | Documented; chosen for the operational database (B-009) |
 
 Both storefronts in discovery use `replit-postgres` with the `replit-artstore-v1` profile. The
-operational database may use either provider (BACKLOG B-009), but it is always a separate
-project with its own credentials.
+operational database uses `neon`: a new, separate Neon project with its own credentials, never one
+of the storefronts' projects.
 
 ## Setting up a storefront
 

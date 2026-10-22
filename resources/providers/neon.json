@@ -1,0 +1,36 @@
+{
+  "id": "neon",
+  "display_name": "Neon Postgres (standalone project)",
+  "engine": "postgresql",
+  "status": "documented",
+  "used_for": ["storefront", "operational"],
+  "connection": {
+    "method": "postgres-url",
+    "env_suffixes": {
+      "read_url": "DB_URL",
+      "write_url": "WRITE_DB_URL"
+    },
+    "tls": "required",
+    "notes": "A Neon project Commerce OS owns directly, not one managed by Replit. Use the direct host for migrations and the pooled (-pooler) host for application traffic."
+  },
+  "roles": {
+    "read": "Dedicated login created with SQL (not the console Roles page, which adds neon_superuser), SELECT on the needed tables only.",
+    "write": "Dedicated login created with SQL with only the privileges the service needs. Server-side only.",
+    "never": "The project owner role, or any role created through the console, CLI or API (members of neon_superuser)."
+  },
+  "isolation": {
+    "row_level_security": "Available. For the operational database, isolation keys are enforced with RLS policies (PRD §8.3, §17)."
+  },
+  "assets": {
+    "store": "Not provided by the database. Neon Object Storage exists in some regions; the operational asset store is chosen separately.",
+    "reference_format": "Defined by the chosen asset store.",
+    "upload": "Defined by the chosen asset store.",
+    "commerce_os_upload": "not_authorized"
+  },
+  "schema_changes": "Commerce OS owns the schema: migrations in database/operational/migrations/, tested on a Neon branch before production. Storefront-type use is bound to a schema fingerprint like any provider.",
+  "verify_before_use": [
+    "Region and plan limits for the project (compute, branches, history window).",
+    "Connection pooling mode for a long-running Python worker (direct vs pooled).",
+    "Branch workflow for running migrations against a copy before production."
+  ]
+}
