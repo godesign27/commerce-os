@@ -29,7 +29,7 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 | B-015 | Phase 0b: read-only inspection of Storefront A and B schemas | Schema proposal and mappings. Done from owner-supplied schema dumps; see docs/discovery/storefront-schemas.md. | Eng | Done |
 | B-016 | Phase 0b: collect representative sample images per MVP category | Fixtures and the labeled evaluation corpus. | Owner | Open |
 | B-017 | Phase 0b: verify current Google Drive push-notification and changes API docs | PRD §7.2 requires validating provider docs before choosing the mechanism. | Eng | Open |
-| B-018 | Phase 0b: operational schema proposal and sample review package | Phase 0 deliverables (PRD §19). | Eng | Open |
+| B-018 | Phase 0b: operational schema proposal and sample review package | Done: nine draft migrations (database/operational/), static checks, a rolled-back live smoke test; the sample review package is the contracts fixture. | Eng | Done |
 | B-019 | Phase 0b: local fake storefront adapters | Lets Phase 1 run end to end without external systems. | Eng | Open |
 
 ## Phase 1 and later
@@ -65,3 +65,4 @@ Owner `Owner` means the product owner must decide; `Eng` means implementation wo
 | B-041 | Hosting for the Python services and dashboard, model provider, and job queue | Remaining B-009 choices. Proposed: Postgres-backed queue in the operational DB; decide hosting before Phase 2. | Owner | Open |
 | B-042 | Create the operational Neon project (new, separate from both storefronts) | Owner creates it in the Neon console; Commerce OS gets its own SQL-created roles. Needed before Phase 1 migrations run anywhere but locally. | Owner | Open |
 | B-043 | Implement the contract semantic rules in `packages/policy` (Python) and validate with `jsonschema`/Ajv | `tests/test_contracts.py::semantic_errors` is the executable specification. Phase 1. | Eng | Open |
+| B-044 | Run the live operational-database test on a Neon test branch | `scripts/test_operational_db.py` with `COMMERCE_OS_TEST_DB_URL`. Needs the operational project (B-042). The migrations have only been checked statically. | Eng | Blocked |
