@@ -239,8 +239,12 @@ class LiveTestHarness(unittest.TestCase):
 
     def test_smoke_checks_are_unique_and_cover_the_rules(self):
         smoke = read(SMOKE)
-        labels = re.findall(r"'([^']+)'\);", smoke)
+        calls = re.findall(r"SELECT pg_temp\.expect(?:_error)?\((.*?)\);\n", smoke, re.S)
+        labels = [re.findall(r"'([^']+)'", re.split(r"\$\$,|\)\),|\),", c)[-1])[0] for c in calls]
         self.assertEqual(len(labels), len(set(labels)), "smoke labels must be unique")
+        calls = len(re.findall(r"SELECT pg_temp\.expect_error\(", smoke))
+        with_reason = len(re.findall(r"\$\$,\s*'[^']+',\s*'[^']+'\);", smoke))
+        self.assertEqual(calls, with_reason, "every rejection check names the error it expects")
         for rule in ("skips the gates", "without a revision bump", "audit rows are edited", "duplicate notification",
                      "commercial fact inferred", "sealed change set is edited", "agent approves",
                      "approves their own", "different mapping version", "same job is enqueued twice",

@@ -89,6 +89,25 @@ def evaluate(role: dict, memberships: list, privileges: dict) -> list:
     return results
 
 
+def evaluate_rls(role_name: str, rls: dict) -> list:
+    """`rls` maps catalog table -> {"rls": bool, "policies": [{"roles": [...], "cmd": "SELECT"|"ALL"|...}]}.
+
+    A table with row-level security on and no SELECT policy for this role (or PUBLIC) grants SELECT but
+    returns zero rows, which would look like an empty catalog rather than a misconfiguration.
+    """
+    results = []
+    for table in ALLOWED:
+        info = rls.get(table, {"rls": False, "policies": []})
+        if not info["rls"]:
+            results.append((True, f"{table}: row-level security off"))
+            continue
+        readable = any(p["cmd"] in ("SELECT", "ALL") and (role_name in p["roles"] or "public" in p["roles"])
+                       for p in info["policies"])
+        results.append((readable, f"{table}: row-level security on, "
+                        + ("a policy lets this role read it" if readable else "NO policy for this role (it would see zero rows)")))
+    return results
+
+
 def compare(entries: list, live: list, env: str) -> list:
     """Compare mapping entries (categories or tags) with live rows [{id, name, slug}] for one environment."""
     notes = []
@@ -170,11 +189,25 @@ def main(argv=None) -> int:
               "WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm', 'f')"):
         privs[r.pop("t")] = r
 
+    rls = {}
+    for r in pg.rows(
+            "SELECT c.relname AS t, c.relrowsecurity AS rls, "
+            "coalesce(json_agg(json_build_object('roles', p.roles, 'cmd', p.cmd)) FILTER (WHERE p.policyname IS NOT NULL), '[]') AS policies "
+            "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "LEFT JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname "
+            "WHERE n.nspname = 'public' AND c.relname IN ('products', 'categories', 'tags') GROUP BY c.relname, c.relrowsecurity"):
+        rls[r.pop("t")] = r
+
     print(f"{args.storefront}: connected as {role['user']} to database {role['db']} (read-only session)")
-    results = evaluate(role, memberships, privs)
+    results = evaluate(role, memberships, privs) + evaluate_rls(role["user"], rls)
     for ok, msg in results:
         print(f"  {'✓' if ok else '✗'} {msg}")
     passed = all(ok for ok, _ in results)
+
+    if passed:
+        counts = pg.rows("SELECT (SELECT count(*) FROM public.products) AS products, "
+                         "(SELECT count(*) FROM public.categories) AS categories, (SELECT count(*) FROM public.tags) AS tags")[0]
+        print("\nrows visible: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
 
     mapping_path = REPO / entry["mapping"]
     if passed and mapping_path.exists():

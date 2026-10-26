@@ -3,7 +3,10 @@
   "display_name": "Supabase (Postgres + Storage)",
   "engine": "postgresql",
   "status": "documented",
-  "used_for": ["storefront", "operational"],
+  "used_for": [
+    "storefront",
+    "operational"
+  ],
   "connection": {
     "method": "postgres-url",
     "env_suffixes": {
@@ -11,26 +14,26 @@
       "write_url": "WRITE_DB_URL"
     },
     "tls": "required",
-    "notes": "Direct or pooled Postgres connection. The Supabase REST API and service-role keys are not used by adapters."
+    "notes": "Use the shared pooler: session mode (port 5432) for workers and checks, transaction mode (port 6543) for short request traffic. Pooler usernames are <role>.<project-ref>. The Supabase REST/GraphQL Data API, the secret (service-role) key and the postgres role are never used by adapters."
   },
   "roles": {
-    "read": "Dedicated Postgres role with SELECT on the catalog profile's catalog tables only.",
+    "read": "Dedicated login created with SQL (CREATE ROLE ... LOGIN), granted SELECT on the catalog tables only. Projects that enable RLS with no policies (as Storefront A's lock-down does) also need a SELECT policy for this role on each catalog table, or it sees zero rows. See docs/runbooks/read-only-role.md.",
     "write": "Dedicated Postgres role with INSERT and UPDATE on the profile's write tables only. Phase 3, server-side only.",
-    "never": "The service-role key or the postgres superuser, which bypass row-level security."
+    "never": "The secret (service-role) key, the postgres role, or any role with BYPASSRLS."
   },
   "isolation": {
-    "row_level_security": "Commonly enabled on Supabase projects. A storefront's policies must be read during discovery before choosing roles."
+    "row_level_security": "Storefront A enables RLS on every public table with no policies and revokes all privileges from anon/authenticated, which shuts the Data API off. Commerce OS roles get narrow per-table policies; they are never granted BYPASSRLS."
   },
   "assets": {
-    "store": "Supabase Storage buckets",
-    "reference_format": "Depends on the storefront: bucket path or public URL. Recorded per storefront mapping.",
-    "upload": "Storage API with a scoped key or signed upload URL.",
+    "store": "Supabase Storage. Storefront A: private bucket `artwork`; storage.objects has RLS on with no policies.",
+    "reference_format": "Storefront A: `/objects/uploads/<id>` in the database, served by the app server.",
+    "upload": "Storefront A: the app server writes the object and a visibility record at `_meta/<object path>.json` in the same bucket, using the secret key. A Commerce OS upload must go through the app's own upload flow or reproduce both writes with a separately scoped credential; decided in Phase 3.",
     "commerce_os_upload": "not_authorized"
   },
-  "schema_changes": "Migrations via the Supabase CLI or dashboard. A mapping version is bound to a schema fingerprint; Gate 4 refuses writes when it changes.",
+  "schema_changes": "Storefront A: only through drizzle migration files in its git repository (no automatic changes on publish), re-running its RLS lock-down after new tables. Mappings are still bound to a schema fingerprint, checked at Gate 4.",
   "verify_before_use": [
-    "Current Supabase guidance for creating custom least-privilege Postgres roles.",
-    "Connection pooler mode suitable for a long-running worker.",
-    "Storage upload authorization that does not require a service-role key."
+    "Session-pooler connection as <role>.<project-ref> for the Commerce OS read role.",
+    "Whether a role VALID UNTIL date is set: an expired role fails pooler auth with EAUTHQUERY.",
+    "Storage upload authorization that never uses the secret (service-role) key in Commerce OS."
   ]
 }

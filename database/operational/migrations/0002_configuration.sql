@@ -26,7 +26,7 @@ CREATE TABLE commerce_os.storefronts (
     asset_upload     text NOT NULL DEFAULT 'not_authorized' CHECK (asset_upload IN ('not_authorized', 'authorized')),
     created_at       timestamptz NOT NULL DEFAULT now(),
     CHECK (read_connection_id IS DISTINCT FROM write_connection_id OR read_connection_id IS NULL),
-    CHECK (NOT writes_enabled OR write_connection_id IS NOT NULL)
+    CONSTRAINT storefronts_writes_need_write_connection CHECK (NOT writes_enabled OR write_connection_id IS NOT NULL)
 );
 
 -- Versioned product types (resources/product-types/*.json). Drafts record the version they used.

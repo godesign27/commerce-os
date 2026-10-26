@@ -1,14 +1,14 @@
 {
   "version": 1,
   "operational_database": {
-    "provider": "neon",
+    "provider": "supabase",
     "env_prefix": "OPS"
   },
   "storefronts": [
     {
       "id": "storefront-a",
       "display_name": "Storefront A",
-      "provider": "replit-postgres",
+      "provider": "supabase",
       "catalog_profile": "replit-artstore-v1",
       "features": [
         "is_sold",

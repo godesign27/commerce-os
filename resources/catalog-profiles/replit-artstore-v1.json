@@ -1,41 +1,83 @@
 {
   "id": "replit-artstore-v1",
-  "display_name": "Replit art-store template (Drizzle, products with JSONB tiers)",
+  "display_name": "Art-store template (Drizzle, products with JSONB tiers); runs on Replit Postgres or Supabase",
   "sources": [
     "Schema-only dumps of both discovery storefronts (2026-10-21)",
-    "Both storefronts' shared/schema.ts and owner handoffs (2026-10-21)"
+    "Both storefronts' shared/schema.ts and owner handoffs (2026-10-21)",
+    "Storefront A's supabase-migration branch (b12a586), shared/schema.ts and migrations, read 2026-10-26: products table unchanged"
   ],
-  "catalog_tables": ["products", "categories", "tags"],
-  "write_tables": ["products"],
+  "catalog_tables": [
+    "products",
+    "categories",
+    "tags"
+  ],
+  "write_tables": [
+    "products"
+  ],
   "product": {
     "table": "products",
-    "required_on_insert": ["id", "name", "slug", "price", "status"],
+    "required_on_insert": [
+      "id",
+      "name",
+      "slug",
+      "price",
+      "status"
+    ],
     "identity": {
       "primary_key": "id",
       "commerce_os_supplies_id": true,
-      "unique": ["id", "slug", "sku"]
+      "unique": [
+        "id",
+        "slug",
+        "sku"
+      ]
     },
     "money": {
-      "columns": ["price"],
+      "columns": [
+        "price"
+      ],
       "type": "numeric(10,2)",
       "unit": "major",
       "currency_column": null
     },
     "status": {
       "column": "status",
-      "values": ["active", "draft", "archived"],
+      "values": [
+        "active",
+        "draft",
+        "archived"
+      ],
       "hidden_on_create": "draft",
       "database_default": "active",
       "always_set_explicitly": true
     },
     "concurrency": "row-hash",
-    "category": {"column": "category_id", "references": "categories.id"},
-    "images": {"column": "images", "shape": "string[]", "reference_format": "/objects/uploads/<id>", "order_significant": true},
-    "tags": {"column": "tags", "shape": "string[]", "references": "tags.id"}
+    "category": {
+      "column": "category_id",
+      "references": "categories.id"
+    },
+    "images": {
+      "column": "images",
+      "shape": "string[]",
+      "reference_format": "/objects/uploads/<id>",
+      "order_significant": true
+    },
+    "tags": {
+      "column": "tags",
+      "shape": "string[]",
+      "references": "tags.id"
+    }
   },
   "variants": {
     "location": "products.pricing_tiers",
-    "shape": {"id": "string", "size": "string", "price": "number", "type": "string", "stock": "number", "description": "string"},
+    "shape": {
+      "id": "string",
+      "size": "string",
+      "price": "number",
+      "type": "string",
+      "stock": "number",
+      "description": "string"
+    },
     "identity": "id",
     "id_format": "tier-<epoch milliseconds>",
     "size_is_free_text": true,
@@ -44,7 +86,12 @@
   "optional_features": {
     "color_variants": {
       "column": "products.color_variants",
-      "shape": {"id": "string", "name": "string", "hex": "string", "imageIndices": "number[]"},
+      "shape": {
+        "id": "string",
+        "name": "string",
+        "hex": "string",
+        "imageIndices": "number[]"
+      },
       "meaning": "Color options that select images by position in products.images."
     },
     "tier_quantity": {
@@ -63,8 +110,12 @@
       "meaning": "Also list the product on the gallery page."
     }
   },
-  "out_of_scope_tables": ["gallery_items"],
-  "placeholders": ["Enter description"],
+  "out_of_scope_tables": [
+    "gallery_items"
+  ],
+  "placeholders": [
+    "Enter description"
+  ],
   "evidence_notes": [
     "medium is material; rarity, authenticity and is_original are rights/authenticity claims requiring supplied or human_confirmed evidence.",
     "Do not infer tier type from is_original; observed products contradict it."

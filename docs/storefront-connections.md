@@ -23,12 +23,14 @@ mappings describe one storefront's values, and neither is shared across storefro
 | Provider ID | What it is | Storefronts | Operational DB | Status |
 |---|---|---|---|---|
 | `replit-postgres` | Replit-managed PostgreSQL (Neon), images in Replit App Storage | Yes | Yes | Documented from discovery; adapter not built |
-| `supabase` | Supabase Postgres, images in Supabase Storage | Yes | Yes | Documented; details must be verified against current Supabase docs before an adapter is built |
-| `neon` | A standalone Neon project Commerce OS owns (not Replit-managed) | Yes | Yes | Documented; chosen for the operational database (B-009) |
+| `supabase` | Supabase Postgres, images in Supabase Storage | Yes | Yes | Documented; used by Storefront A and the operational database; adapter not built |
+| `neon` | A standalone Neon project Commerce OS owns (not Replit-managed) | Yes | Yes | Documented; not currently used |
 
-Both storefronts in discovery use `replit-postgres` with the `replit-artstore-v1` profile. The
-operational database uses `neon`: a new, separate Neon project with its own credentials, never one
-of the storefronts' projects.
+Storefront A has moved to `supabase` (its own Supabase project, the target of its
+`supabase-migration` branch). Storefront B still uses `replit-postgres`. Both use the
+`replit-artstore-v1` profile: Storefront A's `products` table is unchanged by the move. The
+operational database also uses `supabase`, as a separate Supabase project with its own credentials,
+never Storefront A's project.
 
 ## Setting up a storefront
 

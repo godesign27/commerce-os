@@ -1,12 +1,14 @@
 # Operational database
 
 Commerce OS's own database (PRD §5, §8.3): submissions, snapshots, drafts, field evidence, jobs,
-change sets, approvals, publication receipts and the audit trail. It lives in its own standalone Neon
-project (BACKLOG B-009, B-042), never in a storefront's database. Storefront schemas are never
+change sets, approvals, publication receipts and the audit trail. It lives in its own Supabase project
+(BACKLOG B-009, B-042), separate from every storefront's project, including Storefront A's. Storefront schemas are never
 migrated from here.
 
-**Status: draft migrations.** They pass the static checks in `tests/test_operational_schema.py`,
-and haven't been applied to a real database yet (B-044).
+**Status: draft migrations, tested on Supabase.** They pass the static checks in
+`tests/test_operational_schema.py`, and on 2026-10-26 applied cleanly to the CommerceOS Supabase
+project with all 30 smoke checks passing, inside a rolled-back transaction (B-044). They haven't
+been applied for real yet; that happens when Phase 1 code needs them.
 
 ## Migrations
 
@@ -69,12 +71,16 @@ UPDATE commerce_os.submissions
   [tests/smoke.sql](tests/smoke.sql) to a real Postgres 16, inside **one transaction that is rolled
   back**. It runs 30 behavioral checks: forbidden transitions, self-approval, duplicate jobs,
   cross-tenant reads, and more. It needs `COMMERCE_OS_TEST_DB_URL` in `.env`, pointing at an empty
-  test database such as a Neon branch of the operational project. It refuses to run if the
+  test database, such as a Supabase branch of the operational project. It refuses to run if the
   `commerce_os` schema already exists there.
 
-## Roles (to create on the operational project, B-042)
+## Roles (to create on the operational project)
 
-Create these with SQL, not the Neon console, so they aren't members of `neon_superuser`:
+Step-by-step SQL: [docs/runbooks/operational-db-roles.md](../../docs/runbooks/operational-db-roles.md).
+
+Create these with SQL (`CREATE ROLE ... LOGIN`). Commerce OS never uses the `postgres` role or the
+secret (service-role) key, and none of these roles gets BYPASSRLS. Migration 0009 also revokes
+Supabase's `anon` and `authenticated` roles from the `commerce_os` schema, so the Data API can't reach it:
 
 - `commerce_os_migrator`: owns the schema and runs migrations. Used only by deploys.
 - `commerce_os_service`: SELECT/INSERT/UPDATE on the tables, EXECUTE on `claim_job`. No DDL.

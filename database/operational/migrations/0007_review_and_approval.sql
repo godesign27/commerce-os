@@ -40,7 +40,7 @@ CREATE TABLE commerce_os.approvals (
     invalidated_reason   text,
     FOREIGN KEY (change_set_id, storefront_id, environment)
         REFERENCES commerce_os.change_sets (change_set_id, storefront_id, environment),
-    CHECK (actor_id <> prepared_by),                                  -- no self-approval
+    CONSTRAINT approvals_no_self_approval CHECK (actor_id <> prepared_by),
     CHECK ((invalidated_at IS NULL) = (invalidated_reason IS NULL))
 );
 -- At most one live approval per change set.

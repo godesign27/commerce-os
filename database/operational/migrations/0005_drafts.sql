@@ -76,13 +76,13 @@ CREATE TABLE commerce_os.field_evidence (
     created_at        timestamptz NOT NULL DEFAULT now(),
     UNIQUE NULLS NOT DISTINCT (product_id, variant_id, product_revision, field_path),
     -- unknown and conflicting fields have no value
-    CHECK (status NOT IN ('unknown', 'conflicting') OR value IS NULL OR value = 'null'::jsonb),
+    CONSTRAINT field_evidence_unknown_has_no_value CHECK (status NOT IN ('unknown', 'conflicting') OR value IS NULL OR value = 'null'::jsonb),
     -- a value from observation, a source or inference cites evidence
-    CHECK (status NOT IN ('observed', 'supplied', 'verified_catalog', 'inferred') OR jsonb_array_length(evidence) > 0),
+    CONSTRAINT field_evidence_value_cites_evidence CHECK (status NOT IN ('observed', 'supplied', 'verified_catalog', 'inferred') OR jsonb_array_length(evidence) > 0),
     -- a human confirmation records who and when
-    CHECK (status <> 'human_confirmed' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
+    CONSTRAINT field_evidence_confirmation_recorded CHECK (status <> 'human_confirmed' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
     -- commercial facts are never observed or inferred (evidence policy rule 2)
-    CHECK (NOT is_commercial OR status IN ('supplied', 'verified_catalog', 'human_confirmed', 'unknown', 'conflicting'))
+    CONSTRAINT field_evidence_commercial_never_guessed CHECK (NOT is_commercial OR status IN ('supplied', 'verified_catalog', 'human_confirmed', 'unknown', 'conflicting'))
 );
 CREATE TRIGGER field_evidence_immutable BEFORE UPDATE OR DELETE ON commerce_os.field_evidence
     FOR EACH ROW EXECUTE FUNCTION commerce_os.forbid_mutation();

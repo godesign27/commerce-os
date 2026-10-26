@@ -68,6 +68,31 @@ class Evaluate(unittest.TestCase):
         self.assertFalse(all(ok for ok, _ in crr.evaluate(GOOD_ROLE, ["neon_superuser"], privs(select=crr.ALLOWED))))
 
 
+class RowLevelSecurity(unittest.TestCase):
+    def table(self, rls, *policies):
+        return {"rls": rls, "policies": [{"roles": list(r), "cmd": c} for r, c in policies]}
+
+    def test_rls_off_passes(self):
+        rls = {t: self.table(False) for t in crr.ALLOWED}
+        self.assertTrue(all(ok for ok, _ in crr.evaluate_rls("commerce_os_read", rls)))
+
+    def test_rls_with_a_policy_for_the_role_passes(self):
+        rls = {t: self.table(True, (["commerce_os_read"], "SELECT")) for t in crr.ALLOWED}
+        self.assertTrue(all(ok for ok, _ in crr.evaluate_rls("commerce_os_read", rls)))
+
+    def test_rls_with_no_policy_fails(self):
+        """A Supabase-style lock-down (RLS on, no policies) must not look like an empty catalog."""
+        rls = {t: self.table(True) for t in crr.ALLOWED}
+        self.assertFalse(any(ok for ok, _ in crr.evaluate_rls("commerce_os_read", rls)))
+
+    def test_policy_for_another_role_or_command_fails(self):
+        rls = {"products": self.table(True, (["authenticated"], "SELECT"), (["commerce_os_read"], "INSERT")),
+               "categories": self.table(True, (["public"], "ALL")),
+               "tags": self.table(True, (["commerce_os_read"], "SELECT"))}
+        results = dict((msg.split(":")[0], ok) for ok, msg in crr.evaluate_rls("commerce_os_read", rls))
+        self.assertEqual(results, {"products": False, "categories": True, "tags": True})
+
+
 class Compare(unittest.TestCase):
     def entry(self, key, name, slug=None, id_=None, status="in_scope"):
         return {"key": key, "name": {"production": name}, "slug": slug,

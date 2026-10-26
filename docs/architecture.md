@@ -32,8 +32,8 @@ Google Drive intake folders
 
 ## Database providers
 
-Each storefront and the operational database choose a provider (`replit-postgres`, `supabase`, more
-later) and storefronts choose a catalog profile. Adapters are provider drivers plus a profile, configured
+Each storefront and the operational database choose a provider (`replit-postgres`, `supabase`, `neon`,
+more later) and storefronts choose a catalog profile. Adapters are provider drivers plus a profile, configured
 per storefront. See [storefront-connections.md](storefront-connections.md).
 
 ## Three database boundaries
