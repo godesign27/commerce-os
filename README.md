@@ -69,4 +69,16 @@ python3 -m venv .venv
 ./run-tests.sh
 ```
 
+To review image conversions (crops and framed listing images) for the samples in `discovery/raw/`:
+
+```bash
+.venv/bin/python scripts/review_images.py build
+```
+
+```bash
+.venv/bin/python scripts/review_images.py serve
+```
+
+Then open http://127.0.0.1:8765/. After fixing corners on the page, re-crop with `review_images.py apply`.
+
 Maintainer rules are in [CLAUDE.md](CLAUDE.md); open work is in [BACKLOG.md](BACKLOG.md).

@@ -35,3 +35,6 @@ Thumbs.db
 # Third-party agent skills installed locally (e.g. `neon skills`); personal tooling, not part of Commerce OS
 .agents/
 skills-lock.json
+
+# Local preview config for the Claude desktop app
+.claude/launch.json
