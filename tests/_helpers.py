@@ -35,7 +35,7 @@ SKILL_SECTIONS = [
     "Validation", "Failure behavior", "Evidence requirements", "Current status",
 ]
 
-SKIP_DIRS = {".git", "node_modules", ".commerce-os", "__pycache__"}
+SKIP_DIRS = {".git", "node_modules", ".commerce-os", "__pycache__", ".venv"}
 
 
 def read(path: Path) -> str:

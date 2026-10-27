@@ -1,0 +1,47 @@
+{
+  "id": "framed-oak-white-mat",
+  "version": 2,
+  "status": "draft",
+  "display_name": "Framed listing image: equal white mat, thin oak frame, soft shadow",
+  "purpose": "The house style for every artwork listing (B-050). The artwork is placed unchanged, so this derivative is not consequential.",
+  "consequential": false,
+  "measured_from": "Owner's framed portrait example, 1024 x 1536 (2026-10-27). Mat and frame ratios are relative to the artwork's displayed width.",
+  "canvas": {
+    "background_rgb": [253, 253, 253],
+    "square_tolerance": 0.05,
+    "orientations": {
+      "portrait": {"size_px": [1024, 1536], "max_width_ratio": 0.843, "max_height_ratio": 0.722, "vertical_offset_ratio": -0.0107},
+      "square": {"size_px": [1280, 1280], "max_width_ratio": 0.78, "max_height_ratio": 0.78, "vertical_offset_ratio": -0.0107},
+      "landscape": {"size_px": [1536, 1024], "max_width_ratio": 0.722, "max_height_ratio": 0.843, "vertical_offset_ratio": -0.0107}
+    },
+    "note": "The canvas follows the artwork's shape (owner: about 95% of artworks are square, portrait or landscape). Portrait is measured from the owner's example; square and landscape keep its margins."
+  },
+  "mat": {
+    "rgb": [252, 251, 252],
+    "side_ratio": 0.146,
+    "top_ratio": 0.146,
+    "bottom_ratio": 0.146,
+    "note": "Equal on all four sides (owner, 2026-10-27; v1 copied the example's deeper bottom mat).",
+    "inner_shadow": {"size_ratio": 0.012, "opacity": 0.16}
+  },
+  "frame": {
+    "width_ratio": 0.0433,
+    "texture": {
+      "asset": "oak-frame",
+      "bar": {"x": 120, "y": 41, "w": 900, "h": 37},
+      "tone_rgb": [220, 179, 130],
+      "note": "A straight run of the top bar of a blank oak frame image. The image is a local asset (.commerce-os/assets/oak-frame.png), not committed."
+    },
+    "fallback_rgb": [214, 182, 136],
+    "shade": {"top": 1.0, "left": 1.0, "right": 0.97, "bottom": 0.98}
+  },
+  "shadow": {
+    "offset_y_ratio": 0.012,
+    "blur_ratio": 0.018,
+    "opacity": 0.26
+  },
+  "output": {
+    "format": "PNG",
+    "colour_space": "sRGB"
+  }
+}

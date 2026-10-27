@@ -9,7 +9,10 @@ Shared libraries. Contracts exist; everything else is Phase 1 onward.
   combinations, each image grouped once, no self-approval, and approval bindings. `approvals.py` is
   the single definition of the bindings; the adapters call it, and migration 0007's trigger binds the
   same fields (a test pins all three). Transition rules stay in the database (migration 0003).
-- `image-pipeline/`: validation and versioned transform recipes.
+- `image_pipeline/`: versioned derivative recipes. `framing.py` builds the framed listing image (B-050):
+  `layout()` is pure arithmetic; `render()` uses Pillow. The artwork is only resized, and the original
+  is never written. Try it with `.venv/bin/python scripts/frame_artwork.py <image>`. `crop.py` proposes a
+  straightened crop of the artwork in a photo, with a review image and a confidence check (B-053).
 - `adapters/`: the adapter contract (PRD §15) and the in-memory fake (B-019).
   - `contract.py`: the interface (`capabilities`, `read_catalog`, `validate`, `plan`, `dry_run`,
     `publish_approved`, `reconcile`) and the storefront-neutral guards every adapter runs: the sealed
