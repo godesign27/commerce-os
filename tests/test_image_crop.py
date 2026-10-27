@@ -21,6 +21,16 @@ class Geometry(unittest.TestCase):
     def test_recipe_is_consequential(self):
         self.assertIs(RECIPE["consequential"], True)
 
+    def test_paper_is_tried_before_canvas(self):
+        # on a paper photo the canvas method would find the whole sheet, not the painted area
+        methods = RECIPE["detection"]["methods"]
+        self.assertLess(methods.index("paper"), methods.index("canvas"))
+
+    def test_paper_crops_are_inset_more(self):
+        inset = RECIPE["output"]["inset_ratio"]
+        self.assertGreater(inset["paper"], inset["canvas"])
+        self.assertEqual(inset["manual"], 0)
+
     def test_otsu_splits_two_groups(self):
         hist = [0] * 256
         for v, n in ((30, 500), (35, 400), (150, 300), (160, 600)):
@@ -88,6 +98,25 @@ def synthetic_photo(path, size=(1200, 1600), quad=((180, 330), (1030, 300), (105
     return quad
 
 
+def synthetic_paper_photo(path, size=(1200, 1600), sheet=((120, 140), (1080, 120), (1100, 1480), (100, 1500)),
+                          painted=((220, 260), (980, 240), (995, 1300), (205, 1320)), runoff=False):
+    """A white sheet on a dark desk, with a colourful painted area (and white strokes inside it)."""
+    from PIL import Image, ImageDraw
+    im = Image.new("RGB", size, (58, 50, 44))
+    d = ImageDraw.Draw(im)
+    d.polygon(sheet, fill=(244, 243, 238))
+    d.polygon(painted, fill=(40, 150, 170))
+    cx, cy = sum(p[0] for p in painted) / 4, sum(p[1] for p in painted) / 4
+    for i in range(6):                                   # orange and white strokes, like printed texture
+        d.rectangle((cx - 300, cy - 400 + 140 * i, cx + 300, cy - 360 + 140 * i), fill=(230, 120, 40))
+        d.rectangle((cx - 200, cy - 340 + 140 * i, cx + 100, cy - 330 + 140 * i), fill=(240, 240, 235))
+    if runoff:                                           # dark bars painted right off the edges of the sheet
+        for y in (500, 900):
+            d.rectangle((0, y, size[0], y + 60), fill=(25, 25, 30))
+    im.save(path, quality=95)
+    return painted
+
+
 def max_corner_error(found, want):
     return max(math.hypot(a[0] - b[0], a[1] - b[1]) for a, b in zip(found, want))
 
@@ -119,6 +148,38 @@ class Detection(unittest.TestCase):
     def test_a_floor_leak_at_a_corner_doesnt_drag_the_outline(self):
         proposal, quad = self.detect(leak=True)
         self.assertLess(max_corner_error(proposal.corners, quad), 15)
+
+    def test_paper_photos_crop_to_the_painted_area(self):
+        path = self.tmp / "paper.jpg"
+        painted = synthetic_paper_photo(path)
+        proposal = crop.detect(crop.open_photo(path), RECIPE)
+        self.assertEqual(proposal.method, "paper")
+        self.assertTrue(proposal.check.ok, proposal.check.reasons)
+        self.assertLess(max_corner_error(proposal.corners, painted), 15)
+
+    def test_paper_crop_contains_no_paper(self):
+        from PIL import Image
+        path = self.tmp / "paper.jpg"
+        synthetic_paper_photo(path)
+        out = Image.open(crop.crop_artwork(path, self.tmp / "out")["output"]).convert("RGB")
+        w, h = out.size
+        for x, y in ((2, 2), (w - 3, 2), (w - 3, h - 3), (2, h - 3)):
+            self.assertLess(min(out.getpixel((x, y))), 200, f"paper at corner pixel {(x, y)}")
+
+    def test_paint_running_off_the_sheet_is_flagged_not_guessed(self):
+        path = self.tmp / "runoff.jpg"
+        synthetic_paper_photo(path, runoff=True)
+        record = crop.crop_artwork(path, self.tmp / "out")
+        if record["needs_review"] == "manual_corners_required":
+            self.assertIsNone(record["output"])
+            self.assertTrue(record["reason"])
+            self.assertIs(record["accepted"], False)
+        else:
+            self.assertFalse(record["proposal"]["check"]["ok"], "must be flagged, not passed as a paper crop")
+
+    def test_canvas_on_a_floor_still_uses_the_canvas_method(self):
+        proposal, _ = self.detect()
+        self.assertEqual(proposal.method, "canvas")
 
     def test_follows_exif_rotation(self):
         proposal, quad = self.detect(rotate_exif=True)

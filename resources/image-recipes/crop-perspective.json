@@ -1,16 +1,23 @@
 {
   "id": "crop-perspective",
-  "version": 1,
+  "version": 2,
   "status": "draft",
   "display_name": "Find the artwork in a photo, straighten and crop it",
-  "purpose": "Turns a phone photo of a painting on a floor or table into an upright crop of just the artwork (B-053). Always consequential: a reviewer accepts or corrects every crop.",
+  "purpose": "Turns a phone photo of artwork into an upright crop of just the artwork: the painted area on paper, or the whole canvas on a floor or table (B-053). Always consequential: a reviewer accepts or corrects every crop.",
   "consequential": true,
   "detection": {
-    "method": "saturation-otsu-edge-fit",
+    "methods": [
+      "paper",
+      "canvas"
+    ],
     "work_size_px": 600,
     "median_px": 5,
     "trim_px": 9,
-    "edge_middle": [0.2, 0.8]
+    "paper_seal_px": 5,
+    "edge_middle": [
+      0.2,
+      0.8
+    ]
   },
   "confidence": {
     "min_area_fraction": 0.15,
@@ -20,7 +27,12 @@
     "edge_margin_px": 4
   },
   "output": {
-    "inset_ratio": 0.006,
-    "format": "PNG"
+    "inset_ratio": {
+      "canvas": 0.006,
+      "paper": 0.025,
+      "manual": 0.0
+    },
+    "format": "PNG",
+    "note": "Painted areas on paper have ragged, hand-printed edges, so they're inset a little more."
   }
 }

@@ -39,19 +39,21 @@ class Recipe(unittest.TestCase):
 
 
 class Layout(unittest.TestCase):
-    def test_reproduces_the_owners_example(self):
+    def test_matches_the_owners_example_across(self):
+        # v2 keeps the example's widths (frame, side mat, artwork); only the bottom mat changed
         lay = framing.layout((624, 818), RECIPE)
         self.assertEqual(lay.canvas, (1024, 1536))
-        for got, want in zip(lay.frame + lay.art, MEASURED_FRAME + MEASURED_ART):
+        for got, want in ((lay.frame[0], MEASURED_FRAME[0]), (lay.frame[2], MEASURED_FRAME[2]),
+                          (lay.art[0], MEASURED_ART[0]), (lay.art[2], MEASURED_ART[2])):
             self.assertLessEqual(abs(got - want), 2, (lay.frame, lay.art))
+        self.assertLessEqual(abs((lay.art[3] - lay.art[1]) - (MEASURED_ART[3] - MEASURED_ART[1])), 4)
 
-    def test_mat_is_bottom_weighted(self):
-        lay = framing.layout((800, 1000), RECIPE)
-        top = lay.art[1] - lay.opening[1]
-        bottom = lay.opening[3] - lay.art[3]
-        side = lay.art[0] - lay.opening[0]
-        self.assertGreater(bottom, top)
-        self.assertLessEqual(abs(side - (lay.opening[2] - lay.art[2])), 1, "sides are equal")
+    def test_mat_is_equal_on_all_sides(self):
+        for size in ((800, 1000), (1000, 1000), (1500, 1000)):
+            lay = framing.layout(size, RECIPE)
+            margins = (lay.art[0] - lay.opening[0], lay.art[1] - lay.opening[1],
+                       lay.opening[2] - lay.art[2], lay.opening[3] - lay.art[3])
+            self.assertLessEqual(max(margins) - min(margins), 1, (size, margins))
 
     def test_any_aspect_fits_on_the_canvas(self):
         for size in ((600, 750), (1000, 1000), (2000, 1000), (500, 2000), (5712, 4284)):
