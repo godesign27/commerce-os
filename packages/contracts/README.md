@@ -43,8 +43,8 @@ actors, review issues and the publication states.
 
 ## Rules the schemas can't express
 
-These are specified as executable checks in `tests/test_contracts.py` (`semantic_errors`) and must be
-implemented in `packages/policy` in Phase 1 (BACKLOG B-043):
+These are implemented in `packages/policy` (BACKLOG B-043). Their cases in
+`tests/fixtures/contracts/invalid.json` (`semantic_cases`) are the specification:
 
 - A color option exists only when the product type's `options.color` is `allowed`.
 - No two variants of a product share the same option values, and each value is in its option definition.
@@ -59,6 +59,9 @@ every schema, and `invalid.json`, a list of patches that must each fail for a st
 
 ## Validating
 
-The structural test suite validates with a small stdlib validator (`tests/_jsonschema.py`) that
-supports exactly the keywords these schemas use, and fails if a schema uses any other. Phase 1 code
-uses the standard libraries: `jsonschema` in Python, Ajv in TypeScript.
+`packages/policy.validate(doc, related, expected=...)` is the one entry point: the document's schema
+first, then the semantic rules. It runs schemas with `packages/contracts/validator.py`, a strict stdlib
+validator that supports exactly the keywords these schemas use. The suite fails if a schema uses any
+other keyword, so nothing is silently ignored. The TypeScript dashboard validates the same schemas with
+Ajv. If the Python backend takes on dependencies, the `jsonschema` library can replace the stdlib
+validator without changing a schema.

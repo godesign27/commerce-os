@@ -4,7 +4,11 @@ Shared libraries. Contracts exist; everything else is Phase 1 onward.
 
 - `contracts/`: JSON Schema contracts for every document between pipeline stages, shared by the
   Python backend and the TypeScript dashboard. Written (B-020); see [contracts/README.md](contracts/README.md).
-- `policy/`: evidence policy, transition whitelist, approval binding checks.
+- `policy/`: whether a contract document is acceptable (B-043). `validate(doc, related, expected=...)`
+  runs the schema, then the rules schemas can't express: product-type option rules, unique option
+  combinations, each image grouped once, no self-approval, and approval bindings. `approvals.py` is
+  the single definition of the bindings; the adapters call it, and migration 0007's trigger binds the
+  same fields (a test pins all three). Transition rules stay in the database (migration 0003).
 - `image-pipeline/`: validation and versioned transform recipes.
 - `adapters/`: the adapter contract (PRD §15) and the in-memory fake (B-019).
   - `contract.py`: the interface (`capabilities`, `read_catalog`, `validate`, `plan`, `dry_run`,

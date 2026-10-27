@@ -15,6 +15,8 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import List, Optional
 
+from packages.policy import approvals as policy_approvals
+
 CONTRACT_VERSION = 1
 
 
@@ -92,12 +94,12 @@ class PublishResult:
 
 # ---------------------------------------------------------------- storefront-neutral guards
 
-APPROVAL_BINDINGS = ("destination", "environment", "change_set_id", "change_set_hash", "canonical_revision",
-                     "asset_manifest_hash", "mapping_version", "schema_fingerprint", "requested_status")
+APPROVAL_BINDINGS = ("change_set_id",) + policy_approvals.APPROVAL_BINDINGS
 
 
 def approval_issues(change_set: dict, approval: Optional[dict]) -> List[Issue]:
-    """Every adapter checks these before writing, whatever the workflow service already checked."""
+    """Every adapter checks these before writing, whatever the workflow service already checked.
+    Bindings and self-approval come from packages/policy, their single definition."""
     if not approval:
         return [Issue("no_approval", "publishing needs a human approval of this exact change set")]
     issues = []
@@ -109,12 +111,8 @@ def approval_issues(change_set: dict, approval: Optional[dict]) -> List[Issue]:
     actor = approval.get("actor") or {}
     if actor.get("kind") != "human" or actor.get("role") != "approver":
         issues.append(Issue("not_a_human_approver", "approvals come from a human with the approver role"))
-    prepared = approval.get("prepared_by") or {}
-    if prepared.get("id") and prepared.get("id") == actor.get("id"):
-        issues.append(Issue("self_approval", "the approver prepared this change set"))
-    for key in APPROVAL_BINDINGS:
-        if approval.get(key) != change_set.get(key):
-            issues.append(Issue("binding_mismatch", f"approval {key} doesn't match the change set"))
+    for v in policy_approvals.self_approval(approval) + policy_approvals.binding_violations(approval, change_set):
+        issues.append(Issue(v.code, v.message))
     return issues
 
 
