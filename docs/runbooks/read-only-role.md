@@ -102,6 +102,14 @@ confirms:
 
 It changes nothing. Apply differences with `/edit-mappings <storefront>`.
 
+**If the check says "password authentication failed"**, try the direct host
+(`db.<project-ref>.supabase.co`) as well as the pooler:
+
+- **Both fail:** the database holds a different password. Most often, a placeholder or masked copy was
+  pasted in place of the real one. Set it again with
+  `ALTER ROLE commerce_os_read WITH PASSWORD '...'`, copying from the generated file only.
+- **Only the pooler fails:** it can serve a cached password for a minute or two after a change. Retry.
+
 ## Revoke
 
 ```sql
