@@ -54,6 +54,17 @@ plugin manifest; ask the agent to follow a skill file directly (see the Cursor r
 ./tests/install-hooks.sh
 ```
 
+The Python services need a project environment (B-052). The test runner uses it when it exists, and
+skips the few tests that need it when it doesn't:
+
+```bash
+python3 -m venv .venv
+```
+
+```bash
+.venv/bin/python -m pip install -r requirements.txt
+```
+
 ```bash
 ./run-tests.sh
 ```
