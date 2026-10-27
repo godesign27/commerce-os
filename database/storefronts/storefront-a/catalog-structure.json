@@ -1,0 +1,235 @@
+{
+  "storefront": "storefront-a",
+  "catalog_profile": "replit-artstore-v1",
+  "description": "The catalog tables' structure (order-insensitive). schema.sql must reproduce it exactly; `local_storefront_db.py drift` compares the live database against it.",
+  "verified": [
+    {
+      "date": "2026-10-21",
+      "source": "production schema dump (discovery/raw, not committed)"
+    },
+    {
+      "date": "2026-10-27",
+      "source": "Supabase project (test copy, supabase-migration branch), read through the read-only role"
+    }
+  ],
+  "fingerprint": "d40f37d9f78c109aacd557b3e08229556eb9527201e423ccff2e01c7a8987115",
+  "tables": {
+    "categories": {
+      "columns": {
+        "created_at": {
+          "default": "now()",
+          "not_null": false,
+          "type": "timestamp without time zone"
+        },
+        "description": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "not_null": true,
+          "type": "character varying"
+        },
+        "is_active": {
+          "default": "true",
+          "not_null": false,
+          "type": "boolean"
+        },
+        "is_featured": {
+          "default": "false",
+          "not_null": false,
+          "type": "boolean"
+        },
+        "name": {
+          "default": null,
+          "not_null": true,
+          "type": "text"
+        },
+        "slug": {
+          "default": null,
+          "not_null": true,
+          "type": "text"
+        },
+        "sort_order": {
+          "default": "0",
+          "not_null": false,
+          "type": "integer"
+        }
+      },
+      "constraints": {
+        "categories_pkey": "PRIMARY KEY (id)",
+        "categories_slug_unique": "UNIQUE (slug)"
+      }
+    },
+    "products": {
+      "columns": {
+        "authenticity": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "category_id": {
+          "default": null,
+          "not_null": false,
+          "type": "character varying"
+        },
+        "created_at": {
+          "default": "now()",
+          "not_null": false,
+          "type": "timestamp without time zone"
+        },
+        "description": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "dimensions": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "frame": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "not_null": true,
+          "type": "character varying"
+        },
+        "images": {
+          "default": "'[]'::jsonb",
+          "not_null": false,
+          "type": "jsonb"
+        },
+        "is_featured": {
+          "default": "false",
+          "not_null": false,
+          "type": "boolean"
+        },
+        "is_original": {
+          "default": "false",
+          "not_null": false,
+          "type": "boolean"
+        },
+        "is_sold": {
+          "default": "false",
+          "not_null": false,
+          "type": "boolean"
+        },
+        "medium": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "name": {
+          "default": null,
+          "not_null": true,
+          "type": "text"
+        },
+        "packaging": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "price": {
+          "default": null,
+          "not_null": true,
+          "type": "numeric(10,2)"
+        },
+        "pricing_tiers": {
+          "default": "'[]'::jsonb",
+          "not_null": false,
+          "type": "jsonb"
+        },
+        "rarity": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "short_description": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "show_in_gallery": {
+          "default": "false",
+          "not_null": false,
+          "type": "boolean"
+        },
+        "sku": {
+          "default": null,
+          "not_null": false,
+          "type": "text"
+        },
+        "slug": {
+          "default": null,
+          "not_null": true,
+          "type": "text"
+        },
+        "status": {
+          "default": "'active'::text",
+          "not_null": false,
+          "type": "text"
+        },
+        "stock": {
+          "default": "0",
+          "not_null": false,
+          "type": "integer"
+        },
+        "tags": {
+          "default": "'[]'::jsonb",
+          "not_null": false,
+          "type": "jsonb"
+        },
+        "updated_at": {
+          "default": "now()",
+          "not_null": false,
+          "type": "timestamp without time zone"
+        },
+        "year": {
+          "default": null,
+          "not_null": false,
+          "type": "integer"
+        }
+      },
+      "constraints": {
+        "products_category_id_categories_id_fk": "FOREIGN KEY (category_id) REFERENCES categories(id)",
+        "products_pkey": "PRIMARY KEY (id)",
+        "products_sku_unique": "UNIQUE (sku)",
+        "products_slug_unique": "UNIQUE (slug)"
+      }
+    },
+    "tags": {
+      "columns": {
+        "created_at": {
+          "default": "now()",
+          "not_null": false,
+          "type": "timestamp without time zone"
+        },
+        "id": {
+          "default": "gen_random_uuid()",
+          "not_null": true,
+          "type": "character varying"
+        },
+        "name": {
+          "default": null,
+          "not_null": true,
+          "type": "text"
+        },
+        "slug": {
+          "default": null,
+          "not_null": true,
+          "type": "text"
+        }
+      },
+      "constraints": {
+        "tags_name_unique": "UNIQUE (name)",
+        "tags_pkey": "PRIMARY KEY (id)",
+        "tags_slug_unique": "UNIQUE (slug)"
+      }
+    }
+  }
+}
