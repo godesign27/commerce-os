@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "canonical-draft.schema.json",
+  "title": "Canonical draft",
+  "description": "The storefront-neutral staging record at one revision. Holds no price, stock, tax or destination status: those live only in each destination's change set (PRD §8.2).",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "draft_id",
+    "submission_id",
+    "source_snapshot_id",
+    "revision",
+    "product_type",
+    "product",
+    "variants",
+    "review_issues",
+    "policy_versions",
+    "simulated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "canonical-draft"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "draft_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "submission_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "source_snapshot_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "revision": {
+      "$ref": "common.schema.json#/$defs/revision"
+    },
+    "product_type": {
+      "type": "object",
+      "required": [
+        "id",
+        "version"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "common.schema.json#/$defs/slug"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "product": {
+      "type": "object",
+      "required": [
+        "title",
+        "description",
+        "option_definitions",
+        "assets"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "$ref": "common.schema.json#/$defs/field"
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/field"
+        },
+        "brand": {
+          "$ref": "common.schema.json#/$defs/commercial_field"
+        },
+        "vendor": {
+          "$ref": "common.schema.json#/$defs/commercial_field"
+        },
+        "material": {
+          "$ref": "common.schema.json#/$defs/commercial_field"
+        },
+        "dimensions": {
+          "allOf": [
+            {
+              "$ref": "common.schema.json#/$defs/commercial_field"
+            },
+            {
+              "properties": {
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "common.schema.json#/$defs/dimensions"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "option_definitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key",
+              "label",
+              "values"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "$ref": "common.schema.json#/$defs/slug"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "values": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "common.schema.json#/$defs/field"
+          }
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "file_id",
+              "role",
+              "position"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "file_id": {
+                "type": "string"
+              },
+              "role": {
+                "$ref": "common.schema.json#/$defs/asset_role"
+              },
+              "position": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "variants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "variant_id",
+          "option_values",
+          "sku",
+          "gtin",
+          "file_ids"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "variant_id": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "option_values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "sku": {
+            "$ref": "common.schema.json#/$defs/commercial_field"
+          },
+          "gtin": {
+            "$ref": "common.schema.json#/$defs/commercial_field"
+          },
+          "file_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "review_issues": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/review_issue"
+      }
+    },
+    "policy_versions": {
+      "$ref": "common.schema.json#/$defs/policy_versions"
+    },
+    "simulated": {
+      "type": "boolean"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "hand-fan",
+  "display_name": "Hand fan",
+  "version": 1,
+  "status": "draft",
+  "kind": "tangible",
+  "aliases": [
+    "fan"
+  ],
+  "options": {
+    "color": "allowed",
+    "size": "not_applicable"
+  },
+  "variant_model": "One variant per observed color.",
+  "required_facts": [
+    "price"
+  ]
+}

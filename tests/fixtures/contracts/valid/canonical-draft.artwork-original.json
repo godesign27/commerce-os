@@ -1,0 +1,97 @@
+{
+  "contract": "canonical-draft",
+  "contract_version": 1,
+  "draft_id": "draft-art-001",
+  "submission_id": "sub-art-001",
+  "source_snapshot_id": "snap-art-001-r1",
+  "revision": 1,
+  "product_type": {
+    "id": "artwork",
+    "version": 1
+  },
+  "product": {
+    "title": {
+      "value": null,
+      "status": "unknown",
+      "evidence": []
+    },
+    "description": {
+      "value": null,
+      "status": "unknown",
+      "evidence": []
+    },
+    "material": {
+      "value": "Acrylic on canvas",
+      "status": "supplied",
+      "evidence": [
+        {
+          "kind": "manifest_field",
+          "ref": "manifest.medium"
+        }
+      ]
+    },
+    "dimensions": {
+      "value": {
+        "width": 24,
+        "height": 30,
+        "unit": "in"
+      },
+      "status": "supplied",
+      "evidence": [
+        {
+          "kind": "manifest_field",
+          "ref": "manifest.size"
+        }
+      ]
+    },
+    "option_definitions": [],
+    "assets": [
+      {
+        "file_id": "file-art-full",
+        "role": "primary",
+        "position": 0
+      },
+      {
+        "file_id": "file-art-detail",
+        "role": "detail",
+        "position": 1
+      }
+    ]
+  },
+  "variants": [
+    {
+      "variant_id": "var-art-default",
+      "option_values": {},
+      "sku": {
+        "value": null,
+        "status": "unknown",
+        "evidence": []
+      },
+      "gtin": {
+        "value": null,
+        "status": "unknown",
+        "evidence": []
+      },
+      "file_ids": [
+        "file-art-full",
+        "file-art-detail"
+      ]
+    }
+  ],
+  "review_issues": [
+    {
+      "id": "RI-1",
+      "severity": "blocking",
+      "gate": 2,
+      "target": "product.title",
+      "question": "What is this artwork called?",
+      "resolver": "submitter"
+    }
+  ],
+  "policy_versions": {
+    "evidence-policy": "0.1.0",
+    "intake-policy": "0.1.0",
+    "product-type:artwork": "1"
+  },
+  "simulated": true
+}

@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "product-proposal.schema.json",
+  "title": "Product proposal",
+  "description": "What the submission appears to be: product type, how images group into products, views and variants, visible attributes, and catalog candidates per storefront. Produced by product-classification, variant-grouping and catalog-retrieval.",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "submission_id",
+    "source_snapshot_id",
+    "revision",
+    "product_type",
+    "grouping",
+    "products",
+    "catalog_candidates",
+    "review_issues",
+    "policy_versions",
+    "simulated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "product-proposal"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "submission_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "source_snapshot_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "revision": {
+      "$ref": "common.schema.json#/$defs/revision"
+    },
+    "product_type": {
+      "type": "object",
+      "required": [
+        "id",
+        "version",
+        "status",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "common.schema.json#/$defs/slug"
+            }
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "observed",
+            "inferred",
+            "supplied",
+            "conflicting",
+            "unknown",
+            "human_confirmed"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/evidence_ref"
+          }
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/slug"
+          }
+        }
+      }
+    },
+    "grouping": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "product_key",
+          "role",
+          "variant_key",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "type": "string"
+          },
+          "product_key": {
+            "type": "string",
+            "pattern": "^P-\\d+$"
+          },
+          "role": {
+            "$ref": "common.schema.json#/$defs/asset_role"
+          },
+          "variant_key": {
+            "type": "string",
+            "pattern": "^V-\\d+$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "products": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "key",
+          "option_definitions",
+          "variants",
+          "fields"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^P-\\d+$"
+          },
+          "option_definitions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "label",
+                "values"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "$ref": "common.schema.json#/$defs/slug"
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "values": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          "variants": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "key",
+                "option_values",
+                "asset_ids",
+                "sku",
+                "gtin"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^V-\\d+$"
+                },
+                "option_values": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "asset_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "observed_color": {
+                  "$ref": "common.schema.json#/$defs/field"
+                },
+                "sku": {
+                  "$ref": "common.schema.json#/$defs/commercial_field"
+                },
+                "gtin": {
+                  "$ref": "common.schema.json#/$defs/commercial_field"
+                }
+              }
+            }
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "$ref": "common.schema.json#/$defs/field"
+              },
+              "description": {
+                "$ref": "common.schema.json#/$defs/field"
+              },
+              "brand": {
+                "$ref": "common.schema.json#/$defs/commercial_field"
+              },
+              "vendor": {
+                "$ref": "common.schema.json#/$defs/commercial_field"
+              },
+              "material": {
+                "$ref": "common.schema.json#/$defs/commercial_field"
+              },
+              "dimensions": {
+                "$ref": "common.schema.json#/$defs/commercial_field"
+              },
+              "visible_attributes": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.schema.json#/$defs/field"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "catalog_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "storefront",
+          "external_id",
+          "matching",
+          "conflicting",
+          "proposed_use"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "storefront": {
+            "$ref": "common.schema.json#/$defs/storefront_id"
+          },
+          "environment": {
+            "$ref": "common.schema.json#/$defs/environment"
+          },
+          "external_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "matching": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conflicting": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "proposed_use": {
+            "enum": [
+              "structure_only",
+              "possible_same_product"
+            ]
+          }
+        }
+      }
+    },
+    "review_issues": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/review_issue"
+      }
+    },
+    "policy_versions": {
+      "$ref": "common.schema.json#/$defs/policy_versions"
+    },
+    "simulated": {
+      "type": "boolean"
+    }
+  }
+}

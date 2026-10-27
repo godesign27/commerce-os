@@ -15,7 +15,8 @@ This skill makes each grouping decision visible so the reviewer can confirm, spl
 ## Inputs
 
 - Source manifest, asset records, and the classification from product-classification.
-- Option vocabulary for the category from `resources/categories/` (B-005).
+- The product type's `options` from `resources/product-types/<type>.json`. `options.color` decides whether a
+  color option may exist at all (B-030).
 
 ## Outputs
 
@@ -37,10 +38,13 @@ Read on the manifest, assets and proposal; Write under `.commerce-os/out/` only.
 ## Workflow
 
 1. Group images showing the same physical item from different angles as views of one variant.
-2. Where the same design appears in clearly different colors, propose a `color` option with one value
-   per observed color. Uneven lighting: keep it one variant, add a warning issue.
+2. **Color, only if the product type allows it** (`options.color: allowed`): where the same item appears
+   in clearly different colors, propose a `color` option with one value per observed color. Uneven
+   lighting: keep it one variant, add a warning issue. If the type is `not_applicable` (artwork),
+   never create a color option: differently colored images are separate products or views.
 3. Where images show different designs, propose separate products. Never merge silently.
-4. Sizes come only from the manifest (`supplied`) or a human. Otherwise no size axis.
+4. Sizes follow `options.size`: `from_tiers` uses supplied pricing tiers; `supplied_only` uses the
+   manifest or a human; `not_applicable` means no size axis. Never from images.
 5. Normalize option keys and values (lowercase keys, trimmed labels); check uniqueness of option
    combinations per product.
 6. A product with no options gets one default variant.
@@ -61,6 +65,6 @@ showing both interpretations.
 Observed colors are `observed` with confidence; supplied options are `supplied`. SKU and GTIN are
 `supplied` or `null`, never generated.
 
-## Phase 0a status
+## Current status
 
 Specification only. Runs on fixtures once the Phase 1 contracts exist (B-020).

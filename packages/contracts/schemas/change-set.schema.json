@@ -1,0 +1,422 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "change-set.schema.json",
+  "title": "Destination change set",
+  "description": "The exact operations proposed for ONE storefront and environment. Immutable once approved; any change is a new change set needing new approval (PRD §13, §15).",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "change_set_id",
+    "submission_id",
+    "destination",
+    "environment",
+    "canonical_revision",
+    "mapping_version",
+    "schema_fingerprint",
+    "asset_manifest_hash",
+    "requested_status",
+    "operations",
+    "not_touched",
+    "blockers",
+    "change_set_hash",
+    "simulated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "change-set"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "change_set_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "submission_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "destination": {
+      "$ref": "common.schema.json#/$defs/storefront_id"
+    },
+    "environment": {
+      "$ref": "common.schema.json#/$defs/environment"
+    },
+    "canonical_revision": {
+      "$ref": "common.schema.json#/$defs/revision"
+    },
+    "mapping_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "schema_fingerprint": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "asset_manifest_hash": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "requested_status": {
+      "description": "The exact destination status requested. Always explicit; never the database default.",
+      "type": "string",
+      "minLength": 1
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "seq",
+          "op",
+          "entity",
+          "key",
+          "precondition",
+          "fields"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "op": {
+            "enum": [
+              "create",
+              "update"
+            ]
+          },
+          "entity": {
+            "enum": [
+              "product",
+              "category",
+              "tag"
+            ]
+          },
+          "key": {
+            "description": "Commerce OS-supplied destination ID, so retries are lookups, not duplicates.",
+            "type": "string",
+            "minLength": 1
+          },
+          "precondition": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "must_not_exist": {
+                "const": true
+              },
+              "expected_row_hash": {
+                "$ref": "common.schema.json#/$defs/sha256"
+              }
+            }
+          },
+          "fields": {
+            "type": "object",
+            "properties": {
+              "price": {
+                "allOf": [
+                  {
+                    "description": "A destination value with its source. Commercial keys are restricted below.",
+                    "type": "object",
+                    "required": [
+                      "value",
+                      "status"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {},
+                      "status": {
+                        "$ref": "common.schema.json#/$defs/evidence_status"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "common.schema.json#/$defs/evidence_ref"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "supplied",
+                          "verified_catalog",
+                          "human_confirmed"
+                        ]
+                      },
+                      "value": {
+                        "not": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "value": {
+                        "$ref": "common.schema.json#/$defs/money"
+                      }
+                    }
+                  }
+                ]
+              },
+              "stock": {
+                "allOf": [
+                  {
+                    "description": "A destination value with its source. Commercial keys are restricted below.",
+                    "type": "object",
+                    "required": [
+                      "value",
+                      "status"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {},
+                      "status": {
+                        "$ref": "common.schema.json#/$defs/evidence_status"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "common.schema.json#/$defs/evidence_ref"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "supplied",
+                          "verified_catalog",
+                          "human_confirmed"
+                        ]
+                      },
+                      "value": {
+                        "not": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "value": {
+                        "$ref": "common.schema.json#/$defs/money"
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "value": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              "sku": {
+                "allOf": [
+                  {
+                    "description": "A destination value with its source. Commercial keys are restricted below.",
+                    "type": "object",
+                    "required": [
+                      "value",
+                      "status"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {},
+                      "status": {
+                        "$ref": "common.schema.json#/$defs/evidence_status"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "common.schema.json#/$defs/evidence_ref"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "status": {
+                        "enum": [
+                          "supplied",
+                          "verified_catalog",
+                          "human_confirmed"
+                        ]
+                      },
+                      "value": {
+                        "not": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "value": {
+                        "$ref": "common.schema.json#/$defs/money"
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "value": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              "status": {
+                "allOf": [
+                  {
+                    "description": "A destination value with its source. Commercial keys are restricted below.",
+                    "type": "object",
+                    "required": [
+                      "value",
+                      "status"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "value": {},
+                      "status": {
+                        "$ref": "common.schema.json#/$defs/evidence_status"
+                      },
+                      "evidence": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "common.schema.json#/$defs/evidence_ref"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "status": {
+                        "const": "human_confirmed"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "additionalProperties": {
+              "description": "A destination value with its source. Commercial keys are restricted below.",
+              "type": "object",
+              "required": [
+                "value",
+                "status"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "value": {},
+                "status": {
+                  "$ref": "common.schema.json#/$defs/evidence_status"
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "common.schema.json#/$defs/evidence_ref"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "op": {
+                  "const": "create"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "precondition": {
+                  "required": [
+                    "must_not_exist"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "op": {
+                  "const": "update"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "precondition": {
+                  "required": [
+                    "expected_row_hash"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "derivative_id",
+          "destination_key",
+          "delivered"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "derivative_id": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "destination_key": {
+            "type": "string",
+            "minLength": 1
+          },
+          "delivered": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "not_touched": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/review_issue"
+      }
+    },
+    "change_set_hash": {
+      "description": "Computed by the workflow service over the operations; null until it is sealed for approval.",
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "common.schema.json#/$defs/sha256"
+        }
+      ]
+    },
+    "simulated": {
+      "type": "boolean"
+    }
+  }
+}

@@ -10,6 +10,7 @@ Status: Phase 0a. Requirements from [PRD.md](../PRD.md) §17, and how this scaff
 | Agents can't write externally | No MCP servers shipped; agent tool lists exclude Bash and network tools; tests pin both. |
 | Untrusted input | Every agent and skill reads COMMERCE-CONTEXT.md, which forbids following embedded instructions. |
 | Independence (AC-01) | Tests reject references to the sibling repository from shipped and runtime folders. |
+| Read-only catalog role | docs/runbooks/read-only-role.md creates it; `scripts/check_read_role.py` proves it reads only products, categories and tags, holds no write privilege or elevated attribute, and runs in a read-only session. |
 | No real data committed | `discovery/raw/` is gitignored for schema dumps and real images. |
 
 ## Required before Phase 2

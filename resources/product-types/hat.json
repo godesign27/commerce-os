@@ -1,0 +1,20 @@
+{
+  "id": "hat",
+  "display_name": "Hat / cap",
+  "version": 1,
+  "status": "draft",
+  "kind": "tangible",
+  "aliases": [
+    "cap",
+    "ball cap",
+    "baseball cap"
+  ],
+  "options": {
+    "color": "allowed",
+    "size": "supplied_only"
+  },
+  "variant_model": "One variant per observed color; sizes only if supplied.",
+  "required_facts": [
+    "price"
+  ]
+}

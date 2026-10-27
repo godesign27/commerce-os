@@ -28,7 +28,13 @@ Google Drive intake folders
 | Drive receiver | `services/drive-events/` | Operational DB inbox | Persists before acknowledging. |
 | Dashboard | `apps/review-dashboard/` | Through the workflow service only | Never holds a storefront credential. |
 | Adapters | `packages/adapters/storefront-*/` | Their own storefront only | Separate code, mapping and credentials per storefront. |
-| Contracts and policy | `packages/contracts/`, `packages/policy/` | Nothing | Shared schemas and rules used by all of the above. |
+| Contracts and policy | `packages/contracts/` (JSON Schema, written), `packages/policy/` (Phase 1) | Nothing | Shared schemas and rules used by the Python backend and the TypeScript dashboard. |
+
+## Database providers
+
+Each storefront and the operational database choose a provider (`replit-postgres`, `supabase`, `neon`,
+more later) and storefronts choose a catalog profile. Adapters are provider drivers plus a profile, configured
+per storefront. See [storefront-connections.md](storefront-connections.md).
 
 ## Three database boundaries
 

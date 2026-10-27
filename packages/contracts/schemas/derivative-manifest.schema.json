@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "derivative-manifest.schema.json",
+  "title": "Derivative manifest",
+  "description": "Image derivatives made from one snapshot's accepted originals with versioned recipes. Originals are never changed.",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "submission_id",
+    "source_snapshot_id",
+    "derivatives",
+    "simulated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "derivative-manifest"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "submission_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "source_snapshot_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "derivatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "derivative_id",
+          "source_file_id",
+          "source_sha256",
+          "recipe",
+          "destination",
+          "mime",
+          "width",
+          "height",
+          "bytes",
+          "sha256",
+          "key",
+          "consequential"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "derivative_id": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "source_file_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_sha256": {
+            "$ref": "common.schema.json#/$defs/sha256"
+          },
+          "recipe": {
+            "type": "object",
+            "required": [
+              "id",
+              "version"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "common.schema.json#/$defs/slug"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "$ref": "common.schema.json#/$defs/storefront_id"
+              },
+              {
+                "const": "review"
+              }
+            ]
+          },
+          "mime": {
+            "type": "string",
+            "pattern": "^image/[a-z0-9.+-]+$"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "$ref": "common.schema.json#/$defs/sha256"
+          },
+          "key": {
+            "description": "Collision-safe, content-addressed key: <source sha256>/<recipe id>@<version>.<ext>",
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}/[a-z][a-z0-9-]*@\\d+\\.[a-z0-9]+$"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "orient",
+                "decode_reencode",
+                "color_convert",
+                "resize",
+                "compress",
+                "strip_metadata",
+                "crop",
+                "remove_background"
+              ]
+            }
+          },
+          "consequential": {
+            "type": "boolean"
+          },
+          "accepted": {
+            "$ref": "common.schema.json#/$defs/decision"
+          },
+          "alt_text": {
+            "allOf": [
+              {
+                "$ref": "common.schema.json#/$defs/field"
+              },
+              {
+                "properties": {
+                  "status": {
+                    "enum": [
+                      "observed",
+                      "human_confirmed",
+                      "unknown"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "operations": {
+                  "contains": {
+                    "enum": [
+                      "crop",
+                      "remove_background"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "operations"
+              ]
+            },
+            "then": {
+              "properties": {
+                "consequential": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "simulated": {
+      "type": "boolean"
+    }
+  }
+}

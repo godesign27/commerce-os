@@ -56,6 +56,6 @@ Any binding unavailable: verdict `stale` with "could not verify <binding>". Neve
 
 Each comparison cites the record IDs compared.
 
-## Phase 0a status
+## Current status
 
 Not runnable: no approval records exist without the workflow service.

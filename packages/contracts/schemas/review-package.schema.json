@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review-package.schema.json",
+  "title": "Review package",
+  "description": "What a reviewer needs to decide: blockers first, images, structure, fields needing a decision, per-storefront comparisons and previews.",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "submission_id",
+    "canonical_revision",
+    "destinations",
+    "summary",
+    "blockers",
+    "images",
+    "fields_needing_decision",
+    "change_set_ids",
+    "questions",
+    "simulated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "review-package"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "submission_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "canonical_revision": {
+      "$ref": "common.schema.json#/$defs/revision"
+    },
+    "destinations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.schema.json#/$defs/storefront_id"
+      }
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {
+            "$ref": "common.schema.json#/$defs/review_issue"
+          },
+          {
+            "required": [
+              "gate"
+            ],
+            "properties": {
+              "severity": {
+                "const": "blocking"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "derivative_ids",
+          "consequential_pending"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "type": "string"
+          },
+          "derivative_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "common.schema.json#/$defs/id"
+            }
+          },
+          "consequential_pending": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "fields_needing_decision": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "status",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "$ref": "common.schema.json#/$defs/evidence_status"
+          },
+          "reason": {
+            "enum": [
+              "unknown_required",
+              "conflicting",
+              "low_confidence_inference",
+              "identity_unconfirmed",
+              "grouping_unconfirmed"
+            ]
+          }
+        }
+      }
+    },
+    "change_set_ids": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "common.schema.json#/$defs/id"
+      }
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "simulated": {
+      "type": "boolean"
+    }
+  }
+}

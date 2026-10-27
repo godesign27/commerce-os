@@ -58,6 +58,6 @@ piece as a blocker.
 
 Every field shown carries its status and evidence reference exactly as recorded.
 
-## Phase 0a status
+## Current status
 
 Runnable on hand-made fixture outputs. Mark the package `simulated: true`.

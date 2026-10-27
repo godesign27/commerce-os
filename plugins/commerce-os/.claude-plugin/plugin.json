@@ -1,7 +1,7 @@
 {
   "name": "commerce-os",
-  "version": "0.1.0",
-  "description": "Commerce OS: governed product preparation for two independent storefronts. A router (commerce-lead) and four specialist agents - intake-assets, product-intelligence, catalog-draft, review-publishing - run twelve skills from Drive intake through image preparation, classification, variant grouping, catalog retrieval, drafting, destination mapping, review packaging, approval verification, publishing dry runs and reconciliation. Evidence-first: unknown facts stay unknown, and no agent writes to a storefront.",
+  "version": "0.3.0",
+  "description": "Commerce OS: governed product preparation for two independent storefronts. A router (commerce-lead) and four specialist agents - intake-assets, product-intelligence, catalog-draft, review-publishing - run twelve skills from Drive intake through image preparation, classification, variant grouping, catalog retrieval, drafting, destination mapping, review packaging, approval verification, publishing dry runs and reconciliation. A storefront-setup skill chooses each database's provider (Replit-managed Postgres or Supabase, extensible). Evidence-first: unknown facts stay unknown, and no agent writes to a storefront.",
   "author": {
     "name": "Commerce OS"
   },

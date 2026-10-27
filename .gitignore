@@ -3,6 +3,10 @@
 .env.*
 !.env.example
 
+# Real storefront configuration (holds real names; template is config/storefronts.example.json)
+config/storefronts.local.json
+config/mappings/*.local.json
+
 # Local working output from agents and dry runs (never committed)
 .commerce-os/
 
@@ -27,3 +31,7 @@ TEST*.xml
 Thumbs.db
 .idea/
 .vscode/
+
+# Third-party agent skills installed locally (e.g. `neon skills`); personal tooling, not part of Commerce OS
+.agents/
+skills-lock.json

@@ -2,7 +2,7 @@
 import re
 import unittest
 
-from tests._helpers import (AGENTS, COMMANDS, PLUGIN, ROUTER, SKILL_OWNERS, SKILL_SECTIONS, SKILLS,
+from tests._helpers import (ADMIN_SKILLS, AGENTS, COMMANDS, PLUGIN, ROUTER, SKILL_OWNERS, SKILL_SECTIONS, SKILLS,
                             SPECIALISTS, body, frontmatter, headings, read)
 
 PLUGIN_ROOT_PATH = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([\w./-]+)")
@@ -11,7 +11,8 @@ PLUGIN_ROOT_PATH = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([\w./-]+)")
 class Skills(unittest.TestCase):
     def test_exactly_the_prd_skills_exist(self):
         found = {d.name for d in SKILLS.iterdir() if d.is_dir()}
-        self.assertEqual(found, set(SKILL_OWNERS), "skills/ must match the PRD §6.1 list")
+        self.assertEqual(found, set(SKILL_OWNERS) | ADMIN_SKILLS,
+                         "skills/ must be the PRD §6.1 list plus the administrator skills")
 
     def test_skill_name_matches_folder_and_has_description(self):
         for d in SKILLS.iterdir():
@@ -51,9 +52,16 @@ class Agents(unittest.TestCase):
             routed_by = [f.stem for f in AGENTS.glob("*.md") if ref in read(f)]
             self.assertEqual(routed_by, [owner], f"{skill} should be routed only by {owner}")
 
+    def test_admin_skills_are_routed_by_no_agent_and_have_a_command(self):
+        for skill in ADMIN_SKILLS:
+            ref = f"${{CLAUDE_PLUGIN_ROOT}}/skills/{skill}/SKILL.md"
+            self.assertEqual([f.stem for f in AGENTS.glob("*.md") if ref in read(f)], [],
+                             f"{skill} is an administrator skill; no agent should route it")
+            self.assertTrue(any(ref in read(c) for c in COMMANDS.glob("*.md")), f"no command runs {skill}")
+
     def test_router_table_covers_every_skill(self):
         text = read(AGENTS / f"{ROUTER}.md")
-        for skill in SKILL_OWNERS:
+        for skill in set(SKILL_OWNERS) | ADMIN_SKILLS:
             self.assertRegex(text, rf"\b{re.escape(skill)}\b", f"{ROUTER} routing table omits {skill}")
         for spec in SPECIALISTS:
             self.assertIn(f"`{spec}`", text, f"{ROUTER} never dispatches {spec}")

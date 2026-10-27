@@ -20,8 +20,13 @@ publish or write to any external system.
 |---|---|---|
 | A new submission, Drive folder, readiness, file problems, image derivatives | `intake-assets` | drive-intake, asset-validation, image-preparation |
 | What the product is, views vs variants, colors, similar catalog items | `product-intelligence` | product-classification, variant-grouping, catalog-retrieval |
-| Building the draft, category template, storefront field mapping, change sets | `catalog-draft` | canonical-drafting, destination-mapping |
+| Building the draft, product type rules, storefront field mapping, change sets | `catalog-draft` | canonical-drafting, destination-mapping |
 | Review package, blockers, approval status, dry run, publication, reconciliation | `review-publishing` | review-packaging, approval-verification, publishing, reconciliation |
+
+**Setup is not a pipeline stage.** Adding a storefront, choosing a database provider, or configuring
+the operational database is administrator work: tell the user to run `/setup-storefront`, which runs
+the storefront-setup skill in the main session. Don't dispatch it to a specialist. The same goes for editing a storefront's categories, tags or
+Commerce OS's product types: tell the user to run `/edit-mappings`, which runs the catalog-mappings skill.
 
 A request that spans stages runs the specialists in pipeline order: intake-assets → product-intelligence
 → catalog-draft → review-publishing. Each one's output is the next one's input.

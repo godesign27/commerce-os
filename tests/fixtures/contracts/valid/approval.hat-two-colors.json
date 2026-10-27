@@ -1,0 +1,25 @@
+{
+  "contract": "approval",
+  "contract_version": 1,
+  "approval_id": "appr-hat-001-b",
+  "actor": {
+    "kind": "human",
+    "id": "user-approver-1",
+    "role": "approver"
+  },
+  "approved_at": "2026-10-21T15:00:00Z",
+  "destination": "storefront-b",
+  "environment": "production",
+  "change_set_id": "cs-hat-001-b",
+  "change_set_hash": "594f9eb0d08131224e6004ee15902843e432ccdf5d0c9c8b5725d46d53fba94b",
+  "canonical_revision": 2,
+  "asset_manifest_hash": "e8e63747bbe8da5bc2f982144c68457c4fa48bb51e4acf953bda9880b22a270d",
+  "mapping_version": 3,
+  "schema_fingerprint": "4485bff988fca40fe77fc06bd35986101ef121185f1abc8e46929704250ae739",
+  "requested_status": "draft",
+  "prepared_by": {
+    "kind": "agent",
+    "id": "catalog-draft",
+    "role": "system"
+  }
+}

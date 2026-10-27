@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "operational_database": {
+    "provider": "supabase",
+    "env_prefix": "OPS"
+  },
+  "storefronts": [
+    {
+      "id": "storefront-a",
+      "display_name": "Storefront A",
+      "provider": "supabase",
+      "catalog_profile": "replit-artstore-v1",
+      "features": [
+        "is_sold",
+        "show_in_gallery"
+      ],
+      "currency": "USD",
+      "env_prefix": "STOREFRONT_A",
+      "mapping": "config/mappings/storefront-a.local.json",
+      "asset_upload": "not_authorized",
+      "writes_enabled": false
+    },
+    {
+      "id": "storefront-b",
+      "display_name": "Storefront B",
+      "provider": "replit-postgres",
+      "catalog_profile": "replit-artstore-v1",
+      "features": [
+        "color_variants",
+        "tier_quantity"
+      ],
+      "currency": "USD",
+      "env_prefix": "STOREFRONT_B",
+      "mapping": "config/mappings/storefront-b.local.json",
+      "asset_upload": "not_authorized",
+      "writes_enabled": false
+    }
+  ]
+}

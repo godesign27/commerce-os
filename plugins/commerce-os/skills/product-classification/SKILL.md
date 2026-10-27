@@ -1,6 +1,6 @@
 ---
 name: product-classification
-description: Propose a tentative product category (for example artwork, hat, blanket) for a submission from its validated images and supplied metadata, with visual observations, evidence and confidence. Use whenever someone asks what a product is, which category or template applies, or why a submission was classified a certain way.
+description: Propose a tentative product type (for example artwork, hat, blanket) for a submission from its validated images and supplied metadata, with visual observations, evidence and confidence. Use whenever someone asks what a product is, which category or template applies, or why a submission was classified a certain way.
 argument-hint: "<submission id>"
 ---
 
@@ -15,8 +15,8 @@ changes what the reviewer is asked for, so classification is tentative and alway
 ## Inputs
 
 - Source manifest with accepted asset records.
-- Category taxonomy from `resources/categories/` (versioned). Until B-005 is decided, the candidate set is
-  `artwork`, `hat`, `blanket`, and `other`.
+- Product types from `resources/product-types/*.json` (each versioned; `draft` types count as candidates
+  until the owner confirms them), plus `other`. Aliases help recognize a type; they are never evidence.
 
 ## Outputs
 
@@ -32,20 +32,20 @@ Read on the source manifest and assets; Write under `.commerce-os/out/` only.
 ## Forbidden actions
 
 - Classifying from filename or folder name alone.
-- Inventing a category outside the taxonomy. Use `other` plus a review issue.
+- Inventing a product type that has no file. Use `other` plus a review issue.
 - Asserting material, size, brand or any commercial fact from appearance.
 
 ## Workflow
 
 1. Look at every accepted image. Note what is visibly present.
-2. Compare against the taxonomy. Choose the best fit; record the runner-up.
+2. Compare against the product types. Choose the best fit; record the runner-up and the type's version.
 3. A supplied category in the manifest is `supplied`; if it disagrees with what's visible, mark
    `conflicting` and raise a blocking issue.
 4. Record visible attributes as `observed`, each with the asset that shows it.
 
 ## Validation
 
-Category is a taxonomy ID. Every observation cites at least one asset.
+The type is a product-type ID or `other`. Every observation cites at least one asset.
 
 ## Failure behavior
 
@@ -56,6 +56,6 @@ No confident fit: category `other`, status `unknown`, blocking issue asking the 
 `observed` for what is visible; `inferred` for category when it is a judgment; `supplied` when the
 manifest states it. Confidence never stands in for evidence.
 
-## Phase 0a status
+## Current status
 
-Specification only. The taxonomy in `resources/categories/` is not populated yet.
+Specification only. Seven draft product types exist in `resources/product-types/`.

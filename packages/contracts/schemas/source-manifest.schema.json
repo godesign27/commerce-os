@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source-manifest.schema.json",
+  "title": "Source manifest",
+  "description": "Immutable record of one submission snapshot: what was in the folder, what each file really is, and what the submitter supplied. Produced by drive-intake and asset-validation.",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "submission_id",
+    "source_snapshot_id",
+    "revision",
+    "source",
+    "readiness",
+    "files",
+    "supplied_metadata",
+    "findings",
+    "policy_versions",
+    "simulated"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "source-manifest"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "submission_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "source_snapshot_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "revision": {
+      "$ref": "common.schema.json#/$defs/revision"
+    },
+    "supersedes_snapshot_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "provider",
+        "connection_id",
+        "folder_id",
+        "observed_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {
+          "enum": [
+            "google-drive",
+            "local-fixture"
+          ]
+        },
+        "connection_id": {
+          "$ref": "common.schema.json#/$defs/id"
+        },
+        "folder_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_path": {
+          "type": "string"
+        },
+        "change_token": {
+          "type": "string"
+        },
+        "observed_at": {
+          "$ref": "common.schema.json#/$defs/timestamp"
+        }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "required": [
+        "verdict",
+        "signal"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": {
+          "enum": [
+            "ready",
+            "waiting_for_ready",
+            "blocked"
+          ]
+        },
+        "signal": {
+          "enum": [
+            "ready_manifest",
+            "ready_marker",
+            "quiet_period_assumption",
+            "none"
+          ]
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "file_id",
+          "display_name",
+          "bytes",
+          "sha256",
+          "accepted"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "mime_by_signature": {
+            "type": "string",
+            "pattern": "^[a-z]+/[a-z0-9.+-]+$"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "orientation": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          },
+          "sha256": {
+            "$ref": "common.schema.json#/$defs/sha256"
+          },
+          "duplicate_of": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "rejection_reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "accepted": {
+                  "const": false
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "rejection_reason"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "supplied_metadata": {
+      "description": "Fields the submission manifest supplied, verbatim, each with status supplied.",
+      "type": "object",
+      "additionalProperties": {
+        "allOf": [
+          {
+            "$ref": "common.schema.json#/$defs/field"
+          },
+          {
+            "properties": {
+              "status": {
+                "const": "supplied"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/finding"
+      }
+    },
+    "policy_versions": {
+      "$ref": "common.schema.json#/$defs/policy_versions"
+    },
+    "simulated": {
+      "type": "boolean"
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "approval.schema.json",
+  "title": "Destination approval",
+  "description": "A human's approval of one exact change set (Gate 3). Every binding is checked again at Gate 4 before writing.",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "approval_id",
+    "actor",
+    "approved_at",
+    "destination",
+    "environment",
+    "change_set_id",
+    "change_set_hash",
+    "canonical_revision",
+    "asset_manifest_hash",
+    "mapping_version",
+    "schema_fingerprint",
+    "requested_status",
+    "prepared_by"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "approval"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "approval_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "actor": {
+      "allOf": [
+        {
+          "$ref": "common.schema.json#/$defs/actor"
+        },
+        {
+          "required": [
+            "role"
+          ],
+          "properties": {
+            "kind": {
+              "const": "human"
+            },
+            "role": {
+              "const": "approver"
+            }
+          }
+        }
+      ]
+    },
+    "approved_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "destination": {
+      "$ref": "common.schema.json#/$defs/storefront_id"
+    },
+    "environment": {
+      "$ref": "common.schema.json#/$defs/environment"
+    },
+    "change_set_id": {
+      "$ref": "common.schema.json#/$defs/id"
+    },
+    "change_set_hash": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "canonical_revision": {
+      "$ref": "common.schema.json#/$defs/revision"
+    },
+    "asset_manifest_hash": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "mapping_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "schema_fingerprint": {
+      "$ref": "common.schema.json#/$defs/sha256"
+    },
+    "requested_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prepared_by": {
+      "$ref": "common.schema.json#/$defs/actor"
+    },
+    "note": {
+      "type": "string"
+    }
+  }
+}
