@@ -47,7 +47,7 @@
   ],
   "semantic_cases": [
     {"name": "color option on artwork", "fixture": "canonical-draft.artwork-original",
-     "set": {"product.option_definitions": [{"key": "color", "label": "Color", "values": ["blue"]}]}, "expect": "color"},
+     "set": {"product.option_definitions": [{"key": "color", "label": "Color", "values": ["blue"]}]}, "expect": "color option not allowed"},
     {"name": "two variants with the same options", "fixture": "canonical-draft.hat-two-colors",
      "set": {"variants[1].option_values": {"color": "navy"}}, "expect": "duplicate option values"},
     {"name": "variant value not in its option definition", "fixture": "canonical-draft.hat-two-colors",

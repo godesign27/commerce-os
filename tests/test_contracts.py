@@ -1,10 +1,10 @@
 """packages/contracts: schemas are well formed, fixtures conform, and known-bad documents are rejected.
 
 Two layers are tested:
-- Schema rules: validated with the stdlib subset validator in tests/_jsonschema.py.
-- Semantic rules the schemas can't express (option uniqueness, the product-type color rule, grouping,
-  approval bindings). Phase 1 implements these in packages/policy; `semantic_errors` here is the
-  executable specification they must match.
+- Schema rules: validated with the strict stdlib validator in packages/contracts/validator.py.
+- Semantic rules the schemas can't express (option uniqueness, the product-type option rules, grouping,
+  approval bindings), implemented in packages/policy (B-043). The semantic cases in
+  fixtures/contracts/invalid.json are their specification.
 """
 import copy
 import json
@@ -12,6 +12,7 @@ import re
 import unittest
 
 from tests._helpers import REPO, SHARED, load_json, read
+from packages.policy import semantic_violations
 from tests._jsonschema import SUPPORTED, Registry, keywords_used
 
 CONTRACTS = REPO / "packages" / "contracts"
@@ -55,43 +56,8 @@ def patched(doc, case):
 
 
 def semantic_errors(doc, related=()):
-    """Rules no JSON Schema keyword expresses. Returns a list of messages."""
-    errs = []
-    kind = doc["contract"]
-    if kind in ("canonical-draft", "product-proposal"):
-        type_id = doc["product_type"]["id"]
-        type_file = PRODUCT_TYPES / f"{type_id}.json"
-        color_rule = load_json(type_file)["options"]["color"] if type_file.exists() else None
-        products = doc["products"] if kind == "product-proposal" else [
-            {"option_definitions": doc["product"]["option_definitions"], "variants": doc["variants"]}]
-        for i, p in enumerate(products):
-            defs = {d["key"]: set(d["values"]) for d in p["option_definitions"]}
-            if "color" in defs and color_rule != "allowed":
-                errs.append(f"product {i}: color option not allowed for product type '{type_id}'")
-            seen = set()
-            for v in p["variants"]:
-                combo = json.dumps(v["option_values"], sort_keys=True)
-                if combo in seen:
-                    errs.append(f"product {i}: duplicate option values {combo}")
-                seen.add(combo)
-                for k, val in v["option_values"].items():
-                    if k not in defs or val not in defs[k]:
-                        errs.append(f"product {i}: {k}={val} not in option definition")
-        if kind == "product-proposal":
-            ids = [g["file_id"] for g in doc["grouping"]]
-            dupes = sorted({f for f in ids if ids.count(f) > 1})
-            if dupes:
-                errs.append(f"files grouped more than once: {dupes}")
-    if kind == "approval":
-        if doc["prepared_by"]["id"] == doc["actor"]["id"]:
-            errs.append("self-approval: the approver prepared the change set")
-        for cs in related:
-            if cs.get("contract") == "change-set" and cs["change_set_id"] == doc["change_set_id"]:
-                for k in ("destination", "environment", "change_set_hash", "canonical_revision",
-                          "asset_manifest_hash", "mapping_version", "schema_fingerprint", "requested_status"):
-                    if cs[k] != doc[k]:
-                        errs.append(f"approval {k} does not match change set")
-    return errs
+    """The policy package's semantic rules (B-043), as messages."""
+    return [str(v) for v in semantic_violations(doc, related)]
 
 
 class Schemas(unittest.TestCase):

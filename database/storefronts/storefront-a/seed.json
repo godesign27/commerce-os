@@ -1,0 +1,107 @@
+{
+  "description": "Invented catalog for the local Storefront A stand-in. No real products, names, prices or images. Each product covers a case the adapters and Phase 1 must handle; see `case`, which is not a column and is dropped on load.",
+  "categories": [
+    {"id": "5eed0000-0000-4000-8000-000000000001", "name": "Paintings", "slug": "paintings", "description": "Original paintings and prints of them.", "is_active": true, "is_featured": true, "sort_order": 1, "created_at": "2026-01-01 09:00:00"},
+    {"id": "5eed0000-0000-4000-8000-000000000002", "name": "Drawings", "slug": "drawings", "description": null, "is_active": true, "is_featured": false, "sort_order": 2, "created_at": "2026-01-01 09:00:00"},
+    {"id": "5eed0000-0000-4000-8000-000000000003", "name": "Accessories", "slug": "accessories", "description": "Wearables and small goods.", "is_active": true, "is_featured": false, "sort_order": 3, "created_at": "2026-01-01 09:00:00"}
+  ],
+  "tags": [
+    {"id": "5eed0000-0000-4000-8000-000000000101", "name": "Landscape", "slug": "landscape", "created_at": "2026-01-01 09:00:00"},
+    {"id": "5eed0000-0000-4000-8000-000000000102", "name": "Abstract", "slug": "abstract", "created_at": "2026-01-01 09:00:00"},
+    {"id": "5eed0000-0000-4000-8000-000000000103", "name": "Portrait", "slug": "portrait", "created_at": "2026-01-01 09:00:00"},
+    {"id": "5eed0000-0000-4000-8000-000000000104", "name": "Bandana", "slug": "bandana", "created_at": "2026-01-01 09:00:00"}
+  ],
+  "products": [
+    {
+      "case": "original with prints: three tiers, multiple images in order",
+      "id": "5eed0000-0000-4000-8000-000000001001", "name": "Harbor at Dusk", "slug": "harbor-at-dusk",
+      "description": "Acrylic on canvas. Low evening light over a small working harbor.", "short_description": "Evening harbor, acrylic.",
+      "price": 1200.00, "category_id": "5eed0000-0000-4000-8000-000000000001", "sku": "SEED-PNT-001", "status": "active",
+      "is_featured": true, "stock": 1,
+      "images": ["/objects/uploads/5eed0000-0000-4000-8000-00000000a001", "/objects/uploads/5eed0000-0000-4000-8000-00000000a002"],
+      "dimensions": "24 x 36 in", "medium": "Acrylic on canvas", "year": 2025, "is_original": true,
+      "rarity": null, "frame": null, "packaging": null, "authenticity": null, "show_in_gallery": true, "is_sold": false,
+      "tags": ["5eed0000-0000-4000-8000-000000000101"],
+      "pricing_tiers": [
+        {"id": "tier-1767258000000", "size": "24 x 36 in", "price": 1200, "type": "Original", "stock": 1, "description": "The original painting."},
+        {"id": "tier-1767258000001", "size": "12 x 18 in", "price": 45, "type": "Print", "stock": 20, "description": "Archival paper print."},
+        {"id": "tier-1767258000002", "size": "18 x 24 in", "price": 140, "type": "Canvas Print", "stock": 5, "description": "Stretched canvas print."}
+      ],
+      "created_at": "2026-02-01 10:00:00", "updated_at": "2026-02-01 10:00:00"
+    },
+    {
+      "case": "sold original: is_sold true, product stays active, prints still for sale",
+      "id": "5eed0000-0000-4000-8000-000000001002", "name": "Blue Study No. 4", "slug": "blue-study-no-4",
+      "description": "Layered blues, oil on panel.", "short_description": null,
+      "price": 900.00, "category_id": "5eed0000-0000-4000-8000-000000000001", "sku": "SEED-PNT-002", "status": "active",
+      "is_featured": false, "stock": 0,
+      "images": ["/objects/uploads/5eed0000-0000-4000-8000-00000000a003"],
+      "dimensions": "16 x 20 in", "medium": "Oil on panel", "year": 2024, "is_original": true,
+      "rarity": null, "frame": null, "packaging": null, "authenticity": null, "show_in_gallery": true, "is_sold": true,
+      "tags": ["5eed0000-0000-4000-8000-000000000102"],
+      "pricing_tiers": [
+        {"id": "tier-1767258000010", "size": "16 x 20 in", "price": 900, "type": "Original", "stock": 0, "description": "The original painting (sold)."},
+        {"id": "tier-1767258000011", "size": "8 x 10 in", "price": 30, "type": "Print", "stock": 15, "description": "Archival paper print."}
+      ],
+      "created_at": "2026-02-02 10:00:00", "updated_at": "2026-03-01 10:00:00"
+    },
+    {
+      "case": "draft with the storefront's placeholder description and no category, tags or SKU",
+      "id": "5eed0000-0000-4000-8000-000000001003", "name": "Untitled Sketch", "slug": "untitled-sketch",
+      "description": "Enter description", "short_description": null,
+      "price": 75.00, "category_id": null, "sku": null, "status": "draft",
+      "is_featured": false, "stock": 0,
+      "images": [],
+      "dimensions": null, "medium": null, "year": null, "is_original": false,
+      "rarity": null, "frame": null, "packaging": null, "authenticity": null, "show_in_gallery": false, "is_sold": false,
+      "tags": [],
+      "pricing_tiers": [],
+      "created_at": "2026-02-03 10:00:00", "updated_at": "2026-02-03 10:00:00"
+    },
+    {
+      "case": "archived product: still in the table, hidden from the store",
+      "id": "5eed0000-0000-4000-8000-000000001004", "name": "Figure in Charcoal", "slug": "figure-in-charcoal",
+      "description": "Charcoal on paper.", "short_description": null,
+      "price": 250.00, "category_id": "5eed0000-0000-4000-8000-000000000002", "sku": "SEED-DRW-001", "status": "archived",
+      "is_featured": false, "stock": 1,
+      "images": ["/objects/uploads/5eed0000-0000-4000-8000-00000000a004"],
+      "dimensions": "11 x 14 in", "medium": "Charcoal on paper", "year": 2023, "is_original": true,
+      "rarity": null, "frame": "Black wood frame", "packaging": null, "authenticity": null, "show_in_gallery": false, "is_sold": false,
+      "tags": ["5eed0000-0000-4000-8000-000000000103"],
+      "pricing_tiers": [
+        {"id": "tier-1767258000020", "size": "11 x 14 in", "price": 250, "type": "Original", "stock": 1, "description": "The original drawing, framed."}
+      ],
+      "created_at": "2026-02-04 10:00:00", "updated_at": "2026-04-01 10:00:00"
+    },
+    {
+      "case": "merchandise: one tier, size supplied as free text",
+      "id": "5eed0000-0000-4000-8000-000000001005", "name": "Harbor Print Bandana", "slug": "harbor-print-bandana",
+      "description": "Cotton bandana printed with a detail from Harbor at Dusk.", "short_description": "Printed cotton bandana.",
+      "price": 22.00, "category_id": "5eed0000-0000-4000-8000-000000000003", "sku": "SEED-ACC-001", "status": "active",
+      "is_featured": false, "stock": 40,
+      "images": ["/objects/uploads/5eed0000-0000-4000-8000-00000000a005", "/objects/uploads/5eed0000-0000-4000-8000-00000000a006"],
+      "dimensions": "22 x 22 in", "medium": null, "year": 2025, "is_original": false,
+      "rarity": null, "frame": null, "packaging": "Folded in a paper sleeve", "authenticity": null, "show_in_gallery": false, "is_sold": false,
+      "tags": ["5eed0000-0000-4000-8000-000000000104"],
+      "pricing_tiers": [
+        {"id": "tier-1767258000030", "size": "22 x 22 in", "price": 22, "type": "Print", "stock": 40, "description": "One size."}
+      ],
+      "created_at": "2026-02-05 10:00:00", "updated_at": "2026-02-05 10:00:00"
+    },
+    {
+      "case": "out of stock: active product with zero stock on every tier",
+      "id": "5eed0000-0000-4000-8000-000000001006", "name": "Canyon Light", "slug": "canyon-light",
+      "description": "Watercolor on paper.", "short_description": null,
+      "price": 60.00, "category_id": "5eed0000-0000-4000-8000-000000000001", "sku": "SEED-PNT-003", "status": "active",
+      "is_featured": false, "stock": 0,
+      "images": ["/objects/uploads/5eed0000-0000-4000-8000-00000000a007"],
+      "dimensions": null, "medium": "Watercolor on paper", "year": 2022, "is_original": false,
+      "rarity": null, "frame": null, "packaging": null, "authenticity": null, "show_in_gallery": false, "is_sold": false,
+      "tags": ["5eed0000-0000-4000-8000-000000000101", "5eed0000-0000-4000-8000-000000000102"],
+      "pricing_tiers": [
+        {"id": "tier-1767258000040", "size": "9 x 12 in", "price": 60, "type": "Print", "stock": 0, "description": "Archival paper print."}
+      ],
+      "created_at": "2026-02-06 10:00:00", "updated_at": "2026-02-06 10:00:00"
+    }
+  ]
+}

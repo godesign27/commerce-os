@@ -1,7 +1,9 @@
 # database/
 
-Operational database only (Commerce OS's own project). Storefront schemas are never migrated from here;
-any storefront change needs a separate reviewed migration plan (PRD §18).
+Commerce OS never migrates a storefront's schema. Any storefront change needs a separate reviewed
+migration plan (PRD §18).
 
-- `operational/migrations/`: draft migrations for the operational database (B-018). See
-  [operational/README.md](operational/README.md).
+- `operational/`: draft migrations for the operational database, Commerce OS's own project (B-018).
+  See [operational/README.md](operational/README.md).
+- `storefronts/`: local stand-ins for storefront catalog tables, loaded only into a throwaway local
+  cluster for tests (B-029). See [storefronts/README.md](storefronts/README.md).

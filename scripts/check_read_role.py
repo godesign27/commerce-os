@@ -156,26 +156,8 @@ class Psql:
         return json.loads(r.stdout.strip() or "[]")
 
 
-def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("storefront")
-    ap.add_argument("--env", default="production", help="mapping environment to compare against")
-    args = ap.parse_args(argv)
-
-    cfg_path = REPO / "config" / "storefronts.local.json"
-    if not cfg_path.exists():
-        raise SystemExit("config/storefronts.local.json not found; run /setup-storefront first")
-    entry = next((s for s in json.loads(cfg_path.read_text())["storefronts"] if s["id"] == args.storefront), None)
-    if not entry:
-        raise SystemExit(f"no storefront '{args.storefront}' in config/storefronts.local.json")
-    key = f"{entry['env_prefix']}_DB_URL"
-    env_file = REPO / ".env"
-    url = parse_dotenv(env_file.read_text()).get(key) if env_file.exists() else None
-    url = url or os.environ.get(key)
-    if not url:
-        raise SystemExit(f"{key} is not set in .env")
-
-    pg = Psql(pg_env_from_url(url))
+def collect(pg):
+    """Read the role's attributes, memberships, table privileges and catalog-table RLS policies."""
     role = pg.rows("SELECT current_user AS user, current_database() AS db, rolsuper, rolcreaterole, rolcreatedb, "
                    "rolbypassrls, rolreplication FROM pg_roles WHERE rolname = current_user")[0]
     memberships = [r["rolname"] for r in pg.rows(
@@ -197,6 +179,30 @@ def main(argv=None) -> int:
             "LEFT JOIN pg_policies p ON p.schemaname = n.nspname AND p.tablename = c.relname "
             "WHERE n.nspname = 'public' AND c.relname IN ('products', 'categories', 'tags') GROUP BY c.relname, c.relrowsecurity"):
         rls[r.pop("t")] = r
+    return role, memberships, privs, rls
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("storefront")
+    ap.add_argument("--env", default="production", help="mapping environment to compare against")
+    args = ap.parse_args(argv)
+
+    cfg_path = REPO / "config" / "storefronts.local.json"
+    if not cfg_path.exists():
+        raise SystemExit("config/storefronts.local.json not found; run /setup-storefront first")
+    entry = next((s for s in json.loads(cfg_path.read_text())["storefronts"] if s["id"] == args.storefront), None)
+    if not entry:
+        raise SystemExit(f"no storefront '{args.storefront}' in config/storefronts.local.json")
+    key = f"{entry['env_prefix']}_DB_URL"
+    env_file = REPO / ".env"
+    url = parse_dotenv(env_file.read_text()).get(key) if env_file.exists() else None
+    url = url or os.environ.get(key)
+    if not url:
+        raise SystemExit(f"{key} is not set in .env")
+
+    pg = Psql(pg_env_from_url(url))
+    role, memberships, privs, rls = collect(pg)
 
     print(f"{args.storefront}: connected as {role['user']} to database {role['db']} (read-only session)")
     results = evaluate(role, memberships, privs) + evaluate_rls(role["user"], rls)
