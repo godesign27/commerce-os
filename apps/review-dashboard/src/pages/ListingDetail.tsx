@@ -1,6 +1,7 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import { api, Check, Copy, Detail, Draft, Field, Issue, Job, State, waitForJob } from "../api";
 import { AboutPiece } from "../components/AboutPiece";
+import { StorefrontPanel } from "../components/StorefrontPanel";
 
 const wordCount = (s: string) => (s.match(/[A-Za-z0-9']+/g) || []).length;
 const splitList = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
@@ -126,7 +127,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
           {d.image && <img src={`/${d.image}`} alt={copy?.title || d.item.source} />}
           <p className="muted small">{d.item.source}{dr ? ` · revision ${dr.revision} · ${dr.model}${dr.cost_usd != null ? ` · $${dr.cost_usd.toFixed(3)}` : ""}` : ""}</p>
           {dr?.brand_context && <p className="muted small">Voice: {dr.brand_context} · {dr.prompt}{dr.inputs.edit_pairs ? " · used your past edits" : ""}</p>}
-          <AboutPiece key={d.item.id} itemId={d.item.id} series={d.listing.series || ""} facts={d.listing.facts || {}} sizeFromName={d.size_from_name}
+          <AboutPiece key={d.item.id} itemId={d.item.id} series={d.listing.series || ""} facts={d.listing.facts || {}} sizeFromName={d.size_from_name} tierTypes={d.tier_types}
                       note={dr ? "Redraft to use it in the copy." : undefined} onSaved={async () => { await load(); onChange(); }} />
           {dr && <ReviewTabs dr={dr} facts={d.listing.facts || {}} />}
         </section>
@@ -193,6 +194,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
               )}
 
               <MeaningPanel d={d} questions={dr.ask_artist} onSaved={async () => { await load(); onChange(); }} />
+              <StorefrontPanel id={d.item.id} version={JSON.stringify([d.listing, dr.revision])} onChange={onChange} />
             </>
           )}
         </section>

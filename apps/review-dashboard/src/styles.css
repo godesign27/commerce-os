@@ -208,3 +208,17 @@ button.icon { padding: 0.2rem 0.55rem; line-height: 1; }
 .name-size-list strong { margin-right: 0.3rem; }
 .name-sizes .section-actions { position: sticky; bottom: -1.2rem; margin: 0 -1.2rem -1.2rem; padding: 0.8rem 1.2rem;
   background: var(--panel); border-top: 1px solid var(--line); }
+
+/* Storefront preview and approval (B-064) */
+.panel.storefront { margin-top: 1rem; }
+.panel.storefront.is-ready { border-color: var(--ok); }
+.sf-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 0.5rem 0; }
+.sf-table th { text-align: left; font-weight: 600; vertical-align: top; padding: 0.3rem 0.6rem 0.3rem 0; width: 9rem; white-space: nowrap; }
+.sf-table td { padding: 0.3rem 0; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.sf-long { display: block; max-height: 6.5em; overflow: auto; }
+.sf-ev { white-space: nowrap; }
+.sf-images { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.sf-images img { height: 4.5rem; width: auto; border: 1px solid var(--line); border-radius: 4px; }
+.sf-block ul, .sf-warn { margin: 0.2rem 0 0.6rem; padding-left: 1.1rem; }
+.sf-warn { color: var(--warn); }
+@media (max-width: 600px) { .sf-table th { width: auto; white-space: normal; } }
