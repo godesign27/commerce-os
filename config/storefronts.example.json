@@ -17,6 +17,8 @@
       "currency": "USD",
       "env_prefix": "STOREFRONT_A",
       "mapping": "config/mappings/storefront-a.local.json",
+      "site_kind": "artist",
+      "brand_context": "config/brand/storefront-a.local.json",
       "asset_upload": "not_authorized",
       "writes_enabled": false
     },
@@ -32,6 +34,8 @@
       "currency": "USD",
       "env_prefix": "STOREFRONT_B",
       "mapping": "config/mappings/storefront-b.local.json",
+      "site_kind": "product",
+      "brand_context": "config/brand/storefront-b.local.json",
       "asset_upload": "not_authorized",
       "writes_enabled": false
     }

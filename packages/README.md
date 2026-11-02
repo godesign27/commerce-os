@@ -13,6 +13,16 @@ Shared libraries. Contracts exist; everything else is Phase 1 onward.
   `layout()` is pure arithmetic; `render()` uses Pillow. The artwork is only resized, and the original
   is never written. Try it with `.venv/bin/python scripts/frame_artwork.py <image>`. `crop.py` proposes a
   straightened crop of the artwork in a photo, with a review image and a confidence check (B-053).
+- `drafting/`: listing drafts with Claude (B-055, B-056, B-058). The model proposes; the policy decides.
+  - `listing.py`: the request (one image, the listing-copy skill's writing standards, the brand context,
+    the piece's meanings, facts and note, the catalog memory; structured JSON output) and the mapping to
+    a `canonical-draft`. Commercial facts are never drafted, only supplied.
+  - `brand.py`: the storefront's brand context (contract `brand-context`): load, scope meanings, render,
+    save as a new version.
+  - `checks.py`: unsupported claims and repetition across the catalog.
+  - `store.py`: local drafts with revisions, edits, supplied facts, approval and the lock.
+  - `learning.py`: edit records, before-and-after examples for the prompt, proposed lessons.
+  - `service.py`: one draft end to end, shared by the batch script and the dashboard.
 - `adapters/`: the adapter contract (PRD §15) and the in-memory fake (B-019).
   - `contract.py`: the interface (`capabilities`, `read_catalog`, `validate`, `plan`, `dry_run`,
     `publish_approved`, `reconcile`) and the storefront-neutral guards every adapter runs: the sealed

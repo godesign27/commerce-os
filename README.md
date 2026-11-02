@@ -81,4 +81,24 @@ To review image conversions (crops and framed listing images) for the samples in
 
 Then open http://127.0.0.1:8765/. After fixing corners on the page, re-crop with `review_images.py apply`.
 
+To draft titles, descriptions and tags with Claude in the storefront's voice (needs `ANTHROPIC_API_KEY`
+in `.env` and a brand context in `config/brand/`; about 10 cents a piece):
+
+```bash
+.venv/bin/python scripts/draft_listings.py --limit 5
+```
+
+To review, edit and approve the copy, set up the voice, and see what was learned from your edits, build and
+run the local dashboard (once: `npm install` in `apps/review-dashboard`):
+
+```bash
+cd apps/review-dashboard && npm run build
+```
+
+```bash
+.venv/bin/python services/local_api/server.py
+```
+
+Then open http://127.0.0.1:8770/. The first visit asks whether this is an artist site or a product site.
+
 Maintainer rules are in [CLAUDE.md](CLAUDE.md); open work is in [BACKLOG.md](BACKLOG.md).

@@ -43,7 +43,15 @@
     {"name": "success without a verified match", "fixture": "reconciliation-report.hat-two-colors",
      "set": {"verified_state": "SUCCEEDED"}, "expect": "operations[0].result"},
     {"name": "wrong contract name", "fixture": "product-proposal.hat-two-colors",
-     "set": {"contract": "source-manifest"}, "expect": "$.contract"}
+     "set": {"contract": "source-manifest"}, "expect": "$.contract"},
+    {"name": "site kind must be artist or product", "fixture": "brand-context.generic-artist",
+     "set": {"site_kind": "shop"}, "expect": "$.site_kind"},
+    {"name": "a catalog-wide meaning has no ref", "fixture": "brand-context.generic-artist",
+     "set": {"meanings[1].scope.ref": "Harbour"}, "expect": "$.meanings[1].scope.ref"},
+    {"name": "a lesson needs a known status", "fixture": "brand-context.generic-artist",
+     "set": {"lessons[0].status": "auto"}, "expect": "$.lessons[0].status"},
+    {"name": "brand context needs at least one category", "fixture": "brand-context.generic-artist",
+     "set": {"categories": []}, "expect": "$.categories: fewer than 1"}
   ],
   "semantic_cases": [
     {"name": "color option on artwork", "fixture": "canonical-draft.artwork-original",
