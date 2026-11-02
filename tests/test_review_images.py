@@ -56,6 +56,28 @@ class Helpers(unittest.TestCase):
                      "d": {"decision": "accept"}}
         self.assertEqual(ri.pending(decisions, items), {"a", "c"})
 
+    def test_listing_copy_is_not_edited_here(self):
+        with self.assertRaises(ValueError):
+            ri.validate_decisions({"a": {"decision": None, "listing": {"title": "New title"}}})
+
+    def test_drafts_appear_on_their_card_with_a_dashboard_link(self):
+        import tempfile
+        from tests.test_drafting import draft, CLEAN
+        out = Path(tempfile.mkdtemp(prefix="cos-drafts-"))
+        (out / "drafts").mkdir()
+        (out / "items.json").write_text(json.dumps([{"id": "img-1-abc", "source": "IMG_1.JPG", "kind": "photo",
+                                                     "status": "auto"}]))
+        evil = dict(CLEAN, recommended_title="</script><b>x</b>")
+        (out / "drafts" / "img-1-abc.json").write_text(json.dumps(
+            {"item": "img-1-abc", "draft": draft(evil), "model_output": evil, "model": "claude-opus-5-5",
+             "policy_violations": []}))
+        items = ri.render(out)
+        self.assertEqual(items[0]["draft"]["title"], "</script><b>x</b>")
+        self.assertEqual(items[0]["draft"]["link"], "http://127.0.0.1:8770/#/listings/img-1-abc")
+        page = (out / "index.html").read_text()
+        self.assertEqual(page.count("</script>"), 1, "draft text can't break out of the page's script")
+        self.assertNotIn("draft", json.loads((out / "items.json").read_text())[0], "drafts aren't baked into items.json")
+
     def test_page_escapes_its_data(self):
         page = ri.render_page([{"id": "x", "source": "</script><script>alert(1)</script>", "kind": "artwork",
                                 "status": "ready"}])
@@ -162,7 +184,10 @@ class Server(unittest.TestCase):
 
     def test_saves_valid_decisions(self):
         self.assertEqual(self.post(json.dumps(GOOD).encode()).status, 204)
-        self.assertEqual(json.loads((self.tmp / ri.DECISIONS).read_text()), ri.validate_decisions(GOOD))
+        saved = json.loads((self.tmp / ri.DECISIONS).read_text())
+        stamps = {k: saved[k].pop("decided_at") for k in saved}
+        self.assertEqual(saved, ri.validate_decisions(GOOD))
+        self.assertTrue(all(ri.STAMP.fullmatch(s) for s in stamps.values()), "each new decision is timestamped")
 
     def test_rejects_invalid_decisions_and_writes_nothing(self):
         with self.assertRaises(urllib.error.HTTPError) as e:

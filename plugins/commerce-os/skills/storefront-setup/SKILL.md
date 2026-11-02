@@ -59,14 +59,20 @@ Read and Glob in the working directory; Write and Edit on `config/storefronts.lo
 6. **Identity:** lowercase `id` (e.g. `storefront-c`), `display_name`, `currency`, and an `env_prefix`
    in upper snake case that no other entry uses. The mapping path is
    `config/mappings/<id>.local.json`; create its lists with `/edit-mappings <id>`.
-7. Write the entry with `writes_enabled: false` and `asset_upload: "not_authorized"`. Show the diff
+7. **Site kind:** ask "Is this an artist site (one artist's own work) or a product site (a brand
+   selling goods)?" Record `site_kind` as `artist` or `product`, and `brand_context` as
+   `config/brand/<id>.local.json`. The answer decides the questions `/brand-context <id> interview`
+   asks next, and how listing copy is written: meaning and the artist's intent, or use, feel and fit.
+8. Write the entry with `writes_enabled: false` and `asset_upload: "not_authorized"`. Show the diff
    before writing, and ask before overwriting an existing entry.
-8. List the `.env` variable names from the provider's `connection.env_suffixes`, prefixed.
+9. List the `.env` variable names from the provider's `connection.env_suffixes`, prefixed, and suggest
+   `/brand-context <id> interview` to set up the voice.
 
 ## Validation
 
 - The provider and profile files exist, and the provider's `used_for` includes the target.
 - `features` is a subset of the profile's `optional_features`.
+- `site_kind` is `artist` or `product`.
 - `id` and `env_prefix` are unique across all entries, and the operational database's prefix differs
   from every storefront's.
 

@@ -6,6 +6,9 @@
 # Real storefront configuration (holds real names; template is config/storefronts.example.json)
 config/storefronts.local.json
 config/mappings/*.local.json
+# Brand and artist context, and its version history (the artist's own words)
+config/brand/*.local.json
+config/brand/history/
 
 # Local working output from agents and dry runs (never committed)
 .commerce-os/

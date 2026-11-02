@@ -4,6 +4,7 @@
 Usage (from the repository root, with the project environment):
     .venv/bin/python scripts/review_images.py build [SOURCE_DIR]   process every image, write the page
     .venv/bin/python scripts/review_images.py serve [--port 8765]  open http://127.0.0.1:8765
+    .venv/bin/python scripts/review_images.py render               redraw the page (e.g. after drafting)
     .venv/bin/python scripts/review_images.py apply                re-crop/rotate what you changed
                                                                    (the page's "Apply my changes" does the same)
 
@@ -35,6 +36,8 @@ PHOTO_PATTERN = re.compile(r"^IMG_\d+", re.I)
 DECISIONS = "decisions.json"
 THUMB_PX = 700
 ROTATIONS = (0, 90, 180, 270)   # clockwise, applied after cropping and before framing
+STAMP = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ")
+DASHBOARD = "http://127.0.0.1:8770/#/listings/"   # listing copy is edited there (B-057)
 
 
 def slug(name: str) -> str:
@@ -82,8 +85,36 @@ def validate_decisions(data) -> dict:
             entry["rotate"] = int(d["rotate"])
         if d.get("note"):
             entry["note"] = str(d["note"])[:1000]
+        if d.get("decided_at") is not None:
+            if not (isinstance(d["decided_at"], str) and STAMP.fullmatch(d["decided_at"])):
+                raise ValueError(f"bad decided_at for {key}")
+            entry["decided_at"] = d["decided_at"]
+        if d.get("listing") is not None:
+            raise ValueError(f"{key}: listing copy is edited in the review dashboard, not here")
         clean[key] = entry
     return clean
+
+
+def now() -> str:
+    import datetime
+    return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def stamp_changes(old: dict, new: dict, at: str) -> dict:
+    """Record when each photo decision last changed (B-062): a new decision, corners or rotation gets
+    `decided_at`; an unchanged one keeps the time it had. A note alone doesn't move the time."""
+    out = {}
+    for key, d in new.items():
+        before = old.get(key, {})
+        d = dict(d)
+        changed = any(d.get(k) != before.get(k) for k in ("decision", "corners")) or \
+            d.get("rotate", 0) != before.get("rotate", 0)
+        if changed:
+            d["decided_at"] = at
+        elif before.get("decided_at"):
+            d["decided_at"] = before["decided_at"]
+        out[key] = d
+    return out
 
 
 # ---------------------------------------------------------------- build
@@ -110,7 +141,8 @@ def process(source: Path, out: Path, corners=None, rotate: int = 0) -> dict:
     img = out / "img"
     img.mkdir(parents=True, exist_ok=True)
     sid = slug(source.name)
-    item = {"id": sid, "source": source.name, "kind": "photo" if is_photo(source.name) else "artwork"}
+    item = {"id": sid, "source": source.name, "kind": "photo" if is_photo(source.name) else "artwork",
+            "processed_at": now()}
     art_path = source
     if item["kind"] == "photo":
         photo = crop.open_photo(source)
@@ -139,6 +171,9 @@ def process(source: Path, out: Path, corners=None, rotate: int = 0) -> dict:
         if item["kind"] == "photo":
             _thumb(art_path, img / f"{sid}.crop.jpg")
     item["applied"] = {"corners": corners, "rotate": rotate}
+    if art_path is not None:                      # the image drafting reads (B-055)
+        art = Path(art_path).resolve()
+        item["art_file"] = str(art.relative_to(REPO)) if REPO in art.parents else str(art)
     if art_path is not None:
         framed = img / f"{sid}.framed.png"
         rec = framing.frame_artwork(art_path, framed)
@@ -195,12 +230,48 @@ def build(source_dir: Path = DEFAULT_SOURCE, out: Path = OUT, only=None, log=pri
         item["status"] = status(item) if "error" not in item else "error"
         items.append(item)
         log(f"[{i:>3}] {item['status']:8} {src.name}")
+    for it in items:
+        it.pop("draft", None)
     items_path.write_text(json.dumps(items, indent=1))
-    (out / "index.html").write_text(render_page(items))
+    (out / "index.html").write_text(render_page(attach_drafts(items, out)))
     return items
 
 
 # ---------------------------------------------------------------- page
+
+def draft_summary(record: dict) -> dict:
+    """What a card shows from a drafts/<id>.json record. The copy itself is edited in the dashboard."""
+    d = record["draft"]
+    p, a = d["product"], d["product"]["attributes"]
+    val = lambda k: a.get(k, {}).get("value")  # noqa: E731
+    return {
+        "title": p["title"]["value"], "short_description": val("short_description"),
+        "revision": d.get("revision"), "rotate": val("upright_rotation"), "signature": val("signature_corner"),
+        "blocking": sum(i["severity"] == "blocking" for i in d["review_issues"]),
+        "warnings": sum(i["severity"] == "warning" for i in d["review_issues"]),
+        "model": record["model"], "link": DASHBOARD + record.get("item", ""),
+    }
+
+
+def attach_drafts(items: list, out: Path = OUT) -> list:
+    drafts = out / "drafts"
+    for it in items:
+        f = drafts / f"{it['id']}.json"
+        it.pop("draft", None)
+        if f.exists():
+            try:
+                it["draft"] = draft_summary(json.loads(f.read_text()))
+            except (KeyError, ValueError) as e:
+                it["draft_error"] = f"unreadable draft: {e}"
+    return items
+
+
+def render(out: Path = OUT) -> list:
+    """Rewrite the page from items.json and any drafts, without reprocessing images."""
+    items = attach_drafts(json.loads((out / "items.json").read_text()), out)
+    (out / "index.html").write_text(render_page(items))
+    return items
+
 
 def render_page(items: list) -> str:
     data = json.dumps(items).replace("</", "<\\/")      # safe inside <script>
@@ -245,6 +316,19 @@ button.apply:disabled { opacity: .45; cursor: default; }
 .badge.pending { background: var(--info-bg); color: var(--info); }
 .frame-box img.turned { transition: transform .2s; }
 .tip { font-size: 12px; color: var(--muted); }
+.listing { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 8px; }
+.listing h3 { font-size: 13px; margin: 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.listing label { font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+.listing input, .listing textarea { font: inherit; font-size: 14px; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+.listing textarea { min-height: 72px; resize: vertical; }
+.listing .edited { border-color: var(--info); }
+.facts { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.issues { margin: 0; padding-left: 18px; font-size: 13px; }
+.issues li.blocking { color: var(--warn); } .issues li.warning { color: var(--info); } .issues li.note { color: var(--muted); }
+.listing > button { justify-self: start; font: inherit; font-size: 13px; border: 1px solid var(--info); color: var(--info);
+  background: var(--card); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.chip { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--chip); margin: 0 4px 4px 0; }
 main { padding: 20px; display: grid; gap: 18px; max-width: 1400px; margin: 0 auto; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
 .card-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -407,15 +491,32 @@ function card(item) {
   const meta = [item.crop && item.crop.method ? `crop: ${item.crop.method} (v${item.crop.recipe_version})` : "",
                 item.frame ? `frame: ${item.frame.orientation} (v${item.frame.recipe_version})` : ""].filter(Boolean).join(" · ");
   const on = act => d.decision === act ? ' aria-pressed="true"' : ' aria-pressed="false"';
+  const listing = listingSection(item, d);
   const fixBtn = item.kind === "photo" ? `<button class="fix" data-act="fix"${on("fix")}>${d.corners ? "✓ Corners saved: edit" : "Fix corners"}</button>` : "";
   return `<article class="card${d.decision ? " decided-" + esc(d.decision) : ""}" data-id="${esc(item.id)}">
     <div class="card-head"><span class="name">${esc(item.source)}</span><span class="badge ${esc(st)}">${esc(label)}</span>${decision}${pend}</div>
     <div class="steps">${steps}</div>${reasons}${err}
     ${meta ? `<div class="meta">${esc(meta)}</div>` : ""}
+    ${listing}
     <div class="actions">
       <button class="accept" data-act="accept"${on("accept")}>${d.decision === "accept" ? "✓ Accepted" : "Accept"}</button>${fixBtn}<button data-act="rotate" title="Turn 90° clockwise. The signature belongs in the bottom-right corner.">Rotate ↻ ${rot(item) ? rot(item) + "°" : ""}</button><button class="reject" data-act="reject"${on("reject")}>${d.decision === "reject" ? "✗ Rejected" : "Reject"}</button>
       <input type="text" data-act="note" placeholder="Note (optional)" value="${esc(d.note || "")}" aria-label="Note for ${esc(item.source)}">
     </div></article>`;
+}
+
+function listingSection(item, d) {
+  const dr = item.draft;
+  if (!dr) return item.draft_error ? `<div class="listing"><ul class="reasons"><li>${esc(item.draft_error)}</li></ul></div>` : "";
+  const rotHint = dr.rotate && dr.rotate !== rot(item)
+    ? `<button data-act="use-rotation" data-rotate="${dr.rotate}">Use suggested rotation (${dr.rotate}°)</button>` : "";
+  return `<div class="listing">
+    <h3>Listing draft <span class="badge">r${esc(dr.revision)}</span> <span class="badge">${esc(dr.model)}</span></h3>
+    <p><strong>${esc(dr.title)}</strong><br>${esc(dr.short_description || "")}</p>
+    <div class="facts"><span>Signature: ${esc(dr.signature || "not seen")}</span>
+      <span>${esc(dr.blocking)} to supply · ${esc(dr.warnings)} checks</span></div>
+    ${rotHint}
+    <a class="dash" href="${esc(dr.link)}" target="_blank" rel="noopener">Edit the copy in the dashboard →</a>
+  </div>`;
 }
 
 function visible(item) {
@@ -438,10 +539,14 @@ document.addEventListener("click", e => {
   const z = e.target.closest("[data-zoom]");
   if (z) { $("#zoom-img").src = z.dataset.zoom; $("#zoom-modal").classList.add("open"); return; }
   const a = e.target.closest("[data-act]");
-  if (!a || a.tagName === "INPUT") return;
+  if (!a || a.tagName === "INPUT" || a.tagName === "TEXTAREA") return;
   const id = a.closest(".card").dataset.id;
   const item = ITEMS.find(i => i.id === id);
   if (a.dataset.act === "fix") return openFix(item);
+  if (a.dataset.act === "use-rotation") {
+    decisions[id] = {...(decisions[id] || {decision: null}), rotate: +a.dataset.rotate};
+    save(); render(); return;
+  }
   if (a.dataset.act === "rotate") {
     decisions[id] = {...(decisions[id] || {decision: null}), rotate: (rot(item) + 90) % 360};
     save(); render(); return;
@@ -600,6 +705,7 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError, json.JSONDecodeError) as e:
             self.send_error(400, str(e))
             return
+        data = stamp_changes(load_decisions(OUT), data, now())
         (OUT / DECISIONS).write_text(json.dumps(data, indent=1))
         self.send_response(204)
         self.end_headers()
@@ -652,6 +758,7 @@ def main(argv=None) -> int:
     s = sub.add_parser("serve")
     s.add_argument("--port", type=int, default=8765)
     s.add_argument("source", nargs="?", default=str(DEFAULT_SOURCE))
+    sub.add_parser("render")
     a = sub.add_parser("apply")
     a.add_argument("source", nargs="?", default=str(DEFAULT_SOURCE))
     args = ap.parse_args(argv)
@@ -662,6 +769,10 @@ def main(argv=None) -> int:
     if args.cmd == "build":
         build(Path(args.source))
         print(f"\nWrote {OUT / 'index.html'}. Open it with: .venv/bin/python scripts/review_images.py serve")
+        return 0
+    if args.cmd == "render":
+        items = render()
+        print(f"Re-rendered the page: {sum(1 for i in items if i.get('draft'))} item(s) with listing drafts.")
         return 0
     if args.cmd == "serve":
         serve(args.port, Path(args.source))

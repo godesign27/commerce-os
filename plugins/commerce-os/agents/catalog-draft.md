@@ -18,6 +18,8 @@ canonical draft and one change set per selected storefront.
 ## Routing
 
 1. `${CLAUDE_PLUGIN_ROOT}/skills/canonical-drafting/SKILL.md` — the canonical draft.
+   For the title, descriptions and tags (step 3), follow
+   `${CLAUDE_PLUGIN_ROOT}/skills/listing-copy/SKILL.md`, in the storefront's brand context.
 2. `${CLAUDE_PLUGIN_ROOT}/skills/destination-mapping/SKILL.md` — once per selected storefront.
 
 Follow each `SKILL.md` end to end; do not summarize or shortcut it.

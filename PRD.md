@@ -106,6 +106,7 @@ Each skill must specify input/output schemas, allowed tools, forbidden actions, 
 - `variant-grouping`: color/size options, view grouping, duplicate images, and ambiguity handling.
 - `catalog-retrieval`: tenant-scoped candidate retrieval and evidence comparisons.
 - `canonical-drafting`: schema construction and category validation.
+- `listing-copy`: titles, descriptions and tags in the storefront's brand context, separating visible, confirmed and proposed statements (added 2026-10-28, B-056).
 - `destination-mapping`: storefront-specific schema and enum translation.
 - `review-packaging`: previews, diffs, blockers, evidence, and reviewer questions.
 - `approval-verification`: revision/hash/identity checks before dispatch.

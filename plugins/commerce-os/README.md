@@ -1,7 +1,7 @@
 # Commerce OS plugin
 
 Governed product preparation for independent storefronts. A router and four specialist agents run
-twelve pipeline skills, plus two administrator skills, that turn a product submission into an evidence-backed draft for human review. No agent
+thirteen pipeline skills, plus four administrator skills, that turn a product submission into an evidence-backed draft for human review. No agent
 writes to a storefront; publication is server-side and human-approved.
 
 > **Phase 0b.** Pipeline skills are specifications. Nothing is connected: no Drive, no storefront, no workflow
@@ -14,7 +14,7 @@ writes to a storefront; publication is server-side and human-approved.
 | `commerce-lead` (router) | Dispatches to the specialists below |
 | `intake-assets` | drive-intake, asset-validation, image-preparation |
 | `product-intelligence` | product-classification, variant-grouping, catalog-retrieval |
-| `catalog-draft` | canonical-drafting, destination-mapping |
+| `catalog-draft` | canonical-drafting, listing-copy, destination-mapping |
 | `review-publishing` | review-packaging, approval-verification, publishing, reconciliation |
 
 ## Commands
@@ -27,6 +27,8 @@ writes to a storefront; publication is server-side and human-approved.
 | `/publish <submission> <storefront>` | publishing, request mode (needs a valid human approval) |
 | `/setup-storefront [id \| operational]` | storefront-setup: choose a database provider and catalog profile |
 | `/edit-mappings <storefront-id \| product-types>` | catalog-mappings: add, edit or retire categories, tags and product types |
+| `/brand-context <storefront-id> [interview \| meaning \| lessons]` | brand-context: the storefront's voice, artist-confirmed meanings, lessons from your edits |
+| `/listing-edit <listing> <what to change>` | listing-edit: save your own title, descriptions, tags or keywords for a drafted listing, with the checks |
 
 ## Shared policies
 

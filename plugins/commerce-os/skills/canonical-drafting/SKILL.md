@@ -41,8 +41,9 @@ Read on the proposal and templates; Write under `.commerce-os/out/` only.
 
 1. Start a new revision; record `source_snapshot_id`, the product type and its version, and all policy versions.
 2. Carry every field from the proposal with its evidence record unchanged.
-3. Draft `title` and `description` only from supported facts. Mark them `inferred` with the facts they
-   rephrase as evidence. Unknown facts are left out of the copy, not hedged into it.
+3. Draft `title` and `description` only from supported facts, following the listing-copy skill in the
+   storefront's brand context. Mark them `inferred` with the facts they rephrase as evidence. Unknown
+   facts are left out of the copy, not hedged into it.
 4. Dimensions carry value and unit; unknown stays `null`.
 5. Validate against the product type's `required_facts`: each missing required field becomes a blocking issue naming the
    evidence needed and who can supply it.

@@ -19,6 +19,7 @@ SKILL_OWNERS = {
     "variant-grouping": "product-intelligence",
     "catalog-retrieval": "product-intelligence",
     "canonical-drafting": "catalog-draft",
+    "listing-copy": "catalog-draft",
     "destination-mapping": "catalog-draft",
     "review-packaging": "review-publishing",
     "approval-verification": "review-publishing",
@@ -26,7 +27,7 @@ SKILL_OWNERS = {
     "reconciliation": "review-publishing",
 }
 # Administrator skills run directly from their command in the main session; no agent routes them.
-ADMIN_SKILLS = {"storefront-setup", "catalog-mappings"}
+ADMIN_SKILLS = {"storefront-setup", "catalog-mappings", "brand-context", "listing-edit"}
 SPECIALISTS = sorted(set(SKILL_OWNERS.values()))
 ROUTER = "commerce-lead"
 

@@ -1,0 +1,34 @@
+{
+  "contract": "brand-context",
+  "contract_version": 1,
+  "storefront_id": "storefront-a",
+  "site_kind": "artist",
+  "version": 3,
+  "updated_at": "2026-10-28T10:00:00Z",
+  "updated_by": {"kind": "human", "id": "owner-1", "role": "administrator"},
+  "identity": {"name": "Sample Artist", "name_usage": "At most once in a collector description; never in a short description."},
+  "philosophy": "Paintings of small, ordinary moments seen up close.",
+  "categories": [
+    {"id": "still-life", "name": "Still lifes", "description": "Objects on a table.", "writing_approach": "Start from the light, not the object."},
+    {"id": "birds", "name": "Birds", "description": "Single birds as companions.", "writing_approach": "The bird's bearing; meaning only as the artist gave it."}
+  ],
+  "voice": {"tone": "Warm and plain.", "do": ["One concrete visual detail per sentence"], "avoid": ["Hype words"]},
+  "style_words": {"accept": ["painterly"], "reject": ["naive"]},
+  "meanings": [
+    {"id": "mean-1", "scope": {"kind": "series", "ref": "Harbour"}, "subject": "the heron", "meaning": "Patience.",
+     "recorded_by": {"kind": "human", "id": "owner-1"}, "recorded_at": "2026-10-28T10:00:00Z"},
+    {"id": "mean-2", "scope": {"kind": "catalog", "ref": null}, "subject": "the backgrounds", "meaning": "Weather moving through.",
+     "recorded_by": {"kind": "human", "id": "owner-1"}, "recorded_at": "2026-10-28T10:00:00Z"}
+  ],
+  "watch_phrases": [{"phrase": "invites viewers", "max_share": 0.05, "source": "owner"}],
+  "examples": [
+    {"id": "ex-1", "status": "approved", "category": "birds", "title": "Low Tide Watch",
+     "short_description": "A grey heron holds still at the water's edge.",
+     "collector_description": "The heron has stopped mid-step.", "why": "Specific and quiet."}
+  ],
+  "lessons": [
+    {"id": "lesson-1", "text": "Prefer one strong verb over two adjectives.", "status": "approved", "source": "edits",
+     "evidence": ["edit-1", "edit-2"], "created_at": "2026-10-28T10:00:00Z", "decided_at": "2026-10-28T11:00:00Z"}
+  ],
+  "length": {"short_words": {"min": 18, "max": 35}, "collector_words": {"min": 85, "max": 135}, "short_chars_max": 200}
+}

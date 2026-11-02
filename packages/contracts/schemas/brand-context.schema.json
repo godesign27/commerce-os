@@ -1,0 +1,399 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "brand-context.schema.json",
+  "title": "Brand context",
+  "description": "One storefront's voice: for an artist site, the artist's philosophy, kinds of work and confirmed meanings; for a product site, the brand story and product lines. Versioned: every change is a new version, and every listing draft records the version it used. Written by setup, the review dashboard and the listing-copy learning loop; never by the model directly.",
+  "type": "object",
+  "required": [
+    "contract",
+    "contract_version",
+    "storefront_id",
+    "site_kind",
+    "version",
+    "updated_at",
+    "updated_by",
+    "identity",
+    "philosophy",
+    "categories",
+    "voice",
+    "style_words",
+    "meanings",
+    "watch_phrases",
+    "examples",
+    "lessons",
+    "length"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "const": "brand-context"
+    },
+    "contract_version": {
+      "const": 1
+    },
+    "storefront_id": {
+      "$ref": "common.schema.json#/$defs/storefront_id"
+    },
+    "site_kind": {
+      "description": "Asked at setup. 'artist': one artist's own work; copy speaks to meaning and the artist's intent. 'product': a brand selling goods; copy speaks to use, feel and fit.",
+      "enum": [
+        "artist",
+        "product"
+      ]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp"
+    },
+    "updated_by": {
+      "$ref": "common.schema.json#/$defs/actor"
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "name",
+        "name_usage"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "The artist's or brand's name as it may appear in copy.",
+          "type": "string",
+          "minLength": 1
+        },
+        "name_usage": {
+          "description": "How often and where the name may appear, in plain words.",
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        }
+      }
+    },
+    "philosophy": {
+      "description": "In the artist's or brand's own words. Background for the writer, never vocabulary to repeat.",
+      "type": "string",
+      "minLength": 1
+    },
+    "categories": {
+      "description": "Kinds of work (artist) or product lines (product), each with how its copy should differ.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "writing_approach"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/slug"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "writing_approach": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "voice": {
+      "type": "object",
+      "required": [
+        "tone",
+        "do",
+        "avoid"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tone": {
+          "type": "string"
+        },
+        "do": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "avoid": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "style_words": {
+      "type": "object",
+      "required": [
+        "accept",
+        "reject"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "accept": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reject": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "meanings": {
+      "description": "Meanings the artist or brand owner confirmed. Each applies only within its scope: one artwork, one series, or the whole catalog.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "scope",
+          "subject",
+          "meaning",
+          "recorded_by",
+          "recorded_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "scope": {
+            "type": "object",
+            "required": [
+              "kind",
+              "ref"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "artwork",
+                  "series",
+                  "catalog"
+                ]
+              },
+              "ref": {
+                "description": "The artwork's item ID or the series name; null for the whole catalog.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "catalog"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "ref": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          "subject": {
+            "description": "What the meaning is about, e.g. 'the wolf' or 'the backgrounds'.",
+            "type": "string",
+            "minLength": 1
+          },
+          "meaning": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recorded_by": {
+            "$ref": "common.schema.json#/$defs/actor"
+          },
+          "recorded_at": {
+            "$ref": "common.schema.json#/$defs/timestamp"
+          }
+        }
+      }
+    },
+    "watch_phrases": {
+      "description": "Phrases allowed but limited: max_share is the largest fraction of the catalog's descriptions that may contain one.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "phrase",
+          "max_share"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "phrase": {
+            "type": "string",
+            "minLength": 2
+          },
+          "max_share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "source": {
+            "enum": [
+              "owner",
+              "edits"
+            ]
+          }
+        }
+      }
+    },
+    "examples": {
+      "description": "Illustrations of the voice. Only approved examples reach the prompt.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "category",
+          "title",
+          "short_description",
+          "collector_description",
+          "why"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "approved",
+              "rejected"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "short_description": {
+            "type": "string"
+          },
+          "collector_description": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "lessons": {
+      "description": "Writing preferences learned from the owner's edits. Proposed by the learning loop; only approved lessons reach the prompt.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "status",
+          "source",
+          "evidence",
+          "created_at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "enum": [
+              "proposed",
+              "approved",
+              "rejected"
+            ]
+          },
+          "source": {
+            "enum": [
+              "edits",
+              "owner"
+            ]
+          },
+          "evidence": {
+            "description": "IDs of the edit records the lesson came from.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "$ref": "common.schema.json#/$defs/timestamp"
+          },
+          "decided_at": {
+            "$ref": "common.schema.json#/$defs/timestamp"
+          }
+        }
+      }
+    },
+    "length": {
+      "type": "object",
+      "required": [
+        "short_words",
+        "collector_words",
+        "short_chars_max"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "short_words": {
+          "$ref": "#/$defs/range"
+        },
+        "collector_words": {
+          "$ref": "#/$defs/range"
+        },
+        "short_chars_max": {
+          "type": "integer",
+          "minimum": 40
+        }
+      }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
