@@ -168,7 +168,8 @@ class LocalState(unittest.TestCase):
         self.store.save_draft("a", record_for("a", 2))
 
     def test_input_validation(self):
-        for bad in ({"facts": {"price": "10"}}, {"facts": {"edition": "deluxe"}}, {"edits": {"price": "1"}},
+        for bad in ({"facts": {"sku": "10"}}, {"facts": {"price": "ten"}}, {"facts": {"price": "10.999"}},
+                    {"facts": {"edition": "deluxe"}}, {"edits": {"price": "1"}},
                     {"edits": {"store_tags": "Animals"}}):
             with self.assertRaises(ValueError, msg=bad):
                 self.store.update("a", **bad)

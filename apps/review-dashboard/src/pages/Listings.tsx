@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { api, State, waitForJob, Job } from "../api";
 import { NameSizes } from "../components/NameSizes";
 
-type Filter = "all" | "drafted" | "to-draft" | "approved" | "edited" | "blocking";
+type Filter = "all" | "drafted" | "to-draft" | "approved" | "edited" | "blocking" | "store-ready" | "store-approved" | "store-out-of-date";
+const FILTER_LABELS: Partial<Record<Filter, string>> = {
+  approved: "copy approved", "store-ready": "ready for the store", "store-approved": "approved for the store",
+  "store-out-of-date": "store approval out of date",
+};
 
 export function Listings({ state, onChange }: { state: State; onChange: () => void }) {
   const [filter, setFilter] = useState<Filter>("drafted");
@@ -11,7 +15,8 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
   const items = useMemo(() => state.items.filter((i) => i.has_art && i.crop_decision !== "reject"), [state.items]);
   const shown = items.filter((i) => ({
     all: true, drafted: i.drafted, "to-draft": !i.drafted, approved: i.approved, edited: i.edited && !i.approved,
-    blocking: i.blocking > 0,
+    blocking: i.blocking > 0, "store-ready": i.storefront === "ready", "store-approved": i.storefront === "approved",
+    "store-out-of-date": i.storefront === "out_of_date",
   })[filter]);
   const toDraft = items.filter((i) => !i.drafted).length;
 
@@ -28,6 +33,9 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
     all: items.length, drafted: items.filter((i) => i.drafted).length, "to-draft": toDraft,
     approved: items.filter((i) => i.approved).length, edited: items.filter((i) => i.edited && !i.approved).length,
     blocking: items.filter((i) => i.blocking > 0).length,
+    "store-ready": items.filter((i) => i.storefront === "ready").length,
+    "store-approved": items.filter((i) => i.storefront === "approved").length,
+    "store-out-of-date": items.filter((i) => i.storefront === "out_of_date").length,
   };
   return (
     <main className="page">
@@ -46,7 +54,7 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
       <div className="filters" role="group" aria-label="Filter">
         {(Object.keys(counts) as Filter[]).map((f) => (
           <button key={f} className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-            {f.replace("-", " ")} <span>{counts[f]}</span>
+            {FILTER_LABELS[f] || f.replace("-", " ")} <span>{counts[f]}</span>
           </button>
         ))}
       </div>
@@ -60,6 +68,9 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
                 <span className="muted small">{i.source}</span>
                 <span className="badges">
                   {i.approved && <span className="badge ok">Approved</span>}
+                  {i.storefront === "approved" && <span className="badge ok">Store ✓</span>}
+                  {i.storefront === "ready" && <span className="badge">Ready for the store</span>}
+                  {i.storefront === "out_of_date" && <span className="badge bad">Store approval out of date</span>}
                   {i.edited && !i.approved && <span className="badge">Edited</span>}
                   {i.drafted && <span className="badge">r{i.revision}</span>}
                   {i.blocking > 0 && <span className="badge bad">{i.blocking} to supply</span>}

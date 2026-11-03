@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from packages.drafting import brand, learning, listing
-from packages.drafting.store import Store
+from packages.drafting.store import Store, draft_facts
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -47,20 +47,20 @@ def draft_item(client, item: dict, *, store: Store, ctx: Optional[dict], product
     pairs = learning.pairs_text(learn.prompt_pairs(category))
     image, media = listing.encode_image(resolve_art(item))
     request = listing.build_request(image, media, product_types, tags, model, brand_ctx=ctx, meanings=meanings,
-                                    facts=entry.get("facts"), note=entry.get("note", ""),
+                                    facts=draft_facts(entry.get("facts")), note=entry.get("note", ""),
                                     series=entry.get("series", ""), others=others, edit_pairs=pairs)
     result = (call or listing.call_model)(client, request)
     revision = store.next_revision(item["id"])
     draft = listing.to_canonical_draft(result["output"], item_id=item["id"], file_id=f"file-{item['id']}",
                                        product_types=product_types, model=result["model"], store_tags=tags,
-                                       brand_ctx=ctx, meanings=meanings, facts=entry.get("facts"),
+                                       brand_ctx=ctx, meanings=meanings, facts=draft_facts(entry.get("facts")),
                                        others=others, revision=revision)
     record = {
         "item": item["id"], "source": item["source"], "art_file": item["art_file"],
         "drafted_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "model": result["model"], "request_id": result["request_id"], "usage": result["usage"],
         "cost_usd": listing.estimate_cost(result["usage"], model),
-        "inputs": {"note": entry.get("note", ""), "facts": entry.get("facts", {}), "series": entry.get("series", ""),
+        "inputs": {"note": entry.get("note", ""), "facts": draft_facts(entry.get("facts")), "series": entry.get("series", ""),
                    "meanings": [m["id"] for m in meanings], "catalog_size": len(others),
                    "edit_pairs": bool(pairs)},
         "model_output": result["output"], "draft": draft,

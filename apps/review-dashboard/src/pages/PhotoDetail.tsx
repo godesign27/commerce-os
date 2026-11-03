@@ -142,7 +142,7 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
           <label className="small">Note
             <textarea rows={2} defaultValue={p.note} onBlur={(e) => e.target.value !== p.note && send({ note: e.target.value })} />
           </label>
-          <AboutPiece key={p.id} itemId={p.id} series={p.series} facts={p.facts} sizeFromName={p.size_from_name}
+          <AboutPiece key={p.id} itemId={p.id} series={p.series} facts={p.facts} sizeFromName={p.size_from_name} tierTypes={p.tier_types}
                       note={p.stage === "approved" ? "The copy is approved: unlock and redraft it to use this."
                         : p.stage === "drafted" ? "Redraft the copy to use it." : undefined}
                       onSaved={async () => {

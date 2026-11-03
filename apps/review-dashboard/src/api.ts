@@ -12,6 +12,21 @@ export interface ItemRow {
   id: string; source: string; kind: string; image?: string; framed?: string; crop_decision?: string | null;
   has_art: boolean; drafted: boolean; revision: number | null; title: string | null; approved: boolean;
   edited: boolean; blocking: number; supplied: number; warnings: number; category: string | null;
+  storefront: StorefrontState | null;
+}
+// A listing against the storefront (B-064): blocked, ready to approve, approved, or approved but changed since.
+export type StorefrontState = "blocked" | "ready" | "approved" | "out_of_date";
+export interface HistoryEvent { at: string | null; event: string; label: string; by: string }
+export interface PreviewRow { column: string; label: string; value: unknown; display: unknown; before: unknown; evidence: string }
+export interface StorefrontPreview {
+  available: boolean; reason?: string; storefront?: string; display_name?: string; environment?: string;
+  change_set?: { change_set_id: string; change_set_hash: string; requested_status: string; mapping_version: number;
+                 canonical_revision: number; asset_manifest_hash: string; not_touched: string[] };
+  rows?: PreviewRow[]; images?: Array<{ kind: "framed" | "room"; image: string }>; blockers?: Issue[]; notes?: string[];
+  dry_run?: { would_publish: boolean; issues: Array<{ code: string; message: string }> }; approvable?: boolean;
+  approval?: { state: "none" | "current" | "out_of_date"; changes: string[];
+               approval: { approval_id: string; approved_at: string; change_set_hash: string; requested_status: string } | null };
+  history: HistoryEvent[];
 }
 export interface Job {
   id: string; label: string; running: boolean; done: number; total: number; error: string | null;
@@ -38,7 +53,7 @@ export interface Draft {
   inputs: { note?: string; facts?: Record<string, string>; meanings?: string[]; catalog_size?: number; edit_pairs?: boolean };
 }
 export interface Listing {
-  facts?: { edition?: string; medium?: string; dimensions?: string }; series?: string; note?: string;
+  facts?: { edition?: string; medium?: string; dimensions?: string; price?: string; sold_as?: string }; series?: string; note?: string;
   edits?: Partial<Copy>; chosen_title?: string;
   approved?: { at: string; by: string; revision: number; copy: Copy };
 }
@@ -46,6 +61,7 @@ export interface Detail {
   item: { id: string; source: string; kind: string; framed?: string };
   image?: string; listing: Listing; revisions: number[]; meanings: Meaning[];
   categories: Array<{ id: string; name: string }>; draft: Draft | null; size_from_name: string | null;
+  tier_types: string[];
 }
 export interface Lesson { id: string; text: string; status: "proposed" | "approved" | "rejected"; source: string; evidence: string[]; created_at: string }
 export interface Example { id: string; status: "proposed" | "approved" | "rejected"; category: string; title: string; short_description: string; collector_description: string; why: string }
@@ -74,8 +90,8 @@ export interface PhotoDetail extends Photo {
   detected: { corners: Pt[] | null; method: string | null; ok: boolean | null; reasons: string[] };
   corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number };
   prev: string | null; next: string | null; listing_title: string | null;
-  dimensions: string | null; facts: { edition?: string; medium?: string; dimensions?: string }; series: string;
-  room: RoomView | null; room_options: RoomOption[]; size_from_name: string | null;
+  dimensions: string | null; facts: { edition?: string; medium?: string; dimensions?: string; price?: string; sold_as?: string }; series: string;
+  room: RoomView | null; room_options: RoomOption[]; size_from_name: string | null; tier_types: string[];
 }
 export interface RoomOption { id: string; name: string; status: RoomStatus; image: string; preview: string | null }
 export interface RoomView { room: string; name: string; auto: boolean; unavailable: string | null; image: string | null; stale: boolean; guessed: boolean; fitted: boolean; overflows: boolean; frame_cm: [number, number] | null; fits_elsewhere: string[] }
@@ -135,6 +151,10 @@ export const api = {
   redraft: (id: string) => call<{ job: string }>("POST", `/api/items/${id}/draft`),
   approve: (id: string) => call<{ edits_recorded: number }>("POST", `/api/items/${id}/approve`),
   unlock: (id: string) => call<Listing>("POST", `/api/items/${id}/unlock`),
+  storefront: (id: string) => call<StorefrontPreview>("GET", `/api/items/${id}/storefront`),
+  // Gate 3: approve the exact change set shown, by its hash; refused if the listing changed since.
+  approveStorefront: (id: string, change_set_hash: string, status: string) =>
+    call<StorefrontPreview>("POST", `/api/items/${id}/storefront/approve`, { change_set_hash, status }),
   addMeaning: (id: string, body: { scope: string; subject: string; meaning: string; series?: string }) =>
     call<BrandContext>("POST", `/api/items/${id}/meaning`, body),
   draftPending: (limit: number) => call<{ job: string }>("POST", "/api/draft-pending", { limit }),

@@ -9,7 +9,8 @@ and the learning loop. Binds 127.0.0.1 only, never 0.0.0.0: it shows unpublished
 that changes something must carry the header `X-Commerce-OS: 1`, which a page on another site can't send
 without a CORS preflight this server never grants.
 
-Nothing here writes to a storefront. Approving copy locks it locally; publication stays behind Gates 2-4.
+Nothing here writes to a storefront. Approving copy locks it locally. The Storefront A preview and its approval
+(Gate 3, B-064) run against the fake test storefront only; publication stays behind Phase 3 and Gate 4.
 """
 import argparse
 import json
@@ -25,7 +26,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from packages.drafting import brand, editing, learning, listing, service  # noqa: E402
+from packages.adapters import artstore_map  # noqa: E402
+from packages.drafting import audit, brand, editing, learning, listing, publication, service  # noqa: E402
 from packages.drafting.store import LockedError, Store  # noqa: E402
 from packages.image_pipeline import room_suggest, rooms, stages  # noqa: E402
 
@@ -62,8 +64,13 @@ class App:
 
     def __init__(self, out: Path = OUT, storefront: str = "storefront-a", brand_root: Path = brand.BRAND_DIR,
                  learning_root: Path = learning.LEARNING, config: Path = CONFIG, client_factory=None, call=None,
-                 source: Path = None, rooms_root: Path = rooms.ROOMS):
+                 source: Path = None, rooms_root: Path = rooms.ROOMS, approvals_root: Path = None,
+                 audit_root: Path = None, mapping: Path = None):
         self.rooms_root = Path(rooms_root)
+        # next to the review folder (.commerce-os/approvals, .commerce-os/audit), so a test's folder holds its own
+        self.audit = audit.Audit(audit_root or Path(out).parent / "audit")
+        self.approvals = publication.Approvals(approvals_root or Path(out).parent / "approvals", self.audit)
+        self._mapping_path, self._mapping, self._fake = mapping, None, None
         self.out, self.storefront, self.brand_root, self.config = Path(out), storefront, Path(brand_root), Path(config)
         self.source = Path(source) if source else ri.DEFAULT_SOURCE
         self.store = Store(self.out)
@@ -115,6 +122,7 @@ class App:
                 "supplied": sum(listing.supplied(i, entry.get("facts")) for i in issues),   # answered: redraft to use
                 "warnings": sum(i["severity"] == "warning" for i in issues),
                 "category": rec["draft"]["product"]["attributes"].get("category", {}).get("value") if rec else None,
+                "storefront": self._storefront_state(it, entry, rec) if rec else None,
             })
         ctx = self.brand_ctx()
         entry = self.storefront_entry()
@@ -138,7 +146,8 @@ class App:
                "revisions": self.store.revisions(item_id) + ([rec["draft"]["revision"]] if rec else []),
                "meanings": brand.meanings_in_scope(ctx, item_id, entry.get("series")) if ctx else [],
                "categories": [{"id": c["id"], "name": c["name"]} for c in (ctx or {}).get("categories", [])],
-               "draft": None, "size_from_name": listing.size_from_name(it.get("source"))}
+               "draft": None, "size_from_name": listing.size_from_name(it.get("source")),
+               "tier_types": self.tier_types()}
         if rec:
             d, a = rec["draft"], rec["draft"]["product"]["attributes"]
             val = lambda k, default=None: a.get(k, {}).get("value", default)  # noqa: E731
@@ -165,8 +174,14 @@ class App:
         extra = set(body) - allowed
         if extra:
             raise ApiError(400, f"unknown fields: {sorted(extra)}")
+        sold_as = ((body.get("facts") or {}).get("sold_as") or "").strip()
+        if sold_as and sold_as not in self.tier_types():
+            raise ApiError(400, f"sold as must be one of the store's tier types: {', '.join(self.tier_types()) or 'none set up'}")
+        before = self.store.listing(item_id).get("facts") or {}
         try:
-            return self.store.update(item_id, **body)
+            entry = self.store.update(item_id, **body)
+            self._audit_facts(item_id, before, entry.get("facts") or {})
+            return entry
         except LockedError as e:
             raise ApiError(409, str(e))
         except ValueError as e:
@@ -203,6 +218,7 @@ class App:
                 skipped.append({"id": item_id, "reason": f"already has a size ({facts['dimensions']})"})
             else:
                 self.store.update(item_id, facts=dict(facts, dimensions=size))      # the other facts are kept
+                self.audit.append(item_id, "facts_saved", f"Size saved from the file name: {size}")
                 saved.append({"id": item_id, "size": size})
         return {"saved": saved, "skipped": skipped}
 
@@ -229,6 +245,116 @@ class App:
     def unlock(self, item_id: str) -> dict:
         return self.store.unlock(item_id, OWNER["id"])
 
+    def _audit_facts(self, item_id: str, before: dict, after: dict):
+        names = {"medium": "medium", "dimensions": "size", "price": "price", "sold_as": "sold as", "edition": "edition"}
+        changed = [names[k] for k in names if before.get(k) != after.get(k)]
+        if changed:
+            self.audit.append(item_id, "facts_saved", "Saved " + ", ".join(changed),
+                              facts={k: after.get(k) for k in names if before.get(k) != after.get(k)})
+
+    # ------------------------------------------------------------ Storefront A preview and approval (B-064)
+    def mapping(self):
+        if self._mapping is None:
+            path = self._mapping_path or self.storefront_entry().get("mapping")
+            self._mapping = (artstore_map.load_mapping(path) if path else None) or {}
+        return self._mapping
+
+    def tier_types(self) -> list:
+        return list(self.mapping().get("tier_types") or [])
+
+    def fake_store(self):
+        if self._fake is None:
+            self._fake = artstore_map.test_store(self.storefront, self.mapping())
+        return self._fake
+
+    def _assets(self, it: dict):
+        """The listing images in order (framed, then the room view), each with its file's hash; and notes on
+        what's missing. A rejected photo has none."""
+        assets, notes = [], []
+        if self.decisions().get(it["id"], {}).get("decision") == "reject" or not it.get("framed"):
+            return assets, notes
+        h = artstore_map.file_hash(self.out / it["framed"].split("?")[0])
+        if h:
+            assets.append({"derivative_id": f"drv-{it['id']}-framed", "kind": "framed", "sha256": h,
+                           "image": it["framed"]})
+        if it.get("art_file"):
+            view = rooms.room_view(it, rooms.load(self.rooms_root), self.out, self._dimensions(it["id"]))
+            vh = artstore_map.file_hash(self.out / view["image"].split("?")[0]) if view and view.get("image") else None
+            if vh and not view["stale"]:
+                assets.append({"derivative_id": f"drv-{it['id']}-room", "kind": "room", "sha256": vh,
+                               "image": view["image"]})
+            else:
+                notes.append("No up-to-date room view: hang it in its room on the photo page to add one.")
+        return assets, notes
+
+    def change_set(self, item_id: str, it: dict = None, entry: dict = None, rec: dict = None):
+        it = it or self.item(item_id)
+        entry = self.store.listing(item_id) if entry is None else entry
+        rec = self.store.draft(item_id) if rec is None else rec
+        assets, notes = self._assets(it)
+        cs = artstore_map.build(item=it, entry=entry, record=rec, copy=self.store.effective(item_id, rec) if rec else None,
+                                assets=assets, mapping=self.mapping(), store=self.fake_store())
+        return cs, assets, notes
+
+    def _storefront_state(self, it: dict, entry: dict, rec: dict):
+        if not self.mapping():
+            return None
+        cs, _, _ = self.change_set(it["id"], it, entry, rec)
+        st = self.approvals.status(it["id"], cs)["state"]
+        if st != "none":
+            return {"current": "approved", "out_of_date": "out_of_date"}[st]
+        return "ready" if artstore_map.approvable(cs) else "blocked"
+
+    def _history(self, item_id: str) -> list:
+        drafts = []
+        for n in self.store.revisions(item_id):
+            p = self.store.drafts / "history" / f"{item_id}.r{n}.json"
+            if p.exists():
+                drafts.append(json.loads(p.read_text()))
+        rec = self.store.draft(item_id)
+        if rec:
+            drafts.append(rec)
+        return audit.timeline(item_id, self.audit, decision=self.decisions().get(item_id),
+                              drafts=drafts, entry=self.store.listing(item_id))
+
+    def storefront_preview(self, item_id: str) -> dict:
+        it = self.item(item_id)
+        entry = self.storefront_entry()
+        if not self.mapping():
+            return {"available": False, "reason": "No store mapping is set up yet: run /setup-storefront.",
+                    "history": self._history(item_id)}
+        cs, assets, notes = self.change_set(item_id, it)
+        fs = self.fake_store()
+        dry = fs.dry_run(cs)
+        return {
+            "available": True, "storefront": self.storefront,
+            "display_name": entry.get("display_name", self.storefront), "environment": fs.environment,
+            "change_set": {k: cs[k] for k in ("change_set_id", "change_set_hash", "requested_status", "mapping_version",
+                                              "canonical_revision", "asset_manifest_hash", "not_touched")},
+            "rows": artstore_map.preview_rows(cs, dry["plan"], fs),
+            "images": [{"kind": a["kind"], "image": a["image"]} for a in assets],
+            "blockers": cs["blockers"], "notes": notes,
+            "dry_run": {"would_publish": dry["would_publish"], "issues": dry["issues"]},
+            "approvable": artstore_map.approvable(cs),
+            "approval": self.approvals.status(item_id, cs),
+            "history": self._history(item_id),
+        }
+
+    def approve_storefront(self, item_id: str, body: dict) -> dict:
+        """Gate 3: the owner approves the change set they were shown, by its hash. Writes nothing to a store."""
+        self.item(item_id)
+        if not isinstance(body, dict) or set(body) != {"change_set_hash", "status"}:
+            raise ApiError(400, 'send {"change_set_hash": "<the hash you saw>", "status": "draft"}')
+        if not self.mapping():
+            raise ApiError(400, "no store mapping is set up yet")
+        cs, _, _ = self.change_set(item_id)
+        try:
+            self.approvals.approve(item_id, cs, seen_hash=body["change_set_hash"], status=body["status"],
+                                   actor_id=OWNER["id"])
+        except publication.ApprovalError as e:
+            raise ApiError(409, str(e))
+        return self.storefront_preview(item_id)
+
     # ------------------------------------------------------------ photos (B-062)
     def photos(self) -> dict:
         items, decisions = self.items(), self.decisions()
@@ -252,6 +378,7 @@ class App:
         out["facts"], out["series"] = entry.get("facts") or {}, entry.get("series") or ""   # About this piece
         out["dimensions"] = out["facts"].get("dimensions")
         out["size_from_name"] = listing.size_from_name(it.get("source"))
+        out["tier_types"] = self.tier_types()
         lib = rooms.load(self.rooms_root)
         out["room"] = rooms.room_view(it, lib, self.out, out["dimensions"]) if it.get("art_file") else None
         out["room_options"] = rooms.options(lib, self.rooms_root)
@@ -705,6 +832,10 @@ def _copy(app, m, body): return app.save_copy(m.group(1), body)
 def _draft(app, m, body): return app.draft([m.group(1)], f"Redraft {m.group(1)}")
 @route("POST", r"/api/items/([\w.-]+)/approve")
 def _approve(app, m, body): return app.approve(m.group(1))
+@route("GET", r"/api/items/([\w.-]+)/storefront")
+def _storefront(app, m, body): return app.storefront_preview(m.group(1))
+@route("POST", r"/api/items/([\w.-]+)/storefront/approve")
+def _storefront_approve(app, m, body): return app.approve_storefront(m.group(1), body)
 @route("POST", r"/api/items/([\w.-]+)/unlock")
 def _unlock(app, m, body): return app.unlock(m.group(1))
 @route("POST", r"/api/items/([\w.-]+)/meaning")

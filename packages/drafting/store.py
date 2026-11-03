@@ -12,6 +12,7 @@ clears the approval (and is itself recorded). Publishing is not here: approval o
 not a storefront write.
 """
 import json
+import re
 import threading
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -22,8 +23,24 @@ REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / ".commerce-os" / "review"
 COPY_FIELDS = ("title", "short_description", "collector_description")
 LIST_FIELDS = ("store_tags", "search_keywords")
-FACT_FIELDS = ("edition", "medium", "dimensions")
+FACT_FIELDS = ("edition", "medium", "dimensions", "price", "sold_as")
+DRAFT_FACTS = ("edition", "medium", "dimensions")   # the facts the copy may use; price and sold_as never reach the model
 EDITIONS = ("original", "print", "both")
+PRICE = re.compile(r"^\$?\s*(\d{1,3}(?:,\d{3})+|\d{1,7})(\.\d{1,2})?$")
+
+
+def clean_price(text: str) -> str:
+    """A price in US dollars as the owner typed it ("$1,250", "450.5") -> "1250.00". Never a guess: an
+    unreadable price is refused, not rounded or repaired."""
+    m = PRICE.match((text or "").strip())
+    if not m:
+        raise ValueError("the price is a dollar amount, like 450 or 1,250.00")
+    whole, cents = m.group(1).replace(",", ""), (m.group(2) or ".00")[1:]
+    return f"{int(whole)}.{cents.ljust(2, '0')}"
+
+
+def draft_facts(facts: Optional[dict]) -> dict:
+    return {k: v for k, v in (facts or {}).items() if k in DRAFT_FACTS}
 _LOCK = threading.RLock()
 
 
@@ -106,6 +123,8 @@ class Store:
                     v = (v or "").strip()
                     if k == "edition" and v and v not in EDITIONS:
                         raise ValueError(f"edition must be one of {EDITIONS}")
+                    if k == "price" and v:
+                        v = clean_price(v)
                     if v:
                         clean[k] = v[:200]
                 entry["facts"] = clean
