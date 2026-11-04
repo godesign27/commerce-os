@@ -70,7 +70,15 @@ def read_snapshot(pg, storefront: str, now: str) -> dict:
     return {"storefront": storefront, "read_at": now,
             "products": pg.rows(f"SELECT {', '.join(PRODUCT_COLUMNS)} FROM public.products ORDER BY id"),
             "categories": pg.rows(f"SELECT {', '.join(LIST_COLUMNS)} FROM public.categories ORDER BY name"),
-            "tags": pg.rows(f"SELECT {', '.join(LIST_COLUMNS)} FROM public.tags ORDER BY name")}
+            "tags": pg.rows(f"SELECT {', '.join(LIST_COLUMNS)} FROM public.tags ORDER BY name"),
+            "tier_types": read_tier_types(pg)}
+
+
+def read_tier_types(pg) -> List[str]:
+    """How the store sells things, as names only: never a tier's price."""
+    rows = pg.rows("SELECT DISTINCT t->>'type' AS type FROM public.products p, jsonb_array_elements(p.pricing_tiers) t "
+                   "WHERE jsonb_typeof(p.pricing_tiers) = 'array' AND t->>'type' IS NOT NULL")
+    return sorted(r["type"] for r in rows)
 
 
 class Catalog:
@@ -82,6 +90,7 @@ class Catalog:
         self.root, self.storefront = Path(root), storefront
         self.path = self.root / f"{storefront}.json"
         self.answers_path = self.root / f"{storefront}.answers.jsonl"
+        self.structure_path = self.root / f"{storefront}.structure.json"
 
     def load(self) -> Optional[dict]:
         if not self.path.exists():
@@ -103,6 +112,15 @@ class Catalog:
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(snap, indent=1, default=str))
         os.replace(tmp, self.path)
+
+    def structure(self) -> Optional[dict]:
+        """The connected store's structure, as read: what previews are checked against."""
+        return json.loads(self.structure_path.read_text()) if self.structure_path.exists() else None
+
+    def save_structure(self, tables: dict, fingerprint: str, profile: str):
+        self.root.mkdir(parents=True, exist_ok=True)
+        self.structure_path.write_text(json.dumps({"storefront": self.storefront, "catalog_profile": profile,
+                                                   "fingerprint": fingerprint, "tables": tables}, indent=1))
 
     def answers(self, item: str) -> Dict[str, str]:
         """product id -> "same" or "different": the owner's latest answer for this piece."""

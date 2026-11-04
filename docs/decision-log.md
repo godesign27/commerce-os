@@ -81,6 +81,15 @@ From schema-only dumps of both storefronts. Detail: [discovery/storefront-schema
 | Not reading the catalog yet doesn't block approval; the preview says it wasn't checked | Approving writes nothing, and a publish must check again at Gate 4 (Phase 3). | Phase 3 is built. |
 | While the dashboard runs only on this computer for one owner, sign-in and roles, database isolation keys, signed image URLs, a sandboxed decoder and a fetch allowlist are deferred (`docs/security.md`) | They protect a hosted, multi-person system, and none has anything to protect here yet. Local-only binding and the write header stay. | The dashboard is hosted, a second person joins (B-008), or the operational database comes into use. |
 
+## Decided for first run (2026-11-04)
+
+| Decision | Why | Revisit when |
+|---|---|---|
+| The read-only login and Claude API key are entered on the local dashboard page, and saved to `.env` after checking | `.env` is hidden in Finder and easy to get wrong, and a read-only login can't change anything. Agents still never handle a credential, and write logins stay out of the browser. | The dashboard is hosted, or a second person uses it. |
+| Getting started works out each step's status from what's really set up, with no "finished" flag | You can stop and come back, an existing install shows as done, and nothing can drift out of step. | Never expected. |
+| The start page is the dashboard's front door, and new inbox photos are announced on every page | Owner request. Files already reported with a problem don't keep announcing themselves. | Photos start arriving from somewhere other than this folder. |
+| Previews use the structure read from the connected store, so any store fitting the profile works; a store that doesn't fit stops at Check the store | The preview only worked for a store with committed files, which a new install doesn't have. | A second catalog profile exists. |
+
 ## Open
 
 PRD §22 questions 1–13 are BACKLOG B-001 to B-013.

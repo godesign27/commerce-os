@@ -29,6 +29,14 @@ Phase 2 is proceeding in legs, and the owner decided on 2026-11-04 to keep it on
 | A sandboxed decoder for images, and a time limit | **Deferred until photos come from anyone but the owner.** |
 | Outbound fetch allowlist for workers and agent tools | **Deferred until workers exist.** The only outbound calls are the model API and the catalog read. |
 
+## Credentials on the local page
+
+The read-only login and the Claude API key are entered on the dashboard's Getting started page (owner decision
+2026-11-04). The rules: the page runs only on 127.0.0.1; both are checked before anything is saved; a login that
+can change data or see beyond the catalog tables is refused; they're saved in `.env`, readable by this user
+only; no response, message, log or audit record holds them; and a login already used elsewhere here is
+refused. Write logins never come through this page, and agents still never handle a credential.
+
 ## Required before production (Phase 4)
 
 Retention for originals, rejected drafts, logs and backups; verified restore; incident response and

@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0] - 2026-11-04
+
+### Changed
+
+- storefront-setup: a first-time setup now points to the dashboard's Getting started page (`./start.sh`),
+  which connects and checks the store. The skill itself still never handles a credential and never
+  connects to anything.
+
 ## [0.7.0] - 2026-10-29
 
 ### Changed

@@ -34,6 +34,10 @@ never Storefront A's project.
 
 ## Setting up a storefront
 
+**First time:** run `./start.sh` and follow Getting started in the dashboard. It does everything below, then
+creates and checks the read-only login and builds the mapping from the store's own lists. To add a further
+storefront or change an entry:
+
 Run `/setup-storefront` in Claude Code, or follow the `storefront-setup` skill in Cursor. It asks for:
 
 1. **Storefront ID and display name.** The ID is a lowercase slug such as `storefront-c`.

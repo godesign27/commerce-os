@@ -23,8 +23,8 @@ REPO = Path(__file__).resolve().parents[2]
 INBOX = REPO / "inbox"
 INTAKE = REPO / ".commerce-os" / "intake"
 POLICY_VERSION = 1
-SUPPORTED = {"JPEG", "PNG", "WEBP", "TIFF", "MPO"}          # judged by the file's content, not its extension
-LISTED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}     # what the pipeline lists from the source folder
+SUPPORTED = {"JPEG", "PNG", "WEBP", "TIFF", "MPO", "HEIF"}  # judged by the file's content, not its extension
+LISTED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff", ".heic", ".heif"}  # what the pipeline lists from the source folder
 MAX_BYTES = 100_000_000
 MAX_PIXELS = 120_000_000
 MAX_BATCH = 100
@@ -61,21 +61,19 @@ def check(path: Path) -> dict:
         return {"problem": "The file is empty."}
     if size > MAX_BYTES:
         return {"problem": f"It's over the {MAX_BYTES // 1_000_000} MB limit."}
-    if p.suffix.lower() not in LISTED_EXT and p.suffix.lower() not in (".heic", ".heif"):
-        return {"problem": "This isn't a photo type Commerce OS reads. Use JPEG, PNG, WebP or TIFF."}
+    if p.suffix.lower() not in LISTED_EXT:
+        return {"problem": "This isn't a photo type Commerce OS reads. Use JPEG, HEIC, PNG, WebP or TIFF."}
     try:
         with Image.open(p) as im:                 # reads the header only, so the pixel limit comes before decoding
             fmt, (w, h) = im.format, im.size
             if fmt not in SUPPORTED:
-                return {"problem": f"{fmt} isn't a type Commerce OS reads. Use JPEG, PNG, WebP or TIFF."}
+                return {"problem": f"{fmt} isn't a type Commerce OS reads. Use JPEG, HEIC, PNG, WebP or TIFF."}
             if w * h > MAX_PIXELS:
                 return {"problem": f"It's {w * h // 1_000_000} megapixels, over the {MAX_PIXELS // 1_000_000} limit."}
             im.load()                             # a truncated or half-copied file fails here
     except Image.DecompressionBombError:
         return {"problem": f"It's over the {MAX_PIXELS // 1_000_000} megapixel limit."}
     except Exception:
-        if p.suffix.lower() in (".heic", ".heif"):
-            return {"problem": "HEIC photos can't be read yet. Export it as JPEG (or set the phone to Most Compatible)."}
         return {"problem": "The file can't be read as an image. It may be damaged or still copying."}
     return {"format": fmt, "pixels": w * h, "bytes": size}
 
@@ -161,6 +159,10 @@ def scan(inbox: Path = INBOX, source_dir: Optional[Path] = None, root: Path = IN
 
 
 def status(inbox: Path = INBOX, root: Path = INTAKE) -> dict:
+    """`new` leaves out files already reported with a problem, so they don't keep announcing themselves."""
     last = Path(root) / "last.json"
-    return {"folder": str(Path(inbox)), "waiting": len(waiting(inbox)),
-            "last": json.loads(last.read_text()) if last.exists() else None}
+    result = json.loads(last.read_text()) if last.exists() else None
+    files = [p.name for p in waiting(inbox)]
+    known_problems = {x["name"] for x in (result or {}).get("problems", [])}
+    return {"folder": str(Path(inbox)), "waiting": len(files), "new": sum(n not in known_problems for n in files),
+            "last": result}

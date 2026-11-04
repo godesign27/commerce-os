@@ -17,7 +17,7 @@ export function Setup({ state, onDone }: { state: State; onDone: () => void }) {
     setError(null);
     try {
       await api.setup({ ...f, site_kind: kind, categories: cats, replace: exists });
-      location.hash = "#/brand";
+      location.hash = state.onboarding.complete ? "#/brand" : "#/start";
       onDone();
     } catch (e) { setError(String((e as Error).message)); }
   }

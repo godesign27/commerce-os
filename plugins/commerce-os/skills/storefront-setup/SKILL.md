@@ -16,6 +16,10 @@ connect to anything, and it never handles a credential.
 The provider and profile files live in the Commerce OS repository, not in the plugin, so this skill
 runs in a Commerce OS checkout.
 
+**Setting up for the first time?** Tell the person to run `./start.sh` in the checkout and follow Getting
+started in the dashboard. It connects and checks the store, on their own computer, without any credential
+passing through this conversation. Use this skill to add a further storefront or change an existing entry.
+
 ## Inputs
 
 - The working directory's `resources/providers/*.json`, `resources/catalog-profiles/*.json`, and
@@ -87,4 +91,4 @@ looks like the other site" is not evidence.
 
 ## Current status
 
-Runnable. Writes local configuration only; nothing reads it until the Phase 1 workflow service exists.
+Runnable. Writes local configuration only; the local dashboard reads it (`config/storefronts.local.json`).

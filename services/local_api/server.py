@@ -5,7 +5,7 @@
 
 Serves the built dashboard (apps/review-dashboard/dist) and a JSON API over the local files: review items,
 listing drafts and revisions, the reviewer's edits and supplied facts, copy approval, the brand context,
-and the learning loop. Binds 127.0.0.1 only, never 0.0.0.0: it shows unpublished artwork. Every request
+the learning loop, first-run setup and the start page. Binds 127.0.0.1 only, never 0.0.0.0: it shows unpublished artwork. Every request
 that changes something must carry the header `X-Commerce-OS: 1`, which a page on another site can't send
 without a CORS preflight this server never grants.
 
@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
+from packages import onboarding  # noqa: E402
 from packages.adapters import artstore_map, catalog  # noqa: E402
 from packages.drafting import audit, brand, editing, learning, listing, publication, service  # noqa: E402
 from packages.drafting.store import LockedError, Store  # noqa: E402
@@ -67,13 +68,16 @@ class App:
                  learning_root: Path = learning.LEARNING, config: Path = CONFIG, client_factory=None, call=None,
                  source: Path = None, rooms_root: Path = rooms.ROOMS, approvals_root: Path = None,
                  audit_root: Path = None, mapping: Path = None, catalog_root: Path = None, inbox: Path = None,
-                 intake_root: Path = None, read_catalog=None):
+                 intake_root: Path = None, read_catalog=None, env_file: Path = None, connect=None, check_key=None):
         self.rooms_root = Path(rooms_root)
         # also next to the review folder; the inbox is the one folder the owner uses directly, so it's easy to find
         self.catalog = catalog.Catalog(catalog_root or Path(out).parent / "catalog", storefront)
         self.inbox = Path(inbox) if inbox else (intake.INBOX if Path(out) == OUT else Path(out).parent / "inbox")
         self.intake_root = Path(intake_root) if intake_root else Path(out).parent / "intake"
         self._read_catalog = read_catalog         # tests inject a stand-in for reading the store
+        self.env_file = Path(env_file) if env_file else (REPO / ".env" if Path(out) == OUT else Path(out).parent / ".env")
+        self._connect = connect                   # tests inject: url -> an object with .rows(sql)
+        self._check_key = check_key               # tests inject: key -> raises if it's refused
         self._intake_lock = threading.Lock()
         # next to the review folder (.commerce-os/approvals, .commerce-os/audit), so a test's folder holds its own
         self.audit = audit.Audit(audit_root or Path(out).parent / "audit")
@@ -138,7 +142,8 @@ class App:
                 "site_kind": entry.get("site_kind") or (ctx or {}).get("site_kind"),
                 "brand": {"version": ctx["version"], "name": ctx["identity"]["name"],
                           "proposed_lessons": sum(x["status"] == "proposed" for x in ctx["lessons"])} if ctx else None,
-                "items": rows, "key_configured": bool(self._key()), "jobs": self.job_list()}
+                "items": rows, "key_configured": bool(self._key()), "jobs": self.job_list(),
+                "onboarding": self._steps()}
 
     @staticmethod
     def _image(it: dict):
@@ -272,8 +277,16 @@ class App:
 
     def fake_store(self):
         if self._fake is None:
-            self._fake = artstore_map.test_store(self.storefront, self.mapping())
+            structure = self.catalog.structure()
+            self._fake = artstore_map.test_store(self.storefront, self.mapping(), self.storefront_entry(), structure) \
+                if structure and self.storefront_entry().get("catalog_profile") \
+                else artstore_map.test_store(self.storefront, self.mapping())
         return self._fake
+
+    def can_preview(self) -> bool:
+        """A preview needs a mapping, and a structure to check it against: read from the store, or in the repo."""
+        known = (REPO / "database" / "storefronts" / self.storefront / "catalog-structure.json").exists()
+        return bool(self.mapping()) and (known or bool(self.catalog.structure()))
 
     def _assets(self, it: dict):
         """The listing images in order (framed, then the room view), each with its file's hash; and notes on
@@ -316,7 +329,7 @@ class App:
                                     products=snap["products"], answers=self.catalog.answers(item_id))
 
     def _storefront_state(self, it: dict, entry: dict, rec: dict):
-        if not self.mapping():
+        if not self.can_preview():
             return None
         cs, _, _ = self.change_set(it["id"], it, entry, rec)
         st = self.approvals.status(it["id"], cs)["state"]
@@ -339,8 +352,8 @@ class App:
     def storefront_preview(self, item_id: str) -> dict:
         it = self.item(item_id)
         entry = self.storefront_entry()
-        if not self.mapping():
-            return {"available": False, "reason": "No store mapping is set up yet: run /setup-storefront.",
+        if not self.can_preview():
+            return {"available": False, "reason": "The store isn't connected yet: finish Getting started.",
                     "history": self._history(item_id)}
         cs, assets, notes = self.change_set(item_id, it)
         fs = self.fake_store()
@@ -370,22 +383,33 @@ class App:
             doc["candidates"] = self._candidates(item_id, self.store.listing(item_id), self.store.draft(item_id))
         return doc
 
+    def _env_key(self) -> str:
+        prefix = self.storefront_entry().get("env_prefix")
+        return f"{prefix}_DB_URL" if prefix else ""
+
+    def _login_url(self) -> str:
+        key = self._env_key()
+        return (onboarding.read_env(self.env_file).get(key) or os.environ.get(key) or "") if key else ""
+
+    def _pg(self, url: str):
+        """A read-only session. Every message from it is safe to show: credentials are taken out."""
+        if self._connect:
+            return self._connect(url)
+        crr = _load_script("check_read_role")
+        return crr.Psql(crr.pg_env_from_url(url))
+
     def _read_store(self) -> dict:
         if self._read_catalog:
             return self._read_catalog()
-        prefix = self.storefront_entry().get("env_prefix")
-        if not prefix:
-            raise catalog.CatalogError("This storefront isn't set up yet: run /setup-storefront.")
-        key = f"{prefix}_DB_URL"
-        crr = _load_script("check_read_role")
-        env_file = REPO / ".env"
-        url = (crr.parse_dotenv(env_file.read_text()).get(key) if env_file.exists() else None) or os.environ.get(key)
+        if not self._env_key():
+            raise catalog.CatalogError("This storefront isn't connected yet: finish Getting started.")
+        url = self._login_url()
         if not url:
-            raise catalog.CatalogError(f"{key} isn't set in .env, so the store can't be read.")
+            raise catalog.CatalogError("There's no read-only login saved for this store yet: finish Getting started.")
         try:
-            return catalog.read_snapshot(crr.Psql(crr.pg_env_from_url(url)), self.storefront, brand.now())
-        except (SystemExit, ValueError) as e:      # its messages never hold the connection string or password
-            raise catalog.CatalogError(f"The store couldn't be read: {e}")
+            return catalog.read_snapshot(self._pg(url), self.storefront, brand.now())
+        except (SystemExit, ValueError) as e:
+            raise catalog.CatalogError("The store couldn't be read: " + onboarding.scrub(e, url, onboarding.url_password(url)))
 
     def refresh_catalog(self) -> dict:
         def work(job):
@@ -423,8 +447,8 @@ class App:
         self.item(item_id)
         if not isinstance(body, dict) or set(body) != {"change_set_hash", "status"}:
             raise ApiError(400, 'send {"change_set_hash": "<the hash you saw>", "status": "draft"}')
-        if not self.mapping():
-            raise ApiError(400, "no store mapping is set up yet")
+        if not self.can_preview():
+            raise ApiError(400, "the store isn't connected yet: finish Getting started")
         cs, _, _ = self.change_set(item_id)
         try:
             self.approvals.approve(item_id, cs, seen_hash=body["change_set_hash"], status=body["status"],
@@ -432,6 +456,186 @@ class App:
         except publication.ApprovalError as e:
             raise ApiError(409, str(e))
         return self.storefront_preview(item_id)
+
+    # ------------------------------------------------------------ first run (B-068)
+    def _steps(self) -> dict:
+        entry = self.storefront_entry()
+        return onboarding.steps(entry=entry if entry.get("provider") else None, login=bool(self._login_url()),
+                                snapshot=bool(self.catalog.load()), mapping=self.mapping() or None, key=bool(self._key()),
+                                brand=bool(self.brand_ctx()), photos=len(self.items()))
+
+    def _reset_store(self):
+        self._mapping, self._fake = None, None
+
+    def onboarding_doc(self) -> dict:
+        """Everything the Getting started page needs. It never holds a credential."""
+        entry, snap = self.storefront_entry(), self.catalog.load()
+        provider = entry.get("provider")
+        mapping = self.mapping()
+        doc = dict(self._steps(), storefront=self.storefront,
+                   store={k: entry.get(k) for k in ("display_name", "site_kind", "provider", "currency")},
+                   providers=[{"id": p["id"], "label": p["display_name"]} for p in onboarding.providers()],
+                   login={"env_key": self._env_key() or None, "saved": bool(self._login_url()),
+                          "sql": onboarding.login_sql(), "example": onboarding.login_example(provider),
+                          "where": onboarding.login_where(provider)},
+                   check=None, choices=None)
+        if snap:
+            doc["check"] = {"read_at": snap["read_at"], "products": len(snap["products"]), "categories": len(snap["categories"]),
+                            "tags": len(snap["tags"])}
+            ref = lambda r: r["slug"] or r["id"]  # noqa: E731
+            in_scope = lambda rows, entries: [ref(r) for r in rows if any(  # noqa: E731
+                e.get("status") == "in_scope" and (e.get("slug") == r["slug"] or (e.get("id") or {}).get("production") == r["id"])
+                for e in entries)]
+            doc["choices"] = {
+                "categories": [{"ref": ref(r), "name": r["name"]} for r in snap["categories"]],
+                "tags": [{"ref": ref(r), "name": r["name"]} for r in snap["tags"]],
+                "tier_types": snap.get("tier_types") or [],
+                "product_types": onboarding.product_types(entry.get("site_kind")),
+                "chosen": {"categories": in_scope(snap["categories"], mapping.get("categories", [])),
+                           "tags": in_scope(snap["tags"], mapping.get("tags", [])),
+                           "tier_types": mapping.get("tier_types", []), "product_types": self._chosen_types(mapping)}}
+        return doc
+
+    @staticmethod
+    def _chosen_types(mapping: dict) -> dict:
+        slug = {c["key"]: c.get("slug") or c["key"] for c in mapping.get("categories", [])}
+        out = {}
+        for k, v in (mapping.get("product_types") or {}).items():
+            if isinstance(v, dict) and v.get("category"):
+                alt = (v.get("alternative_categories") or [None])[0]
+                out[k] = {"category": slug.get(v["category"]), "alternative": slug.get(alt)}
+        return out
+
+    def onboarding_store(self, body: dict) -> dict:
+        try:
+            onboarding.save_store(self.config, self.storefront, body)
+        except onboarding.SetupError as e:
+            raise ApiError(400, str(e))
+        self._reset_store()
+        return self.onboarding_doc()
+
+    def onboarding_login(self, body: dict) -> dict:
+        """Check a read-only login, then save it. A login that fails any check is never saved, and no response or
+        message holds it."""
+        url = (body.get("url") or "").strip() if isinstance(body, dict) else ""
+        key = self._env_key()
+        if not key:
+            raise ApiError(400, "Say which store this is first.")
+        if not url:
+            raise ApiError(400, "Enter the login.")
+        hidden = (url, onboarding.url_password(url))
+        env = onboarding.read_env(self.env_file)
+        other_keys = [f"{s['env_prefix']}_DB_URL" for s in onboarding.load_config(self.config)["storefronts"]
+                      if s["id"] != self.storefront and s.get("env_prefix")] + ["OPS_DB_URL", "COMMERCE_OS_TEST_DB_URL"]
+        if any(env.get(k) == url for k in other_keys):
+            raise ApiError(409, "That login belongs to something else here. Every store needs its own.")
+        crr = _load_script("check_read_role")
+        try:
+            pg = self._pg(url)
+            role, memberships, privileges, rls = crr.collect(pg)
+            results = crr.evaluate(role, memberships, privileges) + crr.evaluate_rls(role["user"], rls)
+        except (SystemExit, Exception) as e:      # noqa: B014 - Psql stops with SystemExit
+            raise ApiError(400, "Couldn't connect with that login: " + onboarding.scrub(e, *hidden))
+        failed = [onboarding.scrub(msg, *hidden) for ok, msg in results if not ok]
+        if failed:
+            raise ApiError(409, "That login isn't safe to use, so it wasn't saved: " + "; ".join(failed)
+                           + ". Use a login made with the script on this page.")
+        onboarding.set_env(self.env_file, key, url)
+        self.audit.append("_setup", "login_saved", "Read-only login checked and saved", by=OWNER["id"], env_key=key)
+        return self.onboarding_doc()
+
+    def onboarding_check(self) -> dict:
+        """Read the store: its structure first, then the catalog. Stops if the structure doesn't fit."""
+        url, entry = self._login_url(), self.storefront_entry()
+        if not url:
+            raise ApiError(400, "Save the read-only login first.")
+        hidden = (url, onboarding.url_password(url))
+        profile = next((p for p in onboarding.profiles() if p["id"] == entry.get("catalog_profile")), None)
+        if not profile:
+            raise ApiError(400, "This store has no catalog profile.")
+        ldb = _load_script("local_storefront_db")
+        try:
+            pg = self._pg(url)
+            tables = ldb.read_structure(pg)
+            problems = onboarding.fit(tables, profile)
+            if problems:
+                raise ApiError(409, "This store's structure doesn't fit what Commerce OS knows how to work with: "
+                               + " ".join(problems) + " A new catalog profile would be needed.")
+            snap = catalog.read_snapshot(pg, self.storefront, brand.now())
+            self.catalog.save(snap)
+        except ApiError:
+            raise
+        except (catalog.CatalogError, SystemExit, Exception) as e:     # noqa: B014
+            raise ApiError(400, onboarding.scrub(e, *hidden))
+        self.catalog.save_structure(tables, ldb.fingerprint(tables), profile["id"])
+        onboarding.record_features(self.config, self.storefront, onboarding.detect_features(tables, profile))
+        self._reset_store()
+        return self.onboarding_doc()
+
+    def onboarding_mapping(self, body: dict) -> dict:
+        snap = self.catalog.load()
+        if not snap:
+            raise ApiError(400, "Check the store first.")
+        entry = self.storefront_entry()
+        path = Path(entry.get("mapping") or f"config/mappings/{self.storefront}.local.json")
+        path = self._mapping_path and Path(self._mapping_path) or (path if path.is_absolute() else REPO / path)
+        try:
+            built = onboarding.build_mapping(self.storefront, snap, body, self.mapping() or None, brand.now()[:10])
+        except onboarding.SetupError as e:
+            raise ApiError(400, str(e))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(built, indent=2) + "\n")
+        self._reset_store()
+        return self.onboarding_doc()
+
+    def onboarding_key(self, body: dict) -> dict:
+        key = (body.get("key") or "").strip() if isinstance(body, dict) else ""
+        if not key:
+            raise ApiError(400, "Enter the key.")
+        try:
+            if self._check_key:
+                self._check_key(key)
+            else:
+                import anthropic
+                anthropic.Anthropic(api_key=key, max_retries=0, timeout=15).models.list(limit=1)
+        except Exception as e:
+            kind = "It was refused." if "Authentication" in type(e).__name__ or "Permission" in type(e).__name__ \
+                else "Claude couldn't be reached to check it."
+            raise ApiError(400, f"That key wasn't saved. {kind}")
+        onboarding.set_env(self.env_file, "ANTHROPIC_API_KEY", key)
+        return self.onboarding_doc()
+
+    # ------------------------------------------------------------ the start page
+    def inbox_status(self) -> dict:
+        st = intake.status(self.inbox, self.intake_root)
+        return {"new": st["new"], "waiting": st["waiting"], "folder": st["folder"]}
+
+    def home(self) -> dict:
+        """The start page: is a store connected, and one summary for each area."""
+        state, photos = self.state(), self.photos()
+        entry, snap = self.storefront_entry(), self.catalog.load()
+        rows, drafted = state["items"], [i for i in state["items"] if i["drafted"]]
+        by_stage = {s["id"]: sum(p["stage"] == s["id"] for p in photos["photos"]) for s in photos["stages"]}
+        lib = rooms.load(self.rooms_root)["rooms"]
+        room_states = [rooms.status(r) for r in lib]
+        count = lambda v: sum(i["storefront"] == v for i in drafted)  # noqa: E731
+        return {
+            "onboarding": state["onboarding"],
+            "store": {"connected": bool(self._login_url() and snap), "display_name": entry.get("display_name"),
+                      "site_kind": entry.get("site_kind"),
+                      "provider": next((p["display_name"] for p in onboarding.providers() if p["id"] == entry.get("provider")), None),
+                      "products": len(snap["products"]) if snap else None, "read_at": snap["read_at"] if snap else None,
+                      "writes_enabled": bool(entry.get("writes_enabled"))},
+            "inbox": self.inbox_status(),
+            "photos": {"total": len(photos["photos"]), "to_review": by_stage.get("to-review", 0) + by_stage.get("not-applied", 0),
+                       "ready": by_stage.get("ready", 0), "rejected": by_stage.get("rejected", 0)},
+            "listings": {"drafted": len(drafted), "copy_approved": sum(i["approved"] for i in drafted),
+                         "blocked": count("blocked"), "ready": count("ready"), "approved": count("approved"),
+                         "out_of_date": count("out_of_date")},
+            "rooms": {"total": len(lib), "ready": room_states.count("ready"), "need_attention": sum(s not in ("ready", "off") for s in room_states)},
+            "learning": {"approvals": self.learn.stats()["approvals"],
+                         "proposed_lessons": (state["brand"] or {}).get("proposed_lessons", 0)},
+        }
 
     # ------------------------------------------------------------ photos (B-062)
     def photos(self) -> dict:
@@ -819,11 +1023,7 @@ class App:
 
     # ------------------------------------------------------------ jobs (calls to Claude)
     def _key(self) -> str:
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("draft_listings", REPO / "scripts" / "draft_listings.py")
-        dl = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(dl)
-        return dl.load_env_key()
+        return onboarding.read_env(self.env_file).get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY") or ""
 
     def _client(self):
         if self.client_factory:
@@ -939,6 +1139,22 @@ def _unlock(app, m, body): return app.unlock(m.group(1))
 def _meaning(app, m, body): return app.add_meaning(m.group(1), body)
 @route("POST", "/api/draft-pending")
 def _pending(app, m, body): return app.draft_pending(int(body.get("limit", 5)))
+@route("GET", "/api/home")
+def _home(app, m, body): return app.home()
+@route("GET", "/api/inbox")
+def _inbox(app, m, body): return app.inbox_status()
+@route("GET", "/api/onboarding")
+def _onboarding(app, m, body): return app.onboarding_doc()
+@route("PUT", "/api/onboarding/store")
+def _onboarding_store(app, m, body): return app.onboarding_store(body)
+@route("POST", "/api/onboarding/login")
+def _onboarding_login(app, m, body): return app.onboarding_login(body)
+@route("POST", "/api/onboarding/check")
+def _onboarding_check(app, m, body): return app.onboarding_check()
+@route("PUT", "/api/onboarding/mapping")
+def _onboarding_mapping(app, m, body): return app.onboarding_mapping(body)
+@route("POST", "/api/onboarding/key")
+def _onboarding_key(app, m, body): return app.onboarding_key(body)
 @route("POST", "/api/intake/scan")
 def _intake_scan(app, m, body): return app.scan_inbox()
 @route("POST", "/api/catalog/refresh")

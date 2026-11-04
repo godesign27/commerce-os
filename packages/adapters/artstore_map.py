@@ -65,12 +65,16 @@ def test_seed(mapping: dict) -> dict:
             "products": []}
 
 
-def test_store(storefront: str, mapping: dict) -> FakeStorefront:
-    """The fake test storefront, seeded with the owner's catalog (no products). Writes stay disabled."""
+def test_store(storefront: str, mapping: dict, entry: Optional[dict] = None, structure: Optional[dict] = None) -> FakeStorefront:
+    """The fake test storefront, seeded with the owner's catalog (no products). Writes stay disabled. With `entry` and
+    `structure` (read from the connected store) it works for any store; without them, for one committed in the repo."""
+    if structure and entry:
+        profile = json.loads((REPO / "resources" / "catalog-profiles" / f"{entry['catalog_profile']}.json").read_text())
+        return FakeStorefront(storefront, ENVIRONMENT, profile, structure, currency=entry.get("currency", "USD"),
+                              features=entry.get("features", []), seed=test_seed(mapping), writes_enabled=False)
     store = FakeStorefront.from_repo(storefront, ENVIRONMENT, seed=False)
-    fresh = FakeStorefront(storefront, ENVIRONMENT, store.profile, store.structure, currency=store.currency,
-                           features=store.features, seed=test_seed(mapping), writes_enabled=False)
-    return fresh
+    return FakeStorefront(storefront, ENVIRONMENT, store.profile, store.structure, currency=store.currency,
+                          features=store.features, seed=test_seed(mapping), writes_enabled=False)
 
 
 # ---------------------------------------------------------------- pieces of the mapping
@@ -180,11 +184,12 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
     if sold_as:
         fields["is_original"] = {"value": sold_as == ORIGINAL, "status": "supplied"}
 
-    category = _category(item.get("kind"), sold_as, mapping, store)
+    ptype = _product_type(item, record, mapping)
+    category = _category(ptype, sold_as, mapping, store)
     if category:
         fields["category_id"] = {"value": category, "status": "human_confirmed"}      # owner-confirmed mapping
     else:
-        issues.add("product.category", f"No store category is mapped for a {item.get('kind') or 'piece'}"
+        issues.add("product.category", f"No store category is mapped for a {ptype or 'piece'}"
                    f"{' sold as ' + sold_as if sold_as else ''}. Add it with /edit-mappings.", resolver="administrator")
 
     tag_ids, unknown = _tags(copy.get("store_tags") or [], store)
@@ -236,6 +241,17 @@ def _slug(title, key: str, store: FakeStorefront, also_taken: Optional[set] = No
 
 def _tier_id(key: str) -> str:
     return f"tier-{int(hashlib.sha256(key.encode()).hexdigest()[:11], 16)}"
+
+
+def _product_type(item: dict, record: Optional[dict], mapping: dict) -> Optional[str]:
+    """What's being sold. `photo` and `artwork` on an item only say whether it needs cropping, so a phone photo of a
+    painting is still artwork: the draft's own product type comes first."""
+    types = mapping.get("product_types") or {}
+    drafted = (((record or {}).get("draft") or {}).get("product", {}).get("attributes", {}).get("category") or {}).get("value")
+    for candidate in (drafted, item.get("kind")):
+        if candidate in types:
+            return candidate
+    return "artwork" if item.get("kind") == "photo" and "artwork" in types else drafted or item.get("kind")
 
 
 def _category(kind, sold_as, mapping: dict, store: FakeStorefront) -> Optional[str]:

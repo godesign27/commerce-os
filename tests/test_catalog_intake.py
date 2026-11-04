@@ -37,6 +37,8 @@ class FakePg:
         self.queries.append(sql)
         if "pg_class" in sql:
             return [dict(row, t=t) for t, row in self.privileges.items()]
+        if "jsonb_array_elements" in sql:
+            return []
         return [dict(p) for p in self.products] if "public.products" in sql else []
 
 
@@ -245,7 +247,7 @@ class Inbox(unittest.TestCase):
         reasons = {p["name"]: p["reason"] for p in res["problems"]}
         self.assertEqual(len(reasons), 5)
         self.assertIn("damaged or still copying", reasons["broken.jpg"])
-        self.assertIn("Export it as JPEG", reasons["phone.heic"])
+        self.assertIn("damaged or still copying", reasons["phone.heic"])
         self.assertEqual(res["added"], [])
         self.assertEqual(len(intake.waiting(self.inbox)), 5)
         self.assertFalse(self.source.exists() and list(self.source.iterdir()))

@@ -28,7 +28,7 @@ from packages.image_pipeline import framing, stages
 
 REPO = Path(__file__).resolve().parents[2]
 ROOMS = REPO / ".commerce-os" / "rooms"
-IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}
+IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".tif", ".tiff"}
 MAX_SIDE = 3000                    # room photos are stored at most this size
 MAX_UPLOAD = 40_000_000            # "Add a room" takes photos up to this many bytes
 VIEW_WIDTH = 2000                  # room views are rendered at this width
