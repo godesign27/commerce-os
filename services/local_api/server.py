@@ -411,6 +411,76 @@ class App:
             raise ApiError(409, str(e))
         return self.storefront_preview(item_id)
 
+    @staticmethod
+    def _queue_section(publish_state, approval_state: str) -> str:
+        """Where a drafted listing belongs on the publish page. What already happened comes first: only new products
+        can go in, so a published listing stays published whatever has changed since."""
+        if publish_state == publishing.SUCCEEDED:
+            return "published"
+        if publish_state in (publishing.QUEUED, publishing.WRITING):
+            return "working"
+        if publish_state == publishing.UNKNOWN:
+            return "problems"
+        if approval_state != "current":
+            return "waiting"
+        return "problems" if publish_state == publishing.FAILED else "ready"
+
+    def _queue_row(self, it: dict, rec: dict):
+        cs, assets, _ = self.change_set(it["id"], it, None, rec)
+        fields = cs["operations"][0]["fields"]
+        tiers = (fields.get("pricing_tiers") or {}).get("value") or [{}]
+        status = self.approvals.status(it["id"], cs)
+        doc = self._publish_doc(it["id"])
+        section = self._queue_section(doc["state"], status["state"])
+        if status["state"] == "out_of_date":
+            nxt = [f"Changed since you approved it: {', '.join(status['changes'])}. Approve this version."]
+        elif artstore_map.approvable(cs):
+            nxt = ["Check what the store would receive, then approve it."]
+        else:
+            nxt = [b["question"] for b in cs["blockers"] if b["severity"] == "blocking" and b["target"] != "assets.delivery"]
+        row = {"id": it["id"], "source": it["source"], "title": (self.store.effective(it["id"], rec) or {}).get("title"),
+               "image": assets[0]["image"] if assets else self._image(it), "price": (fields.get("price") or {}).get("value"),
+               "sold_as": tiers[0].get("type"), "size": tiers[0].get("size"),
+               "change_set_hash": cs["change_set_hash"] if section in ("ready", "problems") else None,
+               "approved_at": (status["approval"] or {}).get("approved_at"), "next": nxt if section == "waiting" else []}
+        row.update({k: doc[k] for k in ("state", "product_id", "receipt_id", "published_at", "reasons", "finding", "fields", "checking")})
+        return section, row
+
+    def publish_queue(self) -> dict:
+        """The publish page: every drafted listing, sorted by what it needs next. This reads; it changes nothing."""
+        entry = self.storefront_entry()
+        doc = {"available": self.can_preview(), "target": "Local test store", "display_name": entry.get("display_name", self.storefront),
+               "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker(), "not_drafted": 0,
+               "ready": [], "working": [], "problems": [], "waiting": [], "published": []}
+        if not doc["available"]:
+            return dict(doc, reason="The store isn't connected yet.")
+        decisions, drafts = self.decisions(), self.store.all_drafts()
+        for it in self.items():
+            if decisions.get(it["id"], {}).get("decision") == "reject":
+                continue
+            rec = drafts.get(it["id"])
+            if not rec:
+                doc["not_drafted"] += 1 if it.get("art_file") else 0
+                continue
+            section, row = self._queue_row(it, rec)
+            doc[section].append(row)
+        return doc
+
+    def publish_many(self, body: dict) -> dict:
+        """Ask for several at once. Each names the version the owner saw and passes the same checks as one alone, and
+        one refused doesn't stop the rest."""
+        items = body.get("items") if isinstance(body, dict) and set(body) == {"items"} else None
+        if not isinstance(items, list) or not items or not all(isinstance(i, dict) and set(i) == {"id", "change_set_hash"} for i in items):
+            raise ApiError(400, 'send {"items": [{"id": "...", "change_set_hash": "<the hash you approved>"}]}')
+        results = []
+        for i in items:
+            try:
+                self.publish(i["id"], {"change_set_hash": i["change_set_hash"]})
+                results.append({"id": i["id"], "ok": True})
+            except ApiError as e:
+                results.append({"id": i["id"], "ok": False, "error": str(e)})
+        return {"results": results, "queue": self.publish_queue()}
+
     def publish_recheck(self, item_id: str) -> dict:
         self.item(item_id)
         try:
@@ -686,7 +756,8 @@ class App:
                          "blocked": count("blocked"), "ready": count("ready"), "approved": count("approved"),
                          "out_of_date": count("out_of_date"),
                          "published": sum(i["published"] == publishing.SUCCEEDED for i in rows),
-                         "publish_problems": sum(i["published"] in (publishing.FAILED, publishing.UNKNOWN) for i in rows)},
+                         "publish_problems": sum(i["published"] in (publishing.FAILED, publishing.UNKNOWN) for i in rows),
+                         "to_publish": sum(i["storefront"] == "approved" and i["published"] is None for i in drafted)},
             "publishing": {"target": "Local test store", "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker()},
             "rooms": {"total": len(lib), "ready": room_states.count("ready"), "need_attention": sum(s not in ("ready", "off") for s in room_states)},
             "learning": {"approvals": self.learn.stats()["approvals"],
@@ -1199,6 +1270,10 @@ def _pending(app, m, body): return app.draft_pending(int(body.get("limit", 5)))
 def _publish(app, m, body): return app.publish(m.group(1), body)
 @route("POST", r"/api/items/([\w.-]+)/publish/recheck")
 def _publish_recheck(app, m, body): return app.publish_recheck(m.group(1))
+@route("GET", "/api/publishing/queue")
+def _publish_queue(app, m, body): return app.publish_queue()
+@route("POST", "/api/publishing/publish")
+def _publish_many(app, m, body): return app.publish_many(body)
 @route("PUT", "/api/publishing/kill-switch")
 def _kill_switch(app, m, body): return app.kill_switch(body)
 @route("GET", "/api/home")

@@ -8,6 +8,7 @@ import { Learning } from "./pages/Learning";
 import { Setup } from "./pages/Setup";
 import { GettingStarted } from "./pages/GettingStarted";
 import { Home } from "./pages/Home";
+import { Publish } from "./pages/Publish";
 import { NewPhotos } from "./components/NewPhotos";
 import { Photos } from "./pages/Photos";
 import { PhotoDetailPage } from "./pages/PhotoDetail";
@@ -60,14 +61,17 @@ function App() {
   if (!state) return <main className="page"><p className="muted">Loading…</p></main>;
   const needsStart = !state.onboarding.complete;
   const [, section, id] = route.split("/");
-  const nav = [["home", "Home"], ["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["learning", "Learning"]];
+  const nav = [["home", "Home"], ["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["publish", "Publish"], ["learning", "Learning"]];
+  const toPublish = state.items.filter((i) => (i.storefront === "approved" && i.published === null)
+    || i.published === "FAILED" || i.published === "OUTCOME_UNKNOWN").length;
   const menu = [["brand", state.site_kind === "product" ? "Brand context" : "Artist context"], ["start", "Getting started"], ["setup", "Voice setup"]];
   let page;
   // Photos and rooms work before setup is finished; listings need the store and the voice.
   if (!section || section === "home") page = <Home tick={tick} />;
-  else if (section === "start" || (needsStart && section === "listings")) page = <GettingStarted state={state} onChange={refresh} />;
+  else if (section === "start" || (needsStart && (section === "listings" || section === "publish"))) page = <GettingStarted state={state} onChange={refresh} />;
   else if (section === "setup") page = <Setup state={state} onDone={refresh} />;
   else if (section === "listings" && id) page = <ListingDetail id={id} state={state} onChange={refresh} />;
+  else if (section === "publish") page = <Publish onChange={refresh} />;
   else if (section === "brand") page = <Brand state={state} onChange={refresh} />;
   else if (section === "learning") page = <Learning state={state} onChange={refresh} />;
   else if (section === "photos" && id) page = <PhotoDetailPage key={id} id={id} onChange={refresh} />;
@@ -86,6 +90,7 @@ function App() {
               <a key={k} href={`#/${k}`} aria-current={section === k ? "page" : undefined}>
                 {label}
                 {k === "photos" && inbox > 0 ? <span className="pill" aria-label={`${inbox} new`}>{inbox}</span> : null}
+                {k === "publish" && toPublish > 0 ? <span className="pill" aria-label={`${toPublish} to publish`}>{toPublish}</span> : null}
                 {k === "learning" && state.brand?.proposed_lessons ? <span className="pill">{state.brand.proposed_lessons}</span> : null}
               </a>
             ))}

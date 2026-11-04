@@ -28,7 +28,8 @@ export function Home({ tick }: { tick: number }) {
   const left = d.onboarding.steps.filter((s) => !s.done && s.id !== "photos").length;
 
   const photoLine = p.to_review ? "Some photos need your review." : p.ready ? "Accepted photos are ready to draft." : p.total ? "Nothing waiting on you." : "Add photos to the inbox to begin.";
-  const listingLine = l.publish_problems ? "A publish needs a look." : l.out_of_date ? "Some approvals went out of date: check them again." : l.ready ? "Some are ready for your approval."
+  const publishLine = l.publish_problems ? "A publish needs a look." : l.to_publish ? "Approved listings are ready to publish." : l.published ? "Nothing waiting on you." : "Listings you approve for the store appear here.";
+  const listingLine = l.out_of_date ? "Some approvals went out of date: check them again." : l.ready ? "Some are ready for your approval."
     : l.blocked ? "Some need a price or other facts." : l.drafted ? "Nothing waiting on you." : "Drafts appear here once photos are accepted.";
 
   return (
@@ -65,8 +66,11 @@ export function Home({ tick }: { tick: number }) {
         </AreaCard>
         <AreaCard href="#/listings" title="Listings" line={listingLine}>
           <Stat n={l.drafted} label="drafted" /><Stat n={l.blocked} label="need facts" tone="warn" /><Stat n={l.ready} label="ready to approve" tone="warn" />
-          <Stat n={l.approved} label="approved" tone="ok" /><Stat n={l.published} label="in test store" tone="ok" />
-          {l.publish_problems > 0 && <Stat n={l.publish_problems} label="publish problems" tone="warn" />}
+          <Stat n={l.approved} label="approved" tone="ok" />
+        </AreaCard>
+        <AreaCard href="#/publish" title="Publish" line={publishLine}>
+          <Stat n={l.to_publish} label="ready to publish" tone="warn" /><Stat n={l.published} label="in test store" tone="ok" />
+          {l.publish_problems > 0 && <Stat n={l.publish_problems} label="need a look" tone="warn" />}
         </AreaCard>
         <AreaCard href="#/rooms" title="Rooms" line={r.total ? (r.need_attention ? "Some rooms need setting up." : "Rooms are ready to hang work in.") : "Add a room to show work on a wall."}>
           <Stat n={r.total} label="in all" /><Stat n={r.ready} label="ready" tone="ok" /><Stat n={r.need_attention} label="need setup" tone="warn" />

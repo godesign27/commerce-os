@@ -268,3 +268,16 @@ button.icon { padding: 0.2rem 0.55rem; line-height: 1; }
 .copy-block pre { flex: 1; min-width: 0; margin: 0; padding: 0.6rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto; }
 .gs-body fieldset, .gs-body form > label { margin-top: 0.5rem; }
 .sf-publish { margin: 0.6rem 0; padding-top: 0.5rem; border-top: 1px solid var(--line); }
+/* Publish page (B-071) */
+.pq-target { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 0.6rem 0.9rem; margin: 0.4rem 0 1rem; }
+.pq-section { margin: 1.4rem 0; }
+.pq-section h2 { margin: 0 0 0.5rem; }
+.pq-section > .row.between { flex-wrap: wrap; gap: 0.5rem; }
+.pq-list { list-style: none; margin: 0; padding: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.pq-row { display: flex; align-items: flex-start; gap: 0.8rem; padding: 0.7rem 0.9rem; border-top: 1px solid var(--line); }
+.pq-row:first-child { border-top: none; }
+.pq-row > input[type="checkbox"] { flex: none; width: 1.1rem; height: 1.1rem; margin-top: 1.4rem; }
+.pq-row > img, .pq-noimage { flex: none; width: 4rem; height: 4rem; object-fit: contain; background: #e9e5de; border-radius: 4px; }
+.pq-body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 0.2rem; overflow-wrap: anywhere; }
+.pq-body p { margin: 0 0 0.3rem; } .pq-body ul { margin: 0 0 0.3rem; padding-left: 1.1rem; }
+.pq-confirm { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.6rem; background: #fff4d6; color: #5a4300; border-radius: var(--radius); padding: 0.6rem 0.9rem; margin-bottom: 0.5rem; }

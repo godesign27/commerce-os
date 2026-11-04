@@ -180,6 +180,7 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
       {a.state === "current" && p.publish && (
         <div className="sf-publish" role="status">
           <h3 className="small">Publish</h3>
+          {pub!.state === null && <p className="small muted">This listing is on the <a href="#/publish">Publish page</a> with everything else that's ready, or you can publish just this one here.</p>}
           {pub!.kill_switch.on && <p className="banner small">Writing is switched off{pub!.kill_switch.forced ? ` by ${pub!.kill_switch.by}` : ""}, so nothing can be published.</p>}
           {!pub!.worker.running && <p className="small warn-text">The publishing worker isn't running, so a publish will wait. Start Commerce OS with ./start.sh.</p>}
           {pub!.worker.running && !pub!.worker.ok && pub!.worker.reason && <p className="small warn-text">{pub!.worker.reason}</p>}

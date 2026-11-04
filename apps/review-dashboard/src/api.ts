@@ -28,6 +28,18 @@ export interface PublishDoc {
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
 }
+// The publish page (B-071): every drafted listing, sorted by what it needs next.
+export interface QueueRow {
+  id: string; source: string; title: string | null; image: string | null;
+  price: { amount_minor: number; currency: string } | null; sold_as: string | null; size: string | null;
+  state: PublishState | null; change_set_hash: string | null; approved_at: string | null; next: string[];
+  product_id: string | null; receipt_id: string | null; published_at: string | null;
+  reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
+}
+export interface PublishQueue {
+  available: boolean; reason?: string; target: string; display_name: string; kill_switch: KillSwitch; worker: WorkerStatus;
+  ready: QueueRow[]; working: QueueRow[]; problems: QueueRow[]; waiting: QueueRow[]; published: QueueRow[]; not_drafted: number;
+}
 // A product in the store that may already be this piece (B-065). Shown for the owner to answer; never a source of facts.
 export interface MatchCandidate {
   product_id: string; name: string | null; slug: string | null; status: string | null; level: "likely" | "possible";
@@ -76,7 +88,7 @@ export interface HomeDoc {
   store: { connected: boolean; display_name: string | null; site_kind: string | null; provider: string | null;
            products: number | null; read_at: string | null; writes_enabled: boolean };
   photos: { total: number; to_review: number; ready: number; rejected: number };
-  listings: { drafted: number; copy_approved: number; blocked: number; ready: number; approved: number; out_of_date: number; published: number; publish_problems: number };
+  listings: { drafted: number; copy_approved: number; blocked: number; ready: number; approved: number; out_of_date: number; published: number; publish_problems: number; to_publish: number };
   publishing: { target: string; kill_switch: KillSwitch; worker: WorkerStatus };
   rooms: { total: number; ready: number; need_attention: number };
   learning: { approvals: number; proposed_lessons: number };
@@ -222,6 +234,9 @@ export const api = {
     call<Photo>("PUT", `/api/photos/${id}`, body),
   applyPhotos: () => call<{ job: string }>("POST", "/api/photos/apply"),
   publish: (id: string, change_set_hash: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish`, { change_set_hash }),
+  publishQueue: () => call<PublishQueue>("GET", "/api/publishing/queue"),
+  publishMany: (items: Array<{ id: string; change_set_hash: string }>) =>
+    call<{ results: Array<{ id: string; ok: boolean; error?: string }>; queue: PublishQueue }>("POST", "/api/publishing/publish", { items }),
   publishRecheck: (id: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish/recheck`),
   killSwitch: (on: boolean) => call<KillSwitch>("PUT", "/api/publishing/kill-switch", { on }),
   home: () => call<HomeDoc>("GET", "/api/home"),

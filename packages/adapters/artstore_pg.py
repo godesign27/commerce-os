@@ -136,7 +136,9 @@ class PostgresArtStore(FakeStorefront):
                     conn.close()
                     raise psycopg.OperationalError("injected: connection lost before commit")
         except psycopg.errors.IntegrityError as e:    # the store refused it: rolled back, nothing written
-            return PublishResult(cs_id, attempt, "FAILED", None, not_written, f"the store refused it: {e.diag.message_primary}")
+            why = ("another product already uses this web address. Change the title, then approve it again"
+                   if "slug" in (e.diag.constraint_name or "") else e.diag.message_primary)
+            return PublishResult(cs_id, attempt, "FAILED", None, not_written, f"the store refused it: {why}")
         except psycopg.OperationalError:              # sent, but its result wasn't seen
             raise OutcomeUnknown(cs_id, attempt)
         if self._fail == "lose_response":

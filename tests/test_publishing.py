@@ -265,6 +265,76 @@ class Live(unittest.TestCase):
         self.assertTrue(doc["product_id"])
         self.assertEqual(self.app.home()["listings"]["published"], 1)
 
+    # the publish page (B-071)
+    def section(self):
+        q = self.app.publish_queue()
+        return next(s for s in ("ready", "working", "problems", "waiting", "published") if q[s])
+
+    def test_a_listing_moves_through_the_publish_page(self):
+        self.assertEqual(self.section(), "waiting")
+        self.assertTrue(self.app.publish_queue()["waiting"][0]["next"], "it says what's needed next")
+        self.approve()
+        self.assertEqual(self.section(), "ready")
+        self.assertEqual(self.app.home()["listings"]["to_publish"], 1)
+        row = self.app.publish_queue()["ready"][0]
+        self.assertEqual((row["price"]["amount_minor"], row["sold_as"]), (45000, "Original"))
+        res = self.app.publish_many({"items": [{"id": "fox", "change_set_hash": row["change_set_hash"]}]})
+        self.assertEqual(res["results"], [{"id": "fox", "ok": True}])
+        self.assertEqual(self.products(), [], "asking writes nothing")
+        self.assertTrue(res["queue"]["working"])
+        self.worker.run_once()
+        self.assertEqual(self.section(), "published")
+        self.assertEqual(self.app.home()["listings"]["to_publish"], 0)
+        self.assertTrue(self.app.publish_queue()["published"][0]["product_id"])
+
+    def test_the_page_can_only_send_the_version_it_showed(self):
+        self.approve()
+        row = self.app.publish_queue()["ready"][0]
+        self.app.update_listing("fox", {"facts": dict(FACTS, price="500.00")})
+        res = self.app.publish_many({"items": [{"id": "fox", "change_set_hash": row["change_set_hash"]}]})
+        self.assertFalse(res["results"][0]["ok"])
+        self.assertIsNone(self.state(), "nothing was queued")
+        self.assertEqual(self.section(), "waiting", "a changed listing needs approving again")
+
+    def test_a_newer_approval_is_not_sent_by_an_old_page(self):
+        self.approve()
+        shown = self.app.publish_queue()["ready"][0]["change_set_hash"]
+        self.app.update_listing("fox", {"facts": dict(FACTS, price="500.00")})
+        self.approve()
+        res = self.app.publish_many({"items": [{"id": "fox", "change_set_hash": shown}]})
+        self.assertFalse(res["results"][0]["ok"], "the owner hasn't seen this version on this page")
+        self.assertIsNone(self.state())
+
+    def test_only_a_listing_that_can_be_sent_offers_a_version(self):
+        self.assertIsNone(self.app.publish_queue()["waiting"][0]["change_set_hash"])
+        self.queue()
+        self.assertIsNone(self.app.publish_queue()["working"][0]["change_set_hash"])
+
+    def test_one_refused_does_not_stop_the_rest(self):
+        self.approve()
+        row = self.app.publish_queue()["ready"][0]
+        res = self.app.publish_many({"items": [{"id": "nope", "change_set_hash": "x"},
+                                               {"id": "fox", "change_set_hash": row["change_set_hash"]}]})
+        self.assertEqual([r["ok"] for r in res["results"]], [False, True])
+
+    def test_the_kill_switch_stops_the_whole_page(self):
+        self.approve()
+        row = self.app.publish_queue()["ready"][0]
+        self.app.kill_switch({"on": True})
+        res = self.app.publish_many({"items": [{"id": "fox", "change_set_hash": row["change_set_hash"]}]})
+        self.assertFalse(res["results"][0]["ok"])
+        self.assertIsNone(self.state())
+
+    def test_a_publish_all_without_versions_is_refused(self):
+        for body in ({}, {"items": []}, {"items": ["fox"]}, {"items": [{"id": "fox"}]}, {"all": True}):
+            with self.assertRaises(self.srv.ApiError):
+                self.app.publish_many(body)
+
+    def test_a_rejected_photo_is_not_on_the_page(self):
+        with mock.patch.object(self.app, "decisions", return_value={"fox": {"decision": "reject"}}):
+            q = self.app.publish_queue()
+        self.assertFalse(q["ready"] or q["waiting"] or q["published"])
+
     # asking
     def test_it_must_be_approved_first(self):
         hash_ = self.app.storefront_preview("fox")["change_set"]["change_set_hash"]
@@ -333,7 +403,10 @@ class Live(unittest.TestCase):
         self.worker.run_once()
         self.assertEqual(self.state(), pub.FAILED)
         self.assertEqual(len(self.products()), 1)
-        self.assertIn("refused", self.app.pubs.latest("fox", "failed")["reasons"][0])
+        reason = self.app.pubs.latest("fox", "failed")["reasons"][0]
+        self.assertIn("refused", reason)
+        self.assertIn("web address", reason, "it says what to do, in plain words")
+        self.assertNotIn("constraint", reason)
 
     def test_someone_elses_product_with_this_id_is_never_overwritten(self):
         self.queue()
@@ -527,6 +600,33 @@ class Wiring(unittest.TestCase):
         self.assertIn("trap stop EXIT INT TERM", src)
         self.assertIn('kill "$SERVER" "$WORKER"', src, "stopping leaves nothing running")
         self.assertIn('wait "$SERVER"', src, "a foreground server would hold back the stop signal")
+
+    def test_the_publish_page_sorts_by_what_happened_first(self):
+        srv = load_server()
+        where = srv.App._queue_section
+        self.assertEqual(where(None, "current"), "ready")
+        self.assertEqual(where(None, "none"), "waiting")
+        self.assertEqual(where(None, "out_of_date"), "waiting")
+        self.assertEqual(where(pub.FAILED, "current"), "problems")
+        self.assertEqual(where(pub.FAILED, "out_of_date"), "waiting")
+        self.assertEqual(where(pub.UNKNOWN, "out_of_date"), "problems", "an unknown result is never forgotten")
+        self.assertEqual(where(pub.QUEUED, "out_of_date"), "working")
+        self.assertEqual(where(pub.WRITING, "current"), "working")
+        self.assertEqual(where(pub.SUCCEEDED, "out_of_date"), "published", "it stays published")
+
+    def test_the_publish_page_is_honest_about_where_it_goes(self):
+        page = read(REPO / "apps/review-dashboard/src/pages/Publish.tsx")
+        self.assertIn("Publishing to: {q.target}", page)
+        self.assertIn("nothing appears on your site", page)
+        self.assertIn("Stop all writing", page)
+        self.assertIn("Yes, publish", page, "a batch asks before it goes")
+        self.assertIn("change_set_hash: r.change_set_hash!", page, "each request names the version shown")
+        self.assertIn('"Publish"]', read(REPO / "apps/review-dashboard/src/main.tsx"))
+
+    def test_the_publish_page_routes_exist(self):
+        src = read(REPO / self.SERVER)
+        self.assertIn('@route("GET", "/api/publishing/queue")', src)
+        self.assertIn('@route("POST", "/api/publishing/publish")', src)
 
     def test_the_dashboard_labels_the_target(self):
         panel = read(REPO / "apps/review-dashboard/src/components/StorefrontPanel.tsx")
