@@ -14,7 +14,7 @@ function Row({ r, children, lead }: { r: QueueRow; children?: React.ReactNode; l
   const facts = [r.sold_as, price(r), r.size].filter(Boolean).join(" · ");
   return (
     <li className="pq-row">
-      {lead}
+      {lead || <span className="pq-lead" />}
       {r.image ? <img src={`/${r.image}`} alt="" loading="lazy" /> : <div className="pq-noimage" />}
       <div className="pq-body">
         <a href={`#/listings/${r.id}`}><strong>{r.title || r.source}</strong></a>
@@ -29,8 +29,7 @@ function plural(n: number) { return `${n} listing${n === 1 ? "" : "s"}`; }
 
 export function Publish({ onChange }: { onChange: () => void }) {
   const [q, setQ] = useState<PublishQueue | null>(null);
-  const [skip, setSkip] = useState<Set<string>>(new Set());   // ticked unless taken out, so new arrivals are included
-  const [confirming, setConfirming] = useState(false);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refused, setRefused] = useState<Record<string, string>>({});
@@ -44,10 +43,11 @@ export function Publish({ onChange }: { onChange: () => void }) {
   }, [active, load, onChange]);
 
   async function send(rows: QueueRow[]) {
-    setBusy(true); setError(null); setConfirming(false);
+    setBusy(true); setError(null);
     try {
       const res = await api.publishMany(rows.map((r) => ({ id: r.id, change_set_hash: r.change_set_hash! })));
       setQ(res.queue);
+      setChosen(new Set());
       setRefused(Object.fromEntries(res.results.filter((x) => !x.ok).map((x) => [x.id, x.error || "Refused."])));
       onChange();
     } catch (e) { setError(String((e as Error).message)); await load(); }
@@ -65,21 +65,26 @@ export function Publish({ onChange }: { onChange: () => void }) {
   if (!q.available) return <main className="page"><h1>Publish</h1><p className="muted">{q.reason} <a href="#/start">Getting started →</a></p></main>;
 
   const target = q.target.toLowerCase();
-  const selected = q.ready.filter((r) => !skip.has(r.id));
+  const selected = q.ready.filter((r) => chosen.has(r.id));
+  const allChosen = q.ready.length > 0 && selected.length === q.ready.length;
   const off = q.kill_switch.on;
   const toggle = (id: string) => {
-    const next = new Set(skip);
+    const next = new Set(chosen);
     if (next.has(id)) next.delete(id); else next.add(id);
-    setSkip(next); setConfirming(false);
+    setChosen(next);
   };
 
   return (
     <main className="page">
       <div className="row between">
         <h1>Publish</h1>
-        {!q.kill_switch.forced && (
-          <button className="link" disabled={busy} onClick={() => act(() => api.killSwitch(!off))}>
-            {off ? "Switch writing back on" : "Stop all writing"}</button>)}
+        <div className="row">
+          {!q.kill_switch.forced && (
+            <button className="link" disabled={busy} onClick={() => act(() => api.killSwitch(!off))}>
+              {off ? "Switch writing back on" : "Stop all writing"}</button>)}
+          <button disabled={busy || off || !selected.length} onClick={() => send(selected)}>
+            {busy ? "Publishing…" : selected.length ? `Publish ${selected.length}` : "Publish"}</button>
+        </div>
       </div>
       <p className="pq-target small"><strong>Publishing to: {q.target}.</strong> Each listing goes in as a hidden draft on
         this computer. {q.display_name} itself can't be changed yet, so nothing appears on your site.</p>
@@ -111,24 +116,18 @@ export function Publish({ onChange }: { onChange: () => void }) {
         </section>)}
 
       <section className="pq-section" aria-labelledby="pq-ready">
-        <div className="row between">
-          <h2 id="pq-ready">Ready to publish <span className="muted">{q.ready.length}</span></h2>
-          {q.ready.length > 0 && !confirming && (
-            <button disabled={busy || off || !selected.length} onClick={() => setConfirming(true)}>Publish {plural(selected.length)}</button>)}
-        </div>
-        {confirming && (
-          <div className="pq-confirm" role="alert">
-            <span>Publish {plural(selected.length)} to the {target}, hidden from shoppers? A published listing can't be sent again.</span>
-            <span className="row">
-              <button disabled={busy} onClick={() => send(selected)}>Yes, publish {selected.length}</button>
-              <button className="secondary" onClick={() => setConfirming(false)}>Cancel</button>
-            </span>
-          </div>)}
+        <h2 id="pq-ready">Ready to publish <span className="muted">{q.ready.length}</span></h2>
+        <label className="pq-all small">
+          <input type="checkbox" checked={allChosen} disabled={!q.ready.length}
+            ref={(el) => { if (el) el.indeterminate = selected.length > 0 && !allChosen; }}
+            onChange={() => setChosen(allChosen ? new Set() : new Set(q.ready.map((r) => r.id)))} />
+          Select all
+        </label>
         {q.ready.length > 0 ? (
           <ul className="pq-list">
             {q.ready.map((r) => (
               <Row key={r.id} r={r} lead={
-                <input type="checkbox" checked={!skip.has(r.id)} aria-label={`Include ${r.title || r.source}`} onChange={() => toggle(r.id)} />}>
+                <input type="checkbox" checked={chosen.has(r.id)} aria-label={`Select ${r.title || r.source}`} onChange={() => toggle(r.id)} />}>
                 <span className="muted small">Approved {ago(r.approved_at)}</span>
                 {refused[r.id] && <span className="small error">{refused[r.id]}</span>}
               </Row>))}
@@ -151,7 +150,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
           <h2 id="pq-waiting">Not ready yet <span className="muted">{q.waiting.length}</span></h2>
           <ul className="pq-list">
             {q.waiting.map((r) => (
-              <Row key={r.id} r={r}>
+              <Row key={r.id} r={r} lead={<input type="checkbox" disabled checked={false} aria-label={`${r.title || r.source} isn't ready to publish`} />}>
                 <ul className="small pq-next">{r.next.map((x) => <li key={x}>{x}</li>)}</ul>
                 <a className="small" href={`#/listings/${r.id}`}>Open the listing →</a>
               </Row>))}
