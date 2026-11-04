@@ -13,11 +13,11 @@ plugin's shared folder:
 
 ## Current phase
 
-**Phase 2, first leg.** Phase 1's offline slice is built: photos, drafts, the review dashboard, a Storefront
-A preview and the owner's approval of an exact change set, all local. Read-only access to a storefront's
-catalog, a local inbox folder and first-run setup exist too. Nothing writes to a storefront: there is no publishing worker,
-no write login, and uploads aren't authorized. Google Drive intake is deferred, and the operational
-database isn't in use yet. Anything that would need one of those stops and says so. See
+**Phase 3, local only.** The offline slice, read-only catalog checks, a local inbox, first-run setup and publishing
+to a **local test store** all exist. One program writes: the publishing worker (`services/workers/publisher.py`),
+after Gate 4. It refuses any target but a local Unix socket and never reads `.env`. No real storefront can be
+written to: there is no write login for one, and uploads aren't authorized. Google Drive intake is deferred, and the
+operational database isn't in use yet. Anything that would need one of those stops and says so. See
 [docs/decision-log.md](docs/decision-log.md) for what is confirmed, assumed, and open, and
 [BACKLOG.md](BACKLOG.md) for what's next.
 

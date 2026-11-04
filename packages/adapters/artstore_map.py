@@ -129,7 +129,7 @@ def has_unit(size: str) -> bool:
 
 def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dict], assets: List[dict],
           mapping: dict, store: FakeStorefront, status: str = STATUS, catalog_issues: Optional[List[dict]] = None,
-          taken_slugs: Optional[set] = None) -> dict:
+          taken_slugs: Optional[set] = None, simulated: bool = True) -> dict:
     """The sealed change set for one listing. `assets` are the listing images in order, each
     {"derivative_id", "kind", "sha256"}. Blockers are in `change_set["blockers"]`. `catalog_issues` and
     `taken_slugs` come from the store's real catalog (packages/adapters/catalog.py); they can block a change set
@@ -226,7 +226,7 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
         "not_touched": list(NOT_TOUCHED),
         "blockers": issues.items,
         "change_set_hash": None,
-        "simulated": True,
+        "simulated": simulated,
     }
     # the id follows from the contents, so the same listing gives the same change set every time
     body["change_set_id"] = f"cs-{item['id'][:90]}-{change_set_hash(dict(body, change_set_id=''))[:12]}"

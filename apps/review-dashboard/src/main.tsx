@@ -96,7 +96,7 @@ function App() {
       <NewPhotos count={inbox} onDone={() => { refresh(); setTick((t) => t + 1); }} />
       {state.onboarding.complete && !state.key_configured && <div className="banner">There's no Claude API key, so drafting is off. <a href="#/start">Add one →</a></div>}
       {page}
-      <footer className="foot">Local only (127.0.0.1). Nothing here publishes: approving copy locks it for the next gates.</footer>
+      <footer className="foot">Local only (127.0.0.1). Publishing reaches only a local test store; your real store can't be changed from here.</footer>
     </>
   );
 }

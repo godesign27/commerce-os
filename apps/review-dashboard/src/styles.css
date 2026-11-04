@@ -267,3 +267,4 @@ button.icon { padding: 0.2rem 0.55rem; line-height: 1; }
 .copy-block { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.3rem 0; }
 .copy-block pre { flex: 1; min-width: 0; margin: 0; padding: 0.6rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto; }
 .gs-body fieldset, .gs-body form > label { margin-top: 0.5rem; }
+.sf-publish { margin: 0.6rem 0; padding-top: 0.5rem; border-top: 1px solid var(--line); }

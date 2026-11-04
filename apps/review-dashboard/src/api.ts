@@ -13,11 +13,21 @@ export interface ItemRow {
   has_art: boolean; drafted: boolean; revision: number | null; title: string | null; approved: boolean;
   edited: boolean; blocking: number; supplied: number; warnings: number; category: string | null;
   storefront: StorefrontState | null;
+  published: PublishState | null;
 }
 // A listing against the storefront (B-064): blocked, ready to approve, approved, or approved but changed since.
 export type StorefrontState = "blocked" | "ready" | "approved" | "out_of_date";
 export interface HistoryEvent { at: string | null; event: string; label: string; by: string }
 export interface PreviewRow { column: string; label: string; value: unknown; display: unknown; before: unknown; evidence: string }
+// Publishing (B-070). The dashboard only asks; the worker writes, and only reports success after reading it back.
+export type PublishState = "QUEUED" | "WRITING" | "SUCCEEDED" | "FAILED" | "OUTCOME_UNKNOWN";
+export interface KillSwitch { on: boolean; forced: boolean; at: string | null; by: string | null }
+export interface WorkerStatus { running: boolean; ok: boolean; reason: string | null }
+export interface PublishDoc {
+  target: string; state: PublishState | null; kill_switch: KillSwitch; worker: WorkerStatus;
+  product_id: string | null; receipt_id: string | null; published_at: string | null;
+  reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
+}
 // A product in the store that may already be this piece (B-065). Shown for the owner to answer; never a source of facts.
 export interface MatchCandidate {
   product_id: string; name: string | null; slug: string | null; status: string | null; level: "likely" | "possible";
@@ -33,6 +43,7 @@ export interface StorefrontPreview {
   approval?: { state: "none" | "current" | "out_of_date"; changes: string[];
                approval: { approval_id: string; approved_at: string; change_set_hash: string; requested_status: string } | null };
   catalog?: { read_at: string | null; products: number; candidates: MatchCandidate[] };
+  publish?: PublishDoc;
   history: HistoryEvent[];
 }
 export interface Job {
@@ -65,7 +76,8 @@ export interface HomeDoc {
   store: { connected: boolean; display_name: string | null; site_kind: string | null; provider: string | null;
            products: number | null; read_at: string | null; writes_enabled: boolean };
   photos: { total: number; to_review: number; ready: number; rejected: number };
-  listings: { drafted: number; copy_approved: number; blocked: number; ready: number; approved: number; out_of_date: number };
+  listings: { drafted: number; copy_approved: number; blocked: number; ready: number; approved: number; out_of_date: number; published: number; publish_problems: number };
+  publishing: { target: string; kill_switch: KillSwitch; worker: WorkerStatus };
   rooms: { total: number; ready: number; need_attention: number };
   learning: { approvals: number; proposed_lessons: number };
 }
@@ -209,6 +221,9 @@ export const api = {
   decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null }) =>
     call<Photo>("PUT", `/api/photos/${id}`, body),
   applyPhotos: () => call<{ job: string }>("POST", "/api/photos/apply"),
+  publish: (id: string, change_set_hash: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish`, { change_set_hash }),
+  publishRecheck: (id: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish/recheck`),
+  killSwitch: (on: boolean) => call<KillSwitch>("PUT", "/api/publishing/kill-switch", { on }),
   home: () => call<HomeDoc>("GET", "/api/home"),
   inbox: () => call<InboxStatus>("GET", "/api/inbox"),
   onboarding: () => call<OnboardingDoc>("GET", "/api/onboarding"),
