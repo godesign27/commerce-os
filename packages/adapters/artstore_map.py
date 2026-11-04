@@ -124,9 +124,12 @@ def has_unit(size: str) -> bool:
 # ---------------------------------------------------------------- the change set
 
 def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dict], assets: List[dict],
-          mapping: dict, store: FakeStorefront, status: str = STATUS) -> dict:
+          mapping: dict, store: FakeStorefront, status: str = STATUS, catalog_issues: Optional[List[dict]] = None,
+          taken_slugs: Optional[set] = None) -> dict:
     """The sealed change set for one listing. `assets` are the listing images in order, each
-    {"derivative_id", "kind", "sha256"}. Blockers are in `change_set["blockers"]`."""
+    {"derivative_id", "kind", "sha256"}. Blockers are in `change_set["blockers"]`. `catalog_issues` and
+    `taken_slugs` come from the store's real catalog (packages/adapters/catalog.py); they can block a change set
+    or move its web address, and no other value from the catalog ever enters it."""
     sf, facts = store.storefront_id, entry.get("facts") or {}
     issues = _Issues(sf)
     approved = entry.get("approved")
@@ -141,7 +144,7 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
 
     fields = {"id": {"value": key, "status": "observed"},
               "name": {"value": copy.get("title") or "", "status": copy_status},
-              "slug": {"value": _slug(copy.get("title"), key, store), "status": "inferred"},
+              "slug": {"value": _slug(copy.get("title"), key, store, taken_slugs), "status": "inferred"},
               "short_description": {"value": copy.get("short_description") or "", "status": copy_status},
               "description": {"value": copy.get("collector_description") or "", "status": copy_status},
               "status": {"value": status, "status": "human_confirmed"}}
@@ -189,6 +192,9 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
     for name in unknown:
         issues.add("product.tags", f"\"{name}\" isn't a tag in the store, so it's left off.", severity="warning")
 
+    for issue in catalog_issues or []:
+        issues.add(issue["target"], issue["question"])
+
     planned = [{"derivative_id": a["derivative_id"], "sha256": a["sha256"],
                 "destination_key": f"/objects/uploads/{key}-{a['kind']}-{a['sha256'][:12]}"} for a in assets]
     fields["images"] = {"value": [a["destination_key"] for a in planned], "status": "observed"}
@@ -222,9 +228,9 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
     return seal(body)
 
 
-def _slug(title, key: str, store: FakeStorefront) -> str:
+def _slug(title, key: str, store: FakeStorefront, also_taken: Optional[set] = None) -> str:
     slug = slugify(title)
-    taken = {r.get("slug") for r in store.tables["products"].values() if r.get("id") != key}
+    taken = {r.get("slug") for r in store.tables["products"].values() if r.get("id") != key} | set(also_taken or ())
     return slug if slug not in taken else f"{slug}-{hashlib.sha256(key.encode()).hexdigest()[:6]}"
 
 
@@ -279,6 +285,10 @@ def preview_rows(change_set: dict, plan: list, store: Optional[FakeStorefront] =
     return sorted(rows, key=lambda r: order.index(r["column"]) if r["column"] in order else len(order))
 
 
+def _catalog_blockers(change_set: dict) -> List[str]:
+    return sorted(b["question"] for b in change_set["blockers"] if b["target"] == "catalog.match")
+
+
 def differences(old: dict, new: dict) -> List[str]:
     """In words, what changed between an approved change set and the one the listing gives now."""
     out = []
@@ -298,6 +308,8 @@ def differences(old: dict, new: dict) -> List[str]:
         out.append("Store schema")
     if old["requested_status"] != new["requested_status"]:
         out.append("Status")
+    if _catalog_blockers(old) != _catalog_blockers(new):
+        out.append("Store catalog")
     if old["canonical_revision"] != new["canonical_revision"] and "Copy approval" not in out:
         out.append("Copy revision")
     return list(dict.fromkeys(out)) or (["Change set"] if old["change_set_hash"] != new["change_set_hash"] else [])

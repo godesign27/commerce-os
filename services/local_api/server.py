@@ -15,6 +15,7 @@ Nothing here writes to a storefront. Approving copy locks it locally. The Storef
 import argparse
 import json
 import mimetypes
+import os
 import re
 import sys
 import threading
@@ -26,22 +27,22 @@ from urllib.parse import parse_qs, unquote, urlparse
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from packages.adapters import artstore_map  # noqa: E402
+from packages.adapters import artstore_map, catalog  # noqa: E402
 from packages.drafting import audit, brand, editing, learning, listing, publication, service  # noqa: E402
 from packages.drafting.store import LockedError, Store  # noqa: E402
-from packages.image_pipeline import room_suggest, rooms, stages  # noqa: E402
+from packages.image_pipeline import intake, room_suggest, rooms, stages  # noqa: E402
 
 
-def _load_review_images():
-    """scripts/review_images.py holds the photo decisions' rules; load it as a module (it isn't a package)."""
+def _load_script(name: str):
+    """scripts/ aren't a package; load one as a module."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("review_images", REPO / "scripts" / "review_images.py")
+    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
 
 
-ri = _load_review_images()
+ri = _load_script("review_images")       # the photo decisions' rules
 _DECISIONS_LOCK = threading.Lock()
 _ROOMS_LOCK = threading.Lock()
 
@@ -65,8 +66,15 @@ class App:
     def __init__(self, out: Path = OUT, storefront: str = "storefront-a", brand_root: Path = brand.BRAND_DIR,
                  learning_root: Path = learning.LEARNING, config: Path = CONFIG, client_factory=None, call=None,
                  source: Path = None, rooms_root: Path = rooms.ROOMS, approvals_root: Path = None,
-                 audit_root: Path = None, mapping: Path = None):
+                 audit_root: Path = None, mapping: Path = None, catalog_root: Path = None, inbox: Path = None,
+                 intake_root: Path = None, read_catalog=None):
         self.rooms_root = Path(rooms_root)
+        # also next to the review folder; the inbox is the one folder the owner uses directly, so it's easy to find
+        self.catalog = catalog.Catalog(catalog_root or Path(out).parent / "catalog", storefront)
+        self.inbox = Path(inbox) if inbox else (intake.INBOX if Path(out) == OUT else Path(out).parent / "inbox")
+        self.intake_root = Path(intake_root) if intake_root else Path(out).parent / "intake"
+        self._read_catalog = read_catalog         # tests inject a stand-in for reading the store
+        self._intake_lock = threading.Lock()
         # next to the review folder (.commerce-os/approvals, .commerce-os/audit), so a test's folder holds its own
         self.audit = audit.Audit(audit_root or Path(out).parent / "audit")
         self.approvals = publication.Approvals(approvals_root or Path(out).parent / "approvals", self.audit)
@@ -292,9 +300,20 @@ class App:
         entry = self.store.listing(item_id) if entry is None else entry
         rec = self.store.draft(item_id) if rec is None else rec
         assets, notes = self._assets(it)
-        cs = artstore_map.build(item=it, entry=entry, record=rec, copy=self.store.effective(item_id, rec) if rec else None,
-                                assets=assets, mapping=self.mapping(), store=self.fake_store())
+        copy = self.store.effective(item_id, rec) if rec else None
+        cs = artstore_map.build(item=it, entry=entry, record=rec, copy=copy, assets=assets, mapping=self.mapping(),
+                                store=self.fake_store(), catalog_issues=catalog.issues(self._candidates(item_id, entry, rec)),
+                                taken_slugs=catalog.taken_slugs(self.catalog.load()))
         return cs, assets, notes
+
+    def _candidates(self, item_id: str, entry: dict, rec: dict) -> list:
+        snap = self.catalog.load()
+        if not snap or not rec:
+            return []
+        copy = self.store.effective(item_id, rec) or {}
+        subject = (rec["draft"]["product"]["attributes"].get("subject_name") or {}).get("value") or ""
+        return catalog.find_matches(title=copy.get("title"), subject=subject, facts=entry.get("facts"),
+                                    products=snap["products"], answers=self.catalog.answers(item_id))
 
     def _storefront_state(self, it: dict, entry: dict, rec: dict):
         if not self.mapping():
@@ -337,8 +356,67 @@ class App:
             "dry_run": {"would_publish": dry["would_publish"], "issues": dry["issues"]},
             "approvable": artstore_map.approvable(cs),
             "approval": self.approvals.status(item_id, cs),
+            "catalog": self._catalog_doc(item_id),
             "history": self._history(item_id),
         }
+
+    # ------------------------------------------------------------ the store's catalog, read only (B-065)
+    def _catalog_doc(self, item_id: str = None) -> dict:
+        snap = self.catalog.load()
+        if not snap:
+            return {"read_at": None, "products": 0, "candidates": []}
+        doc = {"read_at": snap["read_at"], "products": len(snap["products"]), "candidates": []}
+        if item_id:
+            doc["candidates"] = self._candidates(item_id, self.store.listing(item_id), self.store.draft(item_id))
+        return doc
+
+    def _read_store(self) -> dict:
+        if self._read_catalog:
+            return self._read_catalog()
+        prefix = self.storefront_entry().get("env_prefix")
+        if not prefix:
+            raise catalog.CatalogError("This storefront isn't set up yet: run /setup-storefront.")
+        key = f"{prefix}_DB_URL"
+        crr = _load_script("check_read_role")
+        env_file = REPO / ".env"
+        url = (crr.parse_dotenv(env_file.read_text()).get(key) if env_file.exists() else None) or os.environ.get(key)
+        if not url:
+            raise catalog.CatalogError(f"{key} isn't set in .env, so the store can't be read.")
+        try:
+            return catalog.read_snapshot(crr.Psql(crr.pg_env_from_url(url)), self.storefront, brand.now())
+        except (SystemExit, ValueError) as e:      # its messages never hold the connection string or password
+            raise catalog.CatalogError(f"The store couldn't be read: {e}")
+
+    def refresh_catalog(self) -> dict:
+        def work(job):
+            job["total"] = 1
+            try:
+                snap = self._read_store()
+                self.catalog.save(snap)
+            except catalog.CatalogError as e:
+                job["error"] = str(e)
+                return
+            job["done"] = 1
+            job["results"] = [{"products": len(snap["products"])}]
+        return self._start("Read the store's catalog", work)
+
+    def answer_match(self, item_id: str, body: dict) -> dict:
+        """The owner's answer to "is this the same piece?". Only a person answers it; Commerce OS never does."""
+        self.item(item_id)
+        if not isinstance(body, dict) or set(body) != {"product_id", "answer"}:
+            raise ApiError(400, 'send {"product_id": "...", "answer": "same" | "different" | null}')
+        snap = self.catalog.load()
+        product = next((p for p in (snap or {}).get("products", []) if p["id"] == body["product_id"]), None)
+        if not product:
+            raise ApiError(404, "that product isn't in the catalog copy; read the catalog again")
+        try:
+            self.catalog.answer(item_id, product["id"], body["answer"], OWNER["id"], brand.now())
+        except ValueError as e:
+            raise ApiError(400, str(e))
+        words = {"same": "the same piece as", "different": "a different piece from", None: "unanswered against"}
+        self.audit.append(item_id, "catalog_match_answered", f"Marked {words[body['answer']]} \"{product['name']}\" in the store",
+                          by=OWNER["id"], product_id=product["id"], answer=body["answer"])
+        return self.storefront_preview(item_id)
 
     def approve_storefront(self, item_id: str, body: dict) -> dict:
         """Gate 3: the owner approves the change set they were shown, by its hash. Writes nothing to a store."""
@@ -362,7 +440,26 @@ class App:
         rows = stages.photo_rows(items, decisions, self.store.all_drafts(), self.store.listings(), pend,
                                  self.source, self.out)
         return {"stages": [{"id": k, "label": v} for k, v in stages.STAGES], "photos": rows,
-                "pending": len(pend), "review_page": "http://127.0.0.1:8765/"}
+                "pending": len(pend), "review_page": "http://127.0.0.1:8765/",
+                "intake": intake.status(self.inbox, self.intake_root)}
+
+    def scan_inbox(self) -> dict:
+        """Bring in what's in the inbox, then crop and frame only the new photos, as a background job."""
+        def work(job):
+            if not self._intake_lock.acquire(blocking=False):
+                job["error"] = "already looking for new photos"
+                return
+            try:
+                job["total"] = len(intake.waiting(self.inbox))
+                res = intake.scan(self.inbox, self.source, self.intake_root,
+                                  on_file=lambda _: job.__setitem__("done", job["done"] + 1))
+                job["results"] = [{k: len(res[k]) for k in ("added", "duplicates", "problems")}]
+                if res["added"]:
+                    ids = {ri.slug(a["source_name"]) for a in res["added"]}
+                    ri.build(self.source, self.out, only=ids, log=lambda *_: None)
+            finally:
+                self._intake_lock.release()
+        return self._start("Look for new photos", work)
 
     def photo(self, item_id: str) -> dict:
         items = self.items()
@@ -842,6 +939,12 @@ def _unlock(app, m, body): return app.unlock(m.group(1))
 def _meaning(app, m, body): return app.add_meaning(m.group(1), body)
 @route("POST", "/api/draft-pending")
 def _pending(app, m, body): return app.draft_pending(int(body.get("limit", 5)))
+@route("POST", "/api/intake/scan")
+def _intake_scan(app, m, body): return app.scan_inbox()
+@route("POST", "/api/catalog/refresh")
+def _catalog_refresh(app, m, body): return app.refresh_catalog()
+@route("PUT", r"/api/items/([\w.-]+)/catalog-match")
+def _catalog_match(app, m, body): return app.answer_match(m.group(1), body)
 @route("GET", "/api/photos")
 def _photos(app, m, body): return app.photos()
 @route("GET", r"/api/photos/([\w.-]+)")

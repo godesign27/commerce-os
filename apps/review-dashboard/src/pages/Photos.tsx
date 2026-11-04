@@ -62,6 +62,16 @@ export function Photos({ onChange }: { onChange: () => void }) {
     } catch (e) { setError(String((e as Error).message)); }
   }
 
+  async function lookForPhotos() {
+    setError(null);
+    try {
+      const { job: id } = await api.scanInbox();
+      const j = await waitForJob(id, setJob);
+      if (j.error) setError(j.error);
+      await load(); onChange();
+    } catch (e) { setError(String((e as Error).message)); }
+  }
+
   if (!doc) return <main className="page">{error ? <p className="error">{error}</p> : <p className="muted">Loading…</p>}</main>;
   return (
     <main className="page">
@@ -69,6 +79,8 @@ export function Photos({ onChange }: { onChange: () => void }) {
         <h1>Photos</h1>
         <div className="row">
           {job?.running && <span className="muted">{job.label}: {job.done}/{job.total}…</span>}
+          <button className="secondary" disabled={!!job?.running} onClick={lookForPhotos}>
+            {doc.intake.waiting ? `Look for new photos (${doc.intake.waiting} waiting)` : "Look for new photos"}</button>
           <button disabled={!doc.pending || !!job?.running} onClick={apply}>
             {doc.pending ? `Apply ${doc.pending} change${doc.pending > 1 ? "s" : ""}` : "No changes to apply"}
           </button>
@@ -76,6 +88,18 @@ export function Photos({ onChange }: { onChange: () => void }) {
       </div>
       <p className="muted small">Every photo from the source folder, newest activity first. Accepting a photo here is a
         local review step, not an approval: it lets the piece be drafted.</p>
+      <p className="muted small">To add pieces, put one photo per piece in <code>{doc.intake.folder}</code>, then choose
+        Look for new photos. Your files aren't changed: each one moves to <code>imported</code> in that folder.</p>
+      {doc.intake.last && (
+        <div className="small intake-last" role="status">
+          <p>Last look, {ago(doc.intake.last.at)}: {doc.intake.last.added.length} added, {doc.intake.last.duplicates.length} already here,{" "}
+            {doc.intake.last.problems.length} with a problem.{doc.intake.last.left > 0 && ` ${doc.intake.last.left} more waiting: look again.`}</p>
+          {doc.intake.last.duplicates.length > 0 && (
+            <ul className="muted">{doc.intake.last.duplicates.map((d) => <li key={d.name}>{d.name} is the same file as {d.same_as}</li>)}</ul>)}
+          {doc.intake.last.problems.length > 0 && (
+            <ul className="warn-text">{doc.intake.last.problems.map((x) => <li key={x.name}>{x.name}: {x.reason}</li>)}</ul>)}
+        </div>
+      )}
       {error && <p className="error">{error}</p>}
       <div className="row between">
         <div className="filters" role="group" aria-label="Stage">

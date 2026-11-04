@@ -71,6 +71,16 @@ From schema-only dumps of both storefronts. Detail: [discovery/storefront-schema
 - Cursor reads `AGENTS.md`, `CLAUDE.md` and `.mdc` rules with `alwaysApply` (checked against Cursor's
   rules documentation on 2026-10-20; re-verify before claiming AC-14).
 
+## Decided in Phase 2 (2026-11-04)
+
+| Decision | Why | Revisit when |
+|---|---|---|
+| Photos come in from a local folder (`inbox/`), and Google Drive intake becomes a later enhancement (B-067) | Owner decision: one person works from one computer, so Drive's channels, renewals and replay add nothing yet. | More than one person submits, or photos need to arrive when this computer is off. |
+| Pressing "Look for new photos" is the signal that an upload is complete (B-003), and one file is one piece | A person pressing a button needs no ready marker or quiet period. A half-copied file fails a full decode and stays in the inbox. | Drive intake is built, or a piece needs several source photos. |
+| A likely catalog match blocks approval until the owner answers; a possible one is information only | PRD §10: identity needs human confirmation. Thresholds are starting values, not yet measured on a labeled sample. | There's a labeled sample to measure them on. |
+| Not reading the catalog yet doesn't block approval; the preview says it wasn't checked | Approving writes nothing, and a publish must check again at Gate 4 (Phase 3). | Phase 3 is built. |
+| While the dashboard runs only on this computer for one owner, sign-in and roles, database isolation keys, signed image URLs, a sandboxed decoder and a fetch allowlist are deferred (`docs/security.md`) | They protect a hosted, multi-person system, and none has anything to protect here yet. Local-only binding and the write header stay. | The dashboard is hosted, a second person joins (B-008), or the operational database comes into use. |
+
 ## Open
 
 PRD §22 questions 1–13 are BACKLOG B-001 to B-013.

@@ -41,3 +41,7 @@ skills-lock.json
 
 # Local preview config for the Claude desktop app
 .claude/launch.json
+
+# Photos waiting to come in (B-066): real artwork, never committed
+inbox/*
+!inbox/.gitkeep

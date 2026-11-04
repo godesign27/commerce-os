@@ -222,3 +222,11 @@ button.icon { padding: 0.2rem 0.55rem; line-height: 1; }
 .sf-block ul, .sf-warn { margin: 0.2rem 0 0.6rem; padding-left: 1.1rem; }
 .sf-warn { color: var(--warn); }
 @media (max-width: 600px) { .sf-table th { width: auto; white-space: normal; } }
+.sf-catalog { margin: 0.5rem 0; }
+.sf-matches { list-style: none; margin: 0.4rem 0; padding: 0; }
+.sf-matches > li { border-top: 1px solid var(--line); padding: 0.5rem 0; }
+.sf-matches ul { margin: 0.2rem 0 0.4rem; padding-left: 1.1rem; }
+.intake-last { margin: 0.4rem 0; }
+.intake-last p { margin: 0 0 0.2rem; }
+.intake-last ul { margin: 0 0 0.3rem; padding-left: 1.1rem; }
+.intake-last code, .page code { overflow-wrap: anywhere; }
