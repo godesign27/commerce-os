@@ -18,7 +18,7 @@ function Row({ r, children, lead }: { r: QueueRow; children?: React.ReactNode; l
       {lead || <span className="pq-lead" />}
       {r.image ? <img src={`/${r.image}`} alt="" loading="lazy" /> : <div className="pq-noimage" />}
       <div className="pq-body">
-        <a href={`#/listings/${r.id}`}><strong>{r.title || r.source}</strong></a>
+        <a className="pq-title" href={`#/listings/${r.id}`}><strong>{r.title || r.source}</strong></a>
         {facts && <span className="muted small">{facts}</span>}
         {children}
       </div>
@@ -34,6 +34,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refused, setRefused] = useState<Record<string, string>>({});
+  const [said, setSaid] = useState<Record<string, string>>({});
   const load = useCallback(() => api.publishQueue().then(setQ).catch((e) => setError(String(e.message))), []);
   useEffect(() => { load(); }, [load]);
   const active = !!q?.available && (q.working.length > 0 || q.problems.some((r) => r.checking));
@@ -66,13 +67,23 @@ export function Publish({ onChange }: { onChange: () => void }) {
   if (!q.available) return <main className="page"><h1>Publish</h1><p className="muted">{q.reason} <a href="#/start">Getting started →</a></p></main>;
 
   const target = q.target.toLowerCase();
+  // Every listing can be ticked. Only a ready one can go: a ticked one that isn't ready says why when you press
+  // Publish, and it's never sent, because the server has no approved version to send.
+  const tickable = [...q.ready, ...q.waiting];
   const selected = q.ready.filter((r) => chosen.has(r.id));
-  const allChosen = q.ready.length > 0 && selected.length === q.ready.length;
+  const notReady = q.waiting.filter((r) => chosen.has(r.id));
+  const ticked = selected.length + notReady.length;
+  const allChosen = tickable.length > 0 && ticked === tickable.length;
+  const press = () => {
+    setSaid(Object.fromEntries(notReady.map((r) => [r.id, `Not published: ${(r.status.detail || r.status.label).toLowerCase()}.`])));
+    if (selected.length) send(selected);
+  };
   const off = q.kill_switch.on;
   const toggle = (id: string) => {
     const next = new Set(chosen);
     if (next.has(id)) next.delete(id); else next.add(id);
     setChosen(next);
+    setSaid({});
   };
 
   return (
@@ -83,7 +94,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
           {!q.kill_switch.forced && (
             <button className="link" disabled={busy} onClick={() => act(() => api.killSwitch(!off))}>
               {off ? "Switch writing back on" : "Stop all writing"}</button>)}
-          <button disabled={busy || off || !selected.length} onClick={() => send(selected)}>
+          <button disabled={busy || off || !ticked} onClick={press}>
             {busy ? "Publishing…" : selected.length ? `Publish ${selected.length}` : "Publish"}</button>
         </div>
       </div>
@@ -93,6 +104,14 @@ export function Publish({ onChange }: { onChange: () => void }) {
       {!q.worker.running && <p className="small warn-text">The publishing worker isn't running, so anything you publish will wait. Start Commerce OS with ./start.sh.</p>}
       {q.worker.running && !q.worker.ok && q.worker.reason && <p className="small warn-text">{q.worker.reason}</p>}
       {error && <p className="error">{error}</p>}
+
+      <label className="pq-all small">
+        <input type="checkbox" checked={allChosen} disabled={!tickable.length}
+          ref={(el) => { if (el) el.indeterminate = ticked > 0 && !allChosen; }}
+          onChange={() => { setChosen(allChosen ? new Set() : new Set(tickable.map((r) => r.id))); setSaid({}); }} />
+        Select all
+      </label>
+      {notReady.length > 0 && <span className="small muted"> {notReady.length} ticked {notReady.length === 1 ? "isn't" : "aren't"} ready yet, so {notReady.length === 1 ? "it" : "they"} won't be published.</span>}
 
       {q.problems.length > 0 && (
         <section className="pq-section" aria-labelledby="pq-problems">
@@ -118,12 +137,6 @@ export function Publish({ onChange }: { onChange: () => void }) {
 
       <section className="pq-section" aria-labelledby="pq-ready">
         <h2 id="pq-ready">Ready to publish <span className="muted">{q.ready.length}</span></h2>
-        <label className="pq-all small">
-          <input type="checkbox" checked={allChosen} disabled={!q.ready.length}
-            ref={(el) => { if (el) el.indeterminate = selected.length > 0 && !allChosen; }}
-            onChange={() => setChosen(allChosen ? new Set() : new Set(q.ready.map((r) => r.id)))} />
-          Select all
-        </label>
         {q.ready.length > 0 ? (
           <ul className="pq-list">
             {q.ready.map((r) => (
@@ -151,9 +164,10 @@ export function Publish({ onChange }: { onChange: () => void }) {
           <h2 id="pq-waiting">Not ready yet <span className="muted">{q.waiting.length}</span></h2>
           <ul className="pq-list">
             {q.waiting.map((r) => (
-              <Row key={r.id} r={r} lead={<input type="checkbox" disabled checked={false} aria-label={`${r.title || r.source} isn't ready to publish`} />}>
+              <Row key={r.id} r={r} lead={<input type="checkbox" checked={chosen.has(r.id)} aria-label={`Select ${r.title || r.source}`} onChange={() => toggle(r.id)} />}>
                 <span className="card-status"><StatusBadge status={r.status} />{r.status.detail && <span className="small">{r.status.detail}</span>}</span>
                 <ul className="small pq-next">{r.next.map((x) => <li key={x}>{x}</li>)}</ul>
+                {said[r.id] && <span className="small error" role="status">{said[r.id]}</span>}
                 <a className="small" href={`#/listings/${r.id}`}>Open the listing →</a>
               </Row>))}
           </ul>
