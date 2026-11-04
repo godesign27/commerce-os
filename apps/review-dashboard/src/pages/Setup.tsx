@@ -25,7 +25,7 @@ export function Setup({ state, onDone }: { state: State; onDone: () => void }) {
   return (
     <main className="page narrow">
       <h1>Set up {state.display_name}</h1>
-      {exists && <p className="banner">A {state.site_kind} context (v{state.brand!.version}) already exists. Saving here replaces its voice sections with a new version; meanings, examples and lessons are not carried over. To adjust it, use the Brand page instead.</p>}
+      {exists && <p className="banner">{state.site_kind === "artist" ? "An artist" : "A product"} context (v{state.brand!.version}) already exists. Saving here replaces its voice sections with a new version; meanings, examples and lessons are not carried over. To adjust it, use the <a href="#/brand">{state.site_kind === "artist" ? "Artist context" : "Brand context"} page</a> instead.</p>}
       <fieldset>
         <legend>Is this an artist site or a product site?</legend>
         <label className="option"><input type="radio" checked={kind === "artist"} onChange={() => setKind("artist")} />

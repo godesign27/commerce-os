@@ -27,7 +27,8 @@ mappings describe one storefront's values, and neither is shared across storefro
 | `neon` | A standalone Neon project Commerce OS owns (not Replit-managed) | Yes | Yes | Documented; not currently used |
 
 Storefront A has moved to `supabase` (its own Supabase project, the target of its
-`supabase-migration` branch). Storefront B still uses `replit-postgres`. Both use the
+`supabase-migration` branch). The owner reports the live site now runs on it (2026-11-04), so treat that
+project as production: Commerce OS only reads it, and publishing tests need a separate test project (B-047). Storefront B still uses `replit-postgres`. Both use the
 `replit-artstore-v1` profile: Storefront A's `products` table is unchanged by the move. The
 operational database also uses `supabase`, as a separate Supabase project with its own credentials,
 never Storefront A's project.

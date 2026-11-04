@@ -7,6 +7,11 @@ const FIELD: Record<string, string> = {
   store_tags: "Store tags", search_keywords: "Search keywords",
 };
 
+// A bar for a share, with the number written beside it, so the table reads at a glance and without colour.
+function Share({ value }: { value: number }) {
+  return <span className="share"><span className="share-track" aria-hidden="true"><span style={{ width: pct(value) }} /></span><span className="share-n">{pct(value)}</span></span>;
+}
+
 export function Learning({ state, onChange }: { state: State; onChange: () => void }) {
   const [doc, setDoc] = useState<LearningDoc | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -47,12 +52,14 @@ export function Learning({ state, onChange }: { state: State; onChange: () => vo
 
       <section className="panel"><h2>How close the drafts are</h2>
         {doc.stats.approvals === 0 ? <p className="muted">Approve a few listings to see this.</p> : (
-          <table className="table"><thead><tr><th>Field</th><th>Kept as drafted</th><th>Words kept (all)</th><th>Words kept (latest 10)</th></tr></thead>
+          <table className="table learn-table"><thead><tr><th>Field</th><th>Kept as drafted</th><th>Words kept (all)</th>
+            {doc.stats.approvals > 10 && <th>Words kept (latest 10)</th>}</tr></thead>
             <tbody>{Object.entries(doc.stats.by_field).map(([f, s]) => (
-              <tr key={f}><td>{FIELD[f] || f}</td><td>{pct(s.accepted_unchanged)}</td><td>{pct(s.similarity)}</td><td>{pct(s.similarity_latest_10)}</td></tr>
+              <tr key={f}><td>{FIELD[f] || f}</td><td><Share value={s.accepted_unchanged} /></td><td><Share value={s.similarity} /></td>
+                {doc.stats.approvals > 10 && <td><Share value={s.similarity_latest_10} /></td>}</tr>
             ))}</tbody></table>
         )}
-        <p className="muted small">{doc.stats.approvals} approval(s). If “latest 10” climbs above “all”, the drafts are getting closer to your voice.</p>
+        <p className="muted small">{doc.stats.approvals} approval{doc.stats.approvals === 1 ? "" : "s"} so far.{doc.stats.approvals > 10 ? " If “latest 10” climbs above “all”, the drafts are getting closer to your voice." : " A comparison with the latest 10 appears after more than 10 approvals."}</p>
       </section>
 
       <section className="panel"><h2>Proposed lessons</h2>
@@ -82,7 +89,7 @@ export function Learning({ state, onChange }: { state: State; onChange: () => vo
         {doc.edits.filter((e) => e.changed).length === 0 && <p className="muted">No edits recorded yet.</p>}
         {doc.edits.filter((e) => e.changed).slice(0, 25).map((e) => (
           <article key={e.id} className="edit">
-            <p className="muted small">{e.id} · <a href={`#/listings/${e.item}`}>{e.item}</a> · {FIELD[e.field] || e.field} · {e.event} · {pct(e.diff.similarity)} kept</p>
+            <p className="muted small"><a href={`#/listings/${e.item}`} title={e.id}>{state.items.find((i) => i.id === e.item)?.title || e.item}</a> · {FIELD[e.field] || e.field} · {e.event} · {pct(e.diff.similarity)} kept</p>
             <p className="was">{e.proposed}</p><p className="now">{e.final}</p>
           </article>
         ))}

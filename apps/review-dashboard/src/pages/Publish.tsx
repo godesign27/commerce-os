@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, PublishQueue, QueueRow } from "../api";
 import { ago } from "./Photos";
+import { StatusBadge } from "../components/Status";
 
 // Everything approved for the store, in one place to send it (B-071). Publishing here only asks: the worker runs its
 // final check and writes. Each request names the version shown here, so a listing changed since this page loaded is
@@ -76,7 +77,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
 
   return (
     <main className="page">
-      <div className="row between">
+      <div className="row between page-head">
         <h1>Publish</h1>
         <div className="row">
           {!q.kill_switch.forced && (
@@ -133,7 +134,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
               </Row>))}
           </ul>
         ) : (
-          <p className="muted">Nothing yet. A listing appears here once you approve it for the store.</p>
+          <p className="muted">Nothing yet. A listing appears here once you approve it for the store.{q.waiting.length > 0 && <> {plural(q.waiting.length)} below {q.waiting.length === 1 ? "needs" : "need"} something from you first.</>}</p>
         )}
       </section>
 
@@ -151,6 +152,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
           <ul className="pq-list">
             {q.waiting.map((r) => (
               <Row key={r.id} r={r} lead={<input type="checkbox" disabled checked={false} aria-label={`${r.title || r.source} isn't ready to publish`} />}>
+                <span className="card-status"><StatusBadge status={r.status} />{r.status.detail && <span className="small">{r.status.detail}</span>}</span>
                 <ul className="small pq-next">{r.next.map((x) => <li key={x}>{x}</li>)}</ul>
                 <a className="small" href={`#/listings/${r.id}`}>Open the listing →</a>
               </Row>))}
