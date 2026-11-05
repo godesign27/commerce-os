@@ -3,8 +3,9 @@
 
     .venv/bin/python services/workers/publisher.py [--storefront storefront-a] [--once]
 
-For now its only target is the local test store: it never reads .env and holds no login for a real store. One
-worker at a time, enforced with a lock. If the store can't run, it says why and the dashboard shows it.
+Its target is the local test store, unless the owner has turned the live store on (scripts/go_live.py). Then its
+logins come through packages/publisher/live_store.py, which checks them first, and it never falls back to the other
+target. One worker at a time, enforced with a lock. If the store can't run, it says why and the dashboard shows it.
 """
 import argparse
 import fcntl
@@ -17,11 +18,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
+from packages.publisher import live_store  # noqa: E402
 from packages.publisher.assets import LocalAssetStore  # noqa: E402
 from packages.publisher.local_store import LocalStore, StoreUnavailable  # noqa: E402
 from packages.publisher.worker import Worker  # noqa: E402
 
 POLL_SECONDS = 2
+LIVE_RETRY_SECONDS = 60      # a live store that isn't ready: don't keep trying its logins every two seconds
 
 
 def load_app(storefront: str):
@@ -47,10 +50,12 @@ def main(argv=None) -> int:
         print("A publishing worker is already running.")
         return 0
 
-    store, worker = LocalStore(args.storefront), None
+    live = app.storefront_entry().get("publish_target") == live_store.LIVE
+    store, worker = None if live else LocalStore(args.storefront), None
 
     def stop(*_):                                  # leave nothing running; it picks up where it was next time
-        store.down(delete=False)
+        if store:
+            store.down(delete=False)
         sys.exit(0)
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
@@ -60,11 +65,15 @@ def main(argv=None) -> int:
                 mapping = app.mapping()
                 if not mapping:
                     raise StoreUnavailable("The store's categories aren't set up yet: finish Getting started.")
-                store.up(mapping)
-                worker = Worker(app, pubs, store.adapter(app.storefront_entry()), LocalAssetStore(store.assets))
+                if live:
+                    worker = Worker(app, pubs, *live_store.connect(app))
+                else:
+                    store.up(mapping)
+                    worker = Worker(app, pubs, store.adapter(app.storefront_entry()), LocalAssetStore(store.assets))
                 worker.recover()
             app._reset_store()                     # pick up mapping changes made in the dashboard
-            store.sync(app.mapping())
+            if store:
+                store.sync(app.mapping())
             pubs.beat(True)
             worker.run_once()
         except StoreUnavailable as e:
@@ -74,7 +83,7 @@ def main(argv=None) -> int:
             pubs.beat(False, "The worker hit a problem and will try again.")
         if args.once:
             return 0
-        time.sleep(POLL_SECONDS)
+        time.sleep(LIVE_RETRY_SECONDS if live and worker is None else POLL_SECONDS)
 
 
 if __name__ == "__main__":

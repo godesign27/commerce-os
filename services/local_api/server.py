@@ -86,9 +86,10 @@ class App:
         # next to the review folder (.commerce-os/approvals, .commerce-os/audit), so a test's folder holds its own
         self.audit = audit.Audit(audit_root or Path(out).parent / "audit")
         self.approvals = publication.Approvals(approvals_root or Path(out).parent / "approvals", self.audit)
-        self.pubs = publishing.Publications(publications_root or Path(out).parent / "publications", self.audit)
         self._mapping_path, self._mapping, self._fake = mapping, None, None
         self.out, self.storefront, self.brand_root, self.config = Path(out), storefront, Path(brand_root), Path(config)
+        # Each target keeps its own records, so a listing published to the test store is still unpublished on the live one.
+        self.pubs = publishing.Publications(publications_root or Path(out).parent / ("publications-live" if self._live() else "publications"), self.audit)
         self.source = Path(source) if source else ri.DEFAULT_SOURCE
         self.store = Store(self.out)
         self.learn = learning.Learning(learning_root)
@@ -114,6 +115,13 @@ class App:
 
     def brand_ctx(self):
         return brand.load(self.storefront, self.brand_root)
+
+    def _live(self) -> bool:
+        """Has the owner turned the live store on (scripts/go_live.py)? This page can only read that."""
+        return self.storefront_entry().get("publish_target") == "live"
+
+    def _target(self) -> str:
+        return "Live store" if self._live() else "Local test store"
 
     def storefront_entry(self) -> dict:
         if not self.config.exists():
@@ -152,7 +160,7 @@ class App:
                 "brand": {"version": ctx["version"], "name": ctx["identity"]["name"],
                           "proposed_lessons": sum(x["status"] == "proposed" for x in ctx["lessons"])} if ctx else None,
                 "items": rows, "statuses": journey.STATUSES, "key_configured": bool(self._key()), "jobs": self.job_list(),
-                "onboarding": self._steps()}
+                "onboarding": self._steps(), "publish_target": "live" if self._live() else "local"}
 
     @staticmethod
     def _image(it: dict):
@@ -288,6 +296,10 @@ class App:
     def fake_store(self):
         if self._fake is None:
             structure = self.catalog.structure()
+            snapshot = self.catalog.load()
+            if self._live() and structure and snapshot:
+                self._fake = artstore_map.live_preview(self.storefront, self.mapping(), self.storefront_entry(), structure, snapshot)
+                return self._fake
             self._fake = artstore_map.test_store(self.storefront, self.mapping(), self.storefront_entry(), structure) \
                 if structure and self.storefront_entry().get("catalog_profile") \
                 else artstore_map.test_store(self.storefront, self.mapping())
@@ -434,7 +446,7 @@ class App:
         published = self.pubs.latest(item_id, "published") if state == publishing.SUCCEEDED else None
         rechecked = self.pubs.latest(item_id, "rechecked") if state == publishing.UNKNOWN else None
         ended = next((e for e in reversed(self.pubs.events(item_id)) if e.get("state") == publishing.FAILED), None)
-        return {"target": "Local test store", "state": state, "kill_switch": self.pubs.kill_switch(),
+        return {"target": self._target(), "live": self._live(), "state": state, "kill_switch": self.pubs.kill_switch(),
                 "worker": self.pubs.worker(), "product_id": (published or {}).get("product_id"),
                 "receipt_id": (published or {}).get("receipt_id"), "published_at": (published or {}).get("at"),
                 "reasons": (ended or {}).get("reasons", []) if state == publishing.FAILED else [],
@@ -497,7 +509,7 @@ class App:
     def publish_queue(self) -> dict:
         """The publish page: every drafted listing, sorted by what it needs next. This reads; it changes nothing."""
         entry = self.storefront_entry()
-        doc = {"available": self.can_preview(), "target": "Local test store", "display_name": entry.get("display_name", self.storefront),
+        doc = {"available": self.can_preview(), "target": self._target(), "live": self._live(), "display_name": entry.get("display_name", self.storefront),
                "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker(), "not_drafted": 0,
                "ready": [], "working": [], "problems": [], "waiting": [], "published": []}
         if not doc["available"]:
@@ -812,7 +824,7 @@ class App:
                          "published": sum(i["published"] == publishing.SUCCEEDED for i in rows),
                          "publish_problems": sum(i["published"] in (publishing.FAILED, publishing.UNKNOWN) for i in rows),
                          "to_publish": sum(i["storefront"] == "approved" and i["published"] is None for i in drafted)},
-            "publishing": {"target": "Local test store", "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker()},
+            "publishing": {"target": self._target(), "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker()},
             "rooms": {"total": len(lib), "ready": room_states.count("ready"), "need_attention": sum(s not in ("ready", "off") for s in room_states)},
             "learning": {"approvals": self.learn.stats()["approvals"],
                          "proposed_lessons": (state["brand"] or {}).get("proposed_lessons", 0)},

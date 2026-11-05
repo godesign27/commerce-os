@@ -211,7 +211,7 @@ class Wiring(unittest.TestCase):
 
     def test_setup_and_artist_context_live_in_the_account_menu(self):
         main = read(REPO / "apps" / "review-dashboard" / "src" / "main.tsx")
-        self.assertIn('const nav = [["home", "Home"], ["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["publish", "Publish"], ["learning", "Learning"]];', main)
+        self.assertIn('const nav = [["home", "Home"], ["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["publish", "Publish"], ["learning", "Learning"], ["support", "Support"]];', main)
         self.assertIn('["setup", "Voice setup"]];', main)
         self.assertIn('aria-haspopup="menu"', main)
 

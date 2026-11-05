@@ -575,8 +575,12 @@ class Wiring(unittest.TestCase):
             self.assertNotIn("read_env", src, rel)
 
     def test_the_adapter_is_local_only(self):
-        self.assertIn("self.write_dsn, self.read_dsn = require_local(write_dsn), require_local(read_dsn)",
-                      read(REPO / "packages/adapters/artstore_pg.py"))
+        src = read(REPO / "packages/adapters/artstore_pg.py")
+        self.assertIn("if live_host is not None else require_local", src)
+        self.assertIn("self.write_dsn, self.read_dsn = allowed(write_dsn), allowed(read_dsn)", src)
+        for rel in self.WORKER_FILES:
+            if rel != "packages/adapters/artstore_pg.py":
+                self.assertNotIn("live_host", read(REPO / rel), "only live_store.py may name a live host")
 
     def test_writes_are_parameters_only(self):
         self.assertIn("sql.Placeholder()", read(REPO / "packages/adapters/artstore_pg.py"))
@@ -616,8 +620,10 @@ class Wiring(unittest.TestCase):
 
     def test_the_publish_page_is_honest_about_where_it_goes(self):
         page = read(REPO / "apps/review-dashboard/src/pages/Publish.tsx")
-        self.assertIn("Publishing to: {q.target}", page)
+        self.assertEqual(page.count("Publishing to: {q.target}"), 2, "both targets name where it goes")
         self.assertIn("nothing appears on your site", page)
+        self.assertIn("as a hidden draft on", page)
+        self.assertIn("{q.live", page)
         self.assertIn("Stop all writing", page)
         self.assertIn("Select all", page)
         self.assertIn("disabled={busy || off || !ticked}", page, "Publish needs something ticked and writing on")

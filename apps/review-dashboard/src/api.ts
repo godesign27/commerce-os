@@ -33,7 +33,7 @@ export type PublishState = "QUEUED" | "WRITING" | "SUCCEEDED" | "FAILED" | "OUTC
 export interface KillSwitch { on: boolean; forced: boolean; at: string | null; by: string | null }
 export interface WorkerStatus { running: boolean; ok: boolean; reason: string | null }
 export interface PublishDoc {
-  target: string; state: PublishState | null; kill_switch: KillSwitch; worker: WorkerStatus;
+  target: string; live: boolean; state: PublishState | null; kill_switch: KillSwitch; worker: WorkerStatus;
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
 }
@@ -46,7 +46,7 @@ export interface QueueRow {
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
 }
 export interface PublishQueue {
-  available: boolean; reason?: string; target: string; display_name: string; kill_switch: KillSwitch; worker: WorkerStatus;
+  available: boolean; reason?: string; target: string; live: boolean; display_name: string; kill_switch: KillSwitch; worker: WorkerStatus;
   ready: QueueRow[]; working: QueueRow[]; problems: QueueRow[]; waiting: QueueRow[]; published: QueueRow[]; not_drafted: number;
 }
 // A product in the store that may already be this piece (B-065). Shown for the owner to answer; never a source of facts.
@@ -75,7 +75,7 @@ export interface State {
   statuses: StatusLabel[];
   storefront: string; display_name: string; site_kind: "artist" | "product" | null;
   brand: { version: number; name: string; proposed_lessons: number } | null;
-  items: ItemRow[]; key_configured: boolean; jobs: Job[]; onboarding: Steps;
+  items: ItemRow[]; key_configured: boolean; jobs: Job[]; onboarding: Steps; publish_target: "local" | "live";
 }
 // First run (B-068). Nothing here ever holds a credential.
 export interface Steps { steps: Array<{ id: string; label: string; done: boolean }>; complete: boolean; next: string | null }

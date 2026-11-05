@@ -260,10 +260,51 @@ button.icon { padding: 0.2rem 0.55rem; line-height: 1; }
 .gs-mark { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 1px solid var(--line); font-size: 0.8rem; }
 .gs-step.done .gs-mark { background: var(--ok); border-color: var(--ok); color: #fff; }
 .gs-body { padding: 0 0.9rem 0.9rem; }
+/* Getting started help (B-075): beside the steps on a wide screen, inside the open step on a narrow one */
+.page.gs-page { max-width: 1120px; }
+.gs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: 2rem; align-items: start; margin-top: 0.8rem; }
+.gs-side { display: flex; flex-direction: column; gap: 1.25rem; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; padding-right: 0.25rem; }
+.gs-side h2 { font-size: 1rem; margin: 0 0 0.4rem; }
+.gs-help-side { padding-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+.gs-side h4 { font-size: inherit; margin: 0.8rem 0 0.2rem; }
+.gs-body .gs-help h4 { font-size: inherit; margin: 0.8rem 0 0.2rem; }
+.gs-help p, .gs-install p { margin: 0.3rem 0; }
+.gs-help ol, .gs-help ul { margin: 0.3rem 0; padding-left: 1.2rem; }
+.gs-help li { margin: 0.3rem 0; }
+.gs-help code, .gs-install code { overflow-wrap: anywhere; }
+.gs-help-inline { display: none; margin: 0 0 0.8rem; }
+@media (max-width: 1000px) {
+  .gs-layout { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .gs-side { position: static; max-height: none; overflow: visible; padding-right: 0; }
+  .gs-help-side { display: none; }
+  .gs-help-inline { display: block; }
+}
 .copy-block { display: flex; gap: 0.5rem; align-items: flex-start; margin: 0.3rem 0; }
 .copy-block pre { flex: 1; min-width: 0; margin: 0; padding: 0.6rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 0.8rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 14rem; overflow: auto; }
 .gs-body fieldset, .gs-body form > label { margin-top: 0.5rem; }
 .sf-publish { margin: 0.6rem 0; padding-top: 0.5rem; border-top: 1px solid var(--line); }
+/* Support (B-076) */
+.page.support-page { max-width: 1040px; }
+.support-page h2 { margin: 1.4rem 0 0.4rem; }
+.support-page h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.support-now { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); padding: 0.6rem 0.9rem; margin: 0 0 1rem; }
+.flow { display: grid; grid-template-columns: minmax(0, 1fr) 1.5rem minmax(0, 1fr); gap: 0.75rem; align-items: center; }
+.flow-lane { border: 1px dashed var(--control); border-radius: var(--radius); padding: 0.8rem; }
+.flow-lane ol { margin: 0; padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.flow-step { background: var(--raised); border: 1px solid var(--line); border-radius: 6px; padding: 0.5rem 0.65rem; }
+.flow-step.you { border-color: var(--accent); }
+.flow-step strong, .flow-step span { display: block; }
+.flow-who { color: var(--muted); margin-top: 0.15rem; }
+.flow-step.you .flow-who { color: var(--accent); font-weight: 600; }
+.flow-arrow { text-align: center; font-size: 1.2rem; color: var(--muted); }
+.support-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }
+.support-grid ul { margin: 0; padding-left: 1.2rem; } .support-grid li { margin: 0.35rem 0; }
+.support-page .gs-install { border-top: 1px solid var(--line); padding-top: 1.2rem; max-width: 40rem; }
+.support-page .gs-install h2 { margin-top: 0; } .support-page .gs-install h4 { margin: 0.8rem 0 0.2rem; font-size: inherit; }
+@media (max-width: 760px) {
+  .flow { grid-template-columns: minmax(0, 1fr); } .flow-arrow { transform: rotate(90deg); }
+  .support-grid { grid-template-columns: minmax(0, 1fr); }
+}
 /* Publish page (B-071) */
 .pq-target { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 0.6rem 0.9rem; margin: 0.4rem 0 1rem; }
 .pq-section { margin: 1.4rem 0; }

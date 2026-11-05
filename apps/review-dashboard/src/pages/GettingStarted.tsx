@@ -1,22 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, OnboardingDoc, State } from "../api";
+import { CopyBlock } from "../components/CopyBlock";
+import { InstallHelp, StepHelp } from "../components/SetupHelp";
 
 // First run (B-068). Each step's status comes from what's actually set up, so you can stop and come back.
 // A generated password stays in this page until it's part of the login you enter below it.
 function newPassword(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(30));
   return Array.from(bytes, (b) => "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 57]).join("");
-}
-
-function CopyBlock({ text, label }: { text: string; label: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="copy-block">
-      <pre tabIndex={0} aria-label={label}>{text}</pre>
-      <button className="secondary" onClick={() => navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })}>
-        {copied ? "Copied" : "Copy"}</button>
-    </div>
-  );
 }
 
 function StoreStep({ doc, act }: { doc: OnboardingDoc; act: Act }) {
@@ -157,7 +148,8 @@ export function GettingStarted({ onChange }: { state: State; onChange: () => voi
     setBusy(false);
   }, [onChange]);
   if (!doc) return <main className="page narrow">{error ? <p className="error">{error}</p> : <p className="muted">Loading…</p>}</main>;
-  const current = open || doc.next;
+  const current = open ?? doc.next;
+  const currentStep = doc.steps.find((s) => s.id === current);
 
   const body = (id: string) => {
     if (id === "store") return <StoreStep doc={doc} act={act} />;
@@ -167,7 +159,7 @@ export function GettingStarted({ onChange }: { state: State; onChange: () => voi
     if (id === "key") return <KeyStep act={act} />;
     if (id === "voice") return <p className="small">Tell Commerce OS how to write about your work. <a href="#/setup">Answer the questions →</a></p>;
     return <p className="small">Put one photo per piece in <code>inbox</code> in the Commerce OS folder, then <a href="#/photos">look for new photos →</a>.
-      From there: accept each photo, draft its copy, add its facts and approve it. Nothing is sent to your store: publishing comes in a later phase.</p>;
+      From there: accept each photo, draft its copy, add its facts and approve it. Nothing reaches your real store: publishing only goes to a local test store for now.</p>;
   };
   const summary = (id: string) => {
     if (id === "store" && doc.store.display_name) return doc.store.display_name;
@@ -177,23 +169,39 @@ export function GettingStarted({ onChange }: { state: State; onChange: () => voi
   };
 
   return (
-    <main className="page narrow">
+    <main className="page gs-page">
       <h1>Getting started</h1>
       <p className="muted small">{doc.complete ? "Everything's set up. You can change any step here." : "Connect your store and set up how Commerce OS writes. You can stop and come back: this page remembers."}</p>
       {error && <p className="error" role="alert">{error}</p>}
-      <ol className="gs-steps" aria-busy={busy}>
-        {doc.steps.map((s, n) => (
-          <li key={s.id} className={`gs-step ${s.done ? "done" : ""} ${current === s.id ? "current" : ""}`}>
-            <button className="gs-head" aria-expanded={current === s.id} onClick={() => setOpen(current === s.id ? "" : s.id)}>
-              <span className="gs-mark" aria-hidden="true">{s.done ? "✓" : n + 1}</span>
-              <span className="gs-label">{s.label}</span>
-              <span className="muted small">{s.done ? summary(s.id) || "Done" : ""}</span>
-            </button>
-            {current === s.id && <div className="gs-body">{body(s.id)}</div>}
-          </li>
-        ))}
-      </ol>
-      {doc.complete && <p><a href="#/home">Go to your start page →</a></p>}
+      <div className="gs-layout">
+        <div className="gs-main">
+          <ol className="gs-steps" aria-busy={busy}>
+            {doc.steps.map((s, n) => (
+              <li key={s.id} className={`gs-step ${s.done ? "done" : ""} ${current === s.id ? "current" : ""}`}>
+                <button className="gs-head" aria-expanded={current === s.id} onClick={() => setOpen(current === s.id ? "" : s.id)}>
+                  <span className="gs-mark" aria-hidden="true">{s.done ? "✓" : n + 1}</span>
+                  <span className="gs-label">{s.label}</span>
+                  <span className="muted small">{s.done ? summary(s.id) || "Done" : ""}</span>
+                </button>
+                {current === s.id && (
+                  <div className="gs-body">
+                    <details className="gs-help-inline"><summary>Help with this step</summary><StepHelp id={s.id} doc={doc} /></details>
+                    {body(s.id)}
+                  </div>)}
+              </li>
+            ))}
+          </ol>
+          {doc.complete && <p><a href="#/home">Go to your start page →</a></p>}
+        </div>
+        <aside className="gs-side" aria-label="Help">
+          {currentStep && (
+            <section className="gs-help-side">
+              <h2>Help: {currentStep.label}</h2>
+              <StepHelp id={currentStep.id} doc={doc} />
+            </section>)}
+          <InstallHelp />
+        </aside>
+      </div>
     </main>
   );
 }

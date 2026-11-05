@@ -24,6 +24,7 @@ from packages.adapters.fake import FakeStorefront, seal
 
 REPO = Path(__file__).resolve().parents[2]
 ENVIRONMENT = "test"
+LIVE_ENVIRONMENT = "production"
 STATUS = "draft"                     # new products go in hidden; the owner sets them live on the site
 ORIGINAL = "Original"                # the tier type that makes a piece an original (is_original, category)
 PREPARED_BY = {"kind": "service", "id": "commerce-os", "role": "system"}
@@ -63,6 +64,29 @@ def test_seed(mapping: dict) -> dict:
             "tags": [{"id": test_id("tag", t["key"]), "name": _name(t), "slug": t.get("slug") or t["key"]}
                      for t in pick(mapping.get("tags", []))],
             "products": []}
+
+
+def _in_catalog(entry: dict, rows: List[dict]) -> Optional[dict]:
+    """The store's own row for a mapping entry: by its recorded id, then by its web address."""
+    wanted = (entry.get("id") or {}).get("production")
+    slug = entry.get("slug") or entry.get("key")
+    return next((r for r in rows if wanted and r.get("id") == wanted), None) or next((r for r in rows if r.get("slug") == slug), None)
+
+
+def live_seed(mapping: dict, snapshot: dict) -> dict:
+    """The owner's in-scope categories and tags with the store's real ids, read from its catalog."""
+    out = {"products": []}
+    for table in ("categories", "tags"):
+        found = [_in_catalog(e, snapshot.get(table, [])) for e in mapping.get(table, []) if e.get("status") == "in_scope"]
+        out[table] = [{"id": r["id"], "name": r["name"], "slug": r.get("slug")} for r in found if r]
+    return out
+
+
+def live_preview(storefront: str, mapping: dict, entry: dict, structure: dict, snapshot: dict) -> FakeStorefront:
+    """What a listing looks like against the live store. It only builds and checks: it can't write anywhere."""
+    profile = json.loads((REPO / "resources" / "catalog-profiles" / f"{entry['catalog_profile']}.json").read_text())
+    return FakeStorefront(storefront, LIVE_ENVIRONMENT, profile, structure, currency=entry.get("currency", "USD"),
+                          features=entry.get("features", []), seed=live_seed(mapping, snapshot), writes_enabled=False)
 
 
 def test_store(storefront: str, mapping: dict, entry: Optional[dict] = None, structure: Optional[dict] = None) -> FakeStorefront:
@@ -206,7 +230,9 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
     if not planned:
         issues.add("product.images", "There's no listing image yet: accept the crop on the Photos page.")
     else:
-        issues.add("assets.delivery", "The images aren't uploaded to the store yet (upload isn't authorized). "
+        issues.add("assets.delivery", "The images go to the store when you publish, with exactly these files."
+                   if store.environment != ENVIRONMENT else
+                   "The images aren't uploaded to the store yet (upload isn't authorized). "
                    "This happens after approval, with exactly these files.", resolver="operator")
 
     body = {
@@ -261,6 +287,10 @@ def _category(kind, sold_as, mapping: dict, store: FakeStorefront) -> Optional[s
     key = pt["category"]
     if sold_as and sold_as != ORIGINAL and pt.get("alternative_categories"):
         key = pt["alternative_categories"][0]           # artwork with no Original tier is a print (mapping note)
+    if store.environment != ENVIRONMENT:
+        entry = next((c for c in mapping.get("categories", []) if c.get("key") == key), None)
+        row = _in_catalog(entry, list(store.tables["categories"].values())) if entry else None
+        return row["id"] if row else None
     cid = test_id("category", key)
     return cid if cid in store.tables["categories"] else None
 
