@@ -4,6 +4,7 @@ import { CornerEditor, same } from "../components/CornerEditor";
 import { Drawer } from "../components/Drawer";
 import { AboutPiece } from "../components/AboutPiece";
 import { ago } from "./Photos";
+import { StatusBadge } from "../components/Status";
 
 // One photo: the original with the outline the crop found, corners you can drag, and what came out (B-062),
 // and the piece on the wall of its room, which you can change (B-063).
@@ -63,8 +64,6 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
     } catch (e) { setError(String((e as Error).message)); }
   }
   const leave = (e: React.MouseEvent) => { if (dirty && !confirm("Your corner changes aren't saved. Leave anyway?")) e.preventDefault(); };
-  const label = { "to-review": "To review", "not-applied": "Not applied", ready: "Ready to draft", drafted: "Drafted",
-                  approved: "Copy approved", rejected: "Rejected" }[p.stage];
   async function hang(body: { room?: string | null } = {}) {
     setHanging(true); setError(null);
     try { setP(await api.photoRoom(p!.id, body)); setChanging(false); }
@@ -79,13 +78,24 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
       <div className="row between">
         <div className="row">
           <a href="#/photos" onClick={leave}>← Photos</a>
-          <h1 className="photo-title">{p.source}</h1>
-          <span className={`badge ${p.stage === "approved" ? "ok" : p.stage === "rejected" ? "bad" : p.stage === "ready" || p.stage === "drafted" ? "" : "warn"}`}>{label}</span>
+          <h1 className="photo-title">{p.listing_title || p.source}</h1>
+          <StatusBadge status={p.status} />
         </div>
         <div className="row">
           {p.prev && <a href={`#/photos/${p.prev}`} onClick={leave}>← Previous</a>}
           {p.next && <a href={`#/photos/${p.next}`} onClick={leave}>Next →</a>}
         </div>
+      </div>
+      <div className="photo-bar">
+        <p className="small">{p.status?.next}</p>
+          <div className="row photo-actions">
+            <button className={p.decision === "accept" ? "" : "secondary"} disabled={busy} aria-pressed={p.decision === "accept"}
+              onClick={() => send({ decision: p.decision === "accept" ? null : "accept" })}>{p.decision === "accept" ? "✓ Accepted" : "Accept"}</button>
+            <button className="secondary" disabled={busy} onClick={() => send({ rotate: (p.rotate + 90) % 360 })}>
+              Rotate ↻{p.rotate ? ` ${p.rotate}°` : ""}</button>
+            <button className={p.decision === "reject" ? "danger" : "secondary danger"} disabled={busy} aria-pressed={p.decision === "reject"}
+              onClick={() => send({ decision: p.decision === "reject" ? null : "reject" })}>{p.decision === "reject" ? "✗ Rejected" : "Reject"}</button>
+          </div>
       </div>
       {error && <p className="error">{error}</p>}
       <div className="photo-layout">
@@ -124,14 +134,6 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
           <div className="row results">
             {p.cropped && <figure><img src={`/${p.cropped}`} alt="The cropped artwork" /><figcaption className="small muted">Cropped</figcaption></figure>}
             {p.framed && <figure><img src={`/${p.framed}`} alt="The framed preview" /><figcaption className="small muted">Framed</figcaption></figure>}
-          </div>
-          <div className="row photo-actions">
-            <button className={p.decision === "accept" ? "" : "secondary"} disabled={busy} aria-pressed={p.decision === "accept"}
-              onClick={() => send({ decision: p.decision === "accept" ? null : "accept" })}>{p.decision === "accept" ? "✓ Accepted" : "Accept"}</button>
-            <button className="secondary" disabled={busy} onClick={() => send({ rotate: (p.rotate + 90) % 360 })}>
-              Rotate ↻{p.rotate ? ` ${p.rotate}°` : ""}</button>
-            <button className={p.decision === "reject" ? "danger" : "secondary danger"} disabled={busy} aria-pressed={p.decision === "reject"}
-              onClick={() => send({ decision: p.decision === "reject" ? null : "reject" })}>{p.decision === "reject" ? "✗ Rejected" : "Reject"}</button>
           </div>
           <h2>History</h2>
           <ol className="timeline">

@@ -14,6 +14,9 @@ import { Photos } from "./pages/Photos";
 import { PhotoDetailPage } from "./pages/PhotoDetail";
 import { Rooms } from "./pages/Rooms";
 import { RoomDetail } from "./pages/RoomDetail";
+import "@fontsource/ibm-plex-sans/latin-400.css";
+import "@fontsource/ibm-plex-sans/latin-500.css";
+import "@fontsource/ibm-plex-sans/latin-600.css";
 import "./styles.css";
 
 // A tab left open across a rebuild keeps running the old page, because moving between pages never reloads it.
@@ -80,29 +83,40 @@ function App() {
   else if (section === "rooms") page = <Rooms />;
   else page = <Listings state={state} onChange={refresh} />;
 
+  // Only queues that wait on the owner carry a count. Voice setup replaces the voice, so it stays out of the way once
+  // there is one: the Artist context page links to it.
+  const toDo = state.items.filter((i) => ["review-copy", "add-details", "approve-for-store"].includes(i.status.id)).length;
+  const items = menu.filter(([k]) => k !== "setup" || !state.brand);
   return (
-    <>
-      <header className="top">
-        <div className="top-left">
-          <div className="brandmark">Commerce OS <span>{state.onboarding.steps[0].done ? `${state.display_name} · ` : ""}local review</span></div>
-          <nav aria-label="Sections">
-            {nav.map(([k, label]) => (
-              <a key={k} href={`#/${k}`} aria-current={section === k ? "page" : undefined}>
-                {label}
-                {k === "photos" && inbox > 0 ? <span className="pill" aria-label={`${inbox} new`}>{inbox}</span> : null}
-                {k === "publish" && toPublish > 0 ? <span className="pill" aria-label={`${toPublish} to publish`}>{toPublish}</span> : null}
-                {k === "learning" && state.brand?.proposed_lessons ? <span className="pill">{state.brand.proposed_lessons}</span> : null}
-              </a>
-            ))}
-          </nav>
+    <div className="frame">
+      <aside className="side">
+        <div className="brandmark">
+          <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" fill="none" stroke="var(--oak)" strokeWidth="2" /><rect x="6" y="6" width="10" height="10" fill="var(--accent)" /></svg>
+          <span>Commerce OS</span>
         </div>
-        <UserMenu name={state.brand?.name || state.display_name} items={menu} section={section} route={route} />
-      </header>
-      <NewPhotos count={inbox} onDone={() => { refresh(); setTick((t) => t + 1); }} />
-      {state.onboarding.complete && !state.key_configured && <div className="banner">There's no Claude API key, so drafting is off. <a href="#/start">Add one →</a></div>}
-      {page}
-      <footer className="foot">Local only (127.0.0.1). Publishing reaches only a local test store; your real store can't be changed from here.</footer>
-    </>
+        {state.onboarding.steps[0].done && <div className="side-store"><strong>{state.display_name}</strong><span className="small muted">Local review, read only</span></div>}
+        <nav aria-label="Sections">
+          {nav.map(([k, label]) => (
+            <a key={k} href={`#/${k}`} aria-current={section === k ? "page" : undefined}>
+              <span>{label}</span>
+              {k === "photos" && inbox > 0 ? <span className="pill" aria-label={`${inbox} new`}>{inbox}</span> : null}
+              {k === "listings" && toDo > 0 ? <span className="count-n" aria-label={`${toDo} waiting on you`}>{toDo}</span> : null}
+              {k === "publish" && toPublish > 0 ? <span className="count-n" aria-label={`${toPublish} to publish`}>{toPublish}</span> : null}
+              {k === "learning" && state.brand?.proposed_lessons ? <span className="count-n">{state.brand.proposed_lessons}</span> : null}
+            </a>
+          ))}
+        </nav>
+        <UserMenu name={state.brand?.name || state.display_name} items={items} section={section} route={route} />
+      </aside>
+      <div className="workspace">
+        <NewPhotos count={inbox} onDone={() => { refresh(); setTick((t) => t + 1); }} />
+        {state.onboarding.complete && !state.key_configured && <div className="banner">There's no Claude API key, so drafting is off. <a href="#/start">Add one →</a></div>}
+        <div className="sheet">
+          {page}
+          <footer className="foot">Local only (127.0.0.1). Publishing reaches only a local test store; your real store can't be changed from here.</footer>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -128,6 +142,7 @@ function UserMenu({ name, items, section, route }: { name: string; items: string
       <button ref={button} className={`avatar-button ${here ? "here" : ""}`} aria-haspopup="menu" aria-expanded={open}
         aria-label={`Account menu for ${name}`} onClick={() => setOpen(!open)}>
         <span className="avatar" aria-hidden="true">{initials}</span>
+        <span className="avatar-name" aria-hidden="true">{name}</span>
         <svg className={`caret ${open ? "up" : ""}`} width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
           <path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

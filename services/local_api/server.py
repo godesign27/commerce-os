@@ -34,6 +34,7 @@ from packages.drafting import audit, brand, editing, learning, listing, publicat
 from packages.drafting.store import LockedError, Store  # noqa: E402
 from packages.image_pipeline import intake, room_suggest, rooms, stages  # noqa: E402
 from packages.publisher import records as publishing  # noqa: E402
+from packages import journey  # noqa: E402
 
 
 def _load_script(name: str):
@@ -122,9 +123,11 @@ class App:
 
     def state(self) -> dict:
         decisions, listings, drafts = self.decisions(), self.store.listings(), self.store.all_drafts()
+        pending = ri.pending(decisions, self.items())
         rows = []
         for it in self.items():
             rec, entry = drafts.get(it["id"]), listings.get(it["id"], {})
+            store_state, status = self._journey(it, decisions.get(it["id"], {}), it["id"] in pending, entry, rec)
             issues = rec["draft"]["review_issues"] if rec else []
             rows.append({
                 "id": it["id"], "source": it["source"], "kind": it["kind"],
@@ -138,8 +141,9 @@ class App:
                 "supplied": sum(listing.supplied(i, entry.get("facts")) for i in issues),   # answered: redraft to use
                 "warnings": sum(i["severity"] == "warning" for i in issues),
                 "category": rec["draft"]["product"]["attributes"].get("category", {}).get("value") if rec else None,
-                "storefront": self._storefront_state(it, entry, rec) if rec else None,
+                "storefront": store_state,
                 "published": self.pubs.state(it["id"]),
+                "status": status, "thumb": self._thumb(it),
             })
         ctx = self.brand_ctx()
         entry = self.storefront_entry()
@@ -147,7 +151,7 @@ class App:
                 "site_kind": entry.get("site_kind") or (ctx or {}).get("site_kind"),
                 "brand": {"version": ctx["version"], "name": ctx["identity"]["name"],
                           "proposed_lessons": sum(x["status"] == "proposed" for x in ctx["lessons"])} if ctx else None,
-                "items": rows, "key_configured": bool(self._key()), "jobs": self.job_list(),
+                "items": rows, "statuses": journey.STATUSES, "key_configured": bool(self._key()), "jobs": self.job_list(),
                 "onboarding": self._steps()}
 
     @staticmethod
@@ -165,7 +169,8 @@ class App:
                "meanings": brand.meanings_in_scope(ctx, item_id, entry.get("series")) if ctx else [],
                "categories": [{"id": c["id"], "name": c["name"]} for c in (ctx or {}).get("categories", [])],
                "draft": None, "size_from_name": listing.size_from_name(it.get("source")),
-               "tier_types": self.tier_types()}
+               "tier_types": self.tier_types(), "status": self._status_of(item_id),
+               "pipeline": [journey.LABELS[x] for x in journey.PIPELINE]}
         if rec:
             d, a = rec["draft"], rec["draft"]["product"]["attributes"]
             val = lambda k, default=None: a.get(k, {}).get("value", default)  # noqa: E731
@@ -335,14 +340,56 @@ class App:
         return catalog.find_matches(title=copy.get("title"), subject=subject, facts=entry.get("facts"),
                                     products=snap["products"], answers=self.catalog.answers(item_id))
 
-    def _storefront_state(self, it: dict, entry: dict, rec: dict):
+    def _store_check(self, it: dict, entry: dict, rec: dict):
+        """Where a drafted listing stands against the store, what's in its way, and what changed since approval."""
         if not self.can_preview():
-            return None
+            return None, [], []
         cs, _, _ = self.change_set(it["id"], it, entry, rec)
-        st = self.approvals.status(it["id"], cs)["state"]
-        if st != "none":
-            return {"current": "approved", "out_of_date": "out_of_date"}[st]
-        return "ready" if artstore_map.approvable(cs) else "blocked"
+        approval = self.approvals.status(it["id"], cs)
+        if approval["state"] != "none":
+            state = {"current": "approved", "out_of_date": "out_of_date"}[approval["state"]]
+        else:
+            state = "ready" if artstore_map.approvable(cs) else "blocked"
+        return state, cs["blockers"], approval.get("changes") or []
+
+    def _storefront_state(self, it: dict, entry: dict, rec: dict):
+        return self._store_check(it, entry, rec)[0]
+
+    def _journey(self, it: dict, decision: dict, pending: bool, entry: dict, rec: dict):
+        """The listing's state against the store, and the piece's one status (packages/journey.py)."""
+        store_state, blockers, changes = self._store_check(it, entry, rec) if rec else (None, [], [])
+        stage = stages.stage(it, decision, pending, bool(rec), bool(entry.get("approved")))
+        return store_state, journey.status(stage=stage, drafted=bool(rec), copy_approved=bool(entry.get("approved")),
+                                           publish_state=self.pubs.state(it["id"]), store_state=store_state,
+                                           blockers=blockers, changes=changes)
+
+    def _status_of(self, item_id: str) -> dict:
+        it, decisions = self.item(item_id), self.decisions()
+        pending = ri.pending(decisions, self.items())
+        return self._journey(it, decisions.get(item_id, {}), item_id in pending, self.store.listing(item_id),
+                             self.store.draft(item_id))[1]
+
+    def _thumb(self, it: dict):
+        """A small copy of the piece for the start page, made once and again if the piece changes. Falls back to the
+        full image: a missing thumbnail must never stop a page."""
+        image = self._image(it)
+        if not image:
+            return None
+        source = self.out / image.split("?")[0]
+        target = self.out / "img" / "thumbs" / f"{it['id']}.jpg"
+        try:
+            if not target.exists() or target.stat().st_mtime < source.stat().st_mtime:
+                from PIL import Image
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with Image.open(source) as im:
+                    im = im.convert("RGB")
+                    im.thumbnail((240, 240))
+                    part = target.with_name(f".{target.name}.part")
+                    im.save(part, "JPEG", quality=82)
+                os.replace(part, target)
+            return f"img/thumbs/{target.name}?v={int(target.stat().st_mtime)}"
+        except (OSError, ValueError):
+            return image
 
     def _history(self, item_id: str) -> list:
         drafts = []
@@ -443,6 +490,7 @@ class App:
                "sold_as": tiers[0].get("type"), "size": tiers[0].get("size"),
                "change_set_hash": cs["change_set_hash"] if section in ("ready", "problems") else None,
                "approved_at": (status["approval"] or {}).get("approved_at"), "next": nxt if section == "waiting" else []}
+        row["status"] = self._status_of(it["id"])
         row.update({k: doc[k] for k in ("state", "product_id", "receipt_id", "published_at", "reasons", "finding", "fields", "checking")})
         return section, row
 
@@ -735,7 +783,8 @@ class App:
 
     def home(self) -> dict:
         """The start page: is a store connected, and one summary for each area."""
-        state, photos = self.state(), self.photos()
+        state = self.state()
+        photos = self.photos({r["id"]: r["status"] for r in state["items"]})
         entry, snap = self.storefront_entry(), self.catalog.load()
         rows, drafted = state["items"], [i for i in state["items"] if i["drafted"]]
         by_stage = {s["id"]: sum(p["stage"] == s["id"] for p in photos["photos"]) for s in photos["stages"]}
@@ -744,6 +793,11 @@ class App:
         count = lambda v: sum(i["storefront"] == v for i in drafted)  # noqa: E731
         return {
             "onboarding": state["onboarding"],
+            "statuses": journey.STATUSES, "pipeline": [journey.LABELS[x] for x in journey.PIPELINE],
+            "pieces": [{"id": i["id"], "title": i["title"], "source": i["source"], "thumb": i["thumb"], "status": i["status"]}
+                       for i in rows if i["has_art"] or i["drafted"]],
+            "next": journey.next_step([i for i in rows if i["has_art"] or i["drafted"]], setup_done=state["onboarding"]["complete"],
+                                      can_draft=state["key_configured"]),
             "store": {"connected": bool(self._login_url() and snap), "display_name": entry.get("display_name"),
                       "site_kind": entry.get("site_kind"),
                       "provider": next((p["display_name"] for p in onboarding.providers() if p["id"] == entry.get("provider")), None),
@@ -765,12 +819,19 @@ class App:
         }
 
     # ------------------------------------------------------------ photos (B-062)
-    def photos(self) -> dict:
+    def photos(self, statuses: dict = None) -> dict:
         items, decisions = self.items(), self.decisions()
         pend = ri.pending(decisions, items)
         rows = stages.photo_rows(items, decisions, self.store.all_drafts(), self.store.listings(), pend,
                                  self.source, self.out)
-        return {"stages": [{"id": k, "label": v} for k, v in stages.STAGES], "photos": rows,
+        if statuses is None:
+            statuses = {r["id"]: r["status"] for r in self.state()["items"]}
+        drafts = self.store.all_drafts()
+        for row in rows:
+            row["status"] = statuses.get(row["id"])
+            rec = drafts.get(row["id"])
+            row["title"] = (self.store.effective(row["id"], rec) or {}).get("title") if rec else None
+        return {"stages": [{"id": k, "label": v} for k, v in stages.STAGES], "statuses": journey.STATUSES, "photos": rows,
                 "pending": len(pend), "review_page": "http://127.0.0.1:8765/",
                 "intake": intake.status(self.inbox, self.intake_root)}
 

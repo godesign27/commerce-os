@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, Job, Photo, PhotosDoc, Stage, waitForJob } from "../api";
+import { api, Job, Photo, PhotosDoc, StatusId, waitForJob } from "../api";
+import { StatusBadge } from "../components/Status";
 
 // Every photo in the pipeline, where it is now and when each step happened (B-062).
-type Filter = "all" | Stage;
+type Filter = "all" | StatusId;
 type Order = "recent" | "name";
-
-const STAGE_CLASS: Record<Stage, string> = {
-  "to-review": "warn", "not-applied": "warn", ready: "", drafted: "", approved: "ok", rejected: "bad",
-};
 
 export function ago(at: string | null, now = Date.now()): string {
   if (!at) return "time not recorded";
@@ -32,11 +29,11 @@ export function Photos({ onChange }: { onChange: () => void }) {
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: doc?.photos.length || 0 };
-    for (const p of doc?.photos || []) c[p.stage] = (c[p.stage] || 0) + 1;
+    for (const p of doc?.photos || []) if (p.status) c[p.status.id] = (c[p.status.id] || 0) + 1;
     return c;
   }, [doc]);
   const shown = useMemo(() => {
-    const rows = (doc?.photos || []).filter((p) => filter === "all" || p.stage === filter);
+    const rows = (doc?.photos || []).filter((p) => filter === "all" || p.status?.id === filter);
     return [...rows].sort((a, b) => order === "name" ? a.source.localeCompare(b.source)
       : (b.updated_at || "").localeCompare(a.updated_at || ""));
   }, [doc, filter, order]);
@@ -75,7 +72,7 @@ export function Photos({ onChange }: { onChange: () => void }) {
   if (!doc) return <main className="page">{error ? <p className="error">{error}</p> : <p className="muted">Loading…</p>}</main>;
   return (
     <main className="page">
-      <div className="row between">
+      <div className="row between page-head">
         <h1>Photos</h1>
         <div className="row">
           {job?.running && <span className="muted">{job.label}: {job.done}/{job.total}…</span>}
@@ -86,10 +83,11 @@ export function Photos({ onChange }: { onChange: () => void }) {
           </button>
         </div>
       </div>
-      <p className="muted small">Every photo from the source folder, newest activity first. Accepting a photo here is a
-        local review step, not an approval: it lets the piece be drafted.</p>
-      <p className="muted small">To add pieces, put one photo per piece in <code>{doc.intake.folder}</code>, then choose
-        Look for new photos. Your files aren't changed: each one moves to <code>imported</code> in that folder.</p>
+      <p className="muted small">Every photo, newest activity first. Accepting a photo is a local review step, not an
+        approval: it lets the piece be drafted.</p>
+      <details className="help"><summary className="small">How to add pieces</summary>
+        <p className="muted small">Put one photo per piece in <code>{doc.intake.folder}</code>, then choose
+          Look for new photos. Your files aren't changed: each one moves to <code>imported</code> in that folder.</p></details>
       {doc.intake.last && (
         <div className="small intake-last" role="status">
           <p>Last look, {ago(doc.intake.last.at)}: {doc.intake.last.added.length} added, {doc.intake.last.duplicates.length} already here,{" "}
@@ -104,7 +102,7 @@ export function Photos({ onChange }: { onChange: () => void }) {
       <div className="row between">
         <div className="filters" role="group" aria-label="Stage">
           <button className="chip" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>All <span>{counts.all}</span></button>
-          {doc.stages.map((s) => (
+          {doc.statuses.filter((s) => counts[s.id]).map((s) => (
             <button key={s.id} className="chip" aria-pressed={filter === s.id} onClick={() => setFilter(s.id)}>
               {s.label} <span>{counts[s.id] || 0}</span>
             </button>
@@ -118,7 +116,6 @@ export function Photos({ onChange }: { onChange: () => void }) {
       </div>
       <ul className="grid photo-grid">
         {shown.map((p) => {
-          const label = doc.stages.find((s) => s.id === p.stage)?.label;
           return (
             <li key={p.id} className="card photo-card">
               <a className="photo-open" href={`#/photos/${p.id}`} aria-label={`Open ${p.source}`}>
@@ -128,18 +125,21 @@ export function Photos({ onChange }: { onChange: () => void }) {
               </a>
               <div className="card-body">
                 <span className="row between">
-                  <a className="small photo-name" href={`#/photos/${p.id}`}>{p.source}</a>
-                  <span className={`badge ${STAGE_CLASS[p.stage]}`}>{label}</span>
+                  <a className="small photo-name" href={`#/photos/${p.id}`}>{p.title || p.source}</a>
+                  <StatusBadge status={p.status} />
                 </span>
+                {p.title && <span className="small muted">{p.source}</span>}
+                {p.status?.detail && <span className="small">{p.status.detail}</span>}
                 {p.crop_flagged && p.stage === "to-review" && (
                   <span className="small warn-text">Crop needs a look{p.crop_reasons[0] ? `: ${p.crop_reasons[0]}` : ""}</span>)}
+                <details className="card-history"><summary className="small">History</summary>
                 <ol className="timeline" aria-label="History">
                   {p.events.map((e, n) => (
                     <li key={n} title={e.at ? new Date(e.at).toLocaleString() : undefined}>
                       <span>{e.label}</span> <span className="muted">{ago(e.at)}</span>
                     </li>
                   ))}
-                </ol>
+                </ol></details>
                 {p.note && <span className="small muted">Note: {p.note}</span>}
                 <div className="row photo-actions">
                   <button className={p.decision === "accept" ? "" : "secondary"} disabled={busy === p.id}
@@ -149,7 +149,7 @@ export function Photos({ onChange }: { onChange: () => void }) {
                   </button>
                   <button className="secondary" disabled={busy === p.id} title="Turn 90° clockwise; apply to re-frame"
                     onClick={() => decide(p, { rotate: (p.rotate + 90) % 360 })}>Rotate ↻{p.rotate ? ` ${p.rotate}°` : ""}</button>
-                  <button className={p.decision === "reject" ? "danger" : "secondary danger"} disabled={busy === p.id}
+                  <button className={p.decision === "reject" ? "danger" : "link quiet-danger"} disabled={busy === p.id}
                     aria-pressed={p.decision === "reject"}
                     onClick={() => decide(p, { decision: p.decision === "reject" ? null : "reject" })}>
                     {p.decision === "reject" ? "✗ Rejected" : "Reject"}

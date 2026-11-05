@@ -8,7 +8,7 @@ import { api } from "../api";
 export type Facts = { edition?: string; medium?: string; dimensions?: string; price?: string; sold_as?: string };
 type Unit = "in" | "cm";
 // Copied from packages/drafting/store.py (PRICE): change both.
-const PRICE = /^\$?\s*(\d{1,3}(?:,\d{3})+|\d{1,7})(\.\d{1,2})?$/;
+export const PRICE = /^\$?\s*(\d{1,3}(?:,\d{3})+|\d{1,7})(\.\d{1,2})?$/;
 const listWords = (xs: string[]) => xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
 const SHAPE = /^\s*(\d+(?:\.\d+)?)\s*(in|inch|inches|"|cm|mm)?\s*(?:x|×|by)\s*(\d+(?:\.\d+)?)\s*(in|inch|inches|"|cm|mm)?\s*$/i;
 

@@ -620,9 +620,11 @@ class Wiring(unittest.TestCase):
         self.assertIn("nothing appears on your site", page)
         self.assertIn("Stop all writing", page)
         self.assertIn("Select all", page)
-        self.assertIn("disabled={busy || off || !selected.length}", page, "Publish needs something ticked and writing on")
+        self.assertIn("disabled={busy || off || !ticked}", page, "Publish needs something ticked and writing on")
+        self.assertIn("if (selected.length) send(selected);", page, "only ready listings are ever sent")
         self.assertIn("useState<Set<string>>(new Set())", page, "nothing is ticked until the owner ticks it")
-        self.assertIn("type=\"checkbox\" disabled checked={false}", page, "a listing that isn't ready can't be ticked")
+        self.assertIn("const selected = q.ready.filter(", page, "what's sent comes from the ready list alone")
+        self.assertIn("Not published: ", page, "a ticked listing that isn't ready says why")
         self.assertIn("change_set_hash: r.change_set_hash!", page, "each request names the version shown")
         self.assertIn('"Publish"]', read(REPO / "apps/review-dashboard/src/main.tsx"))
 

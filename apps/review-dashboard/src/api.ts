@@ -14,6 +14,15 @@ export interface ItemRow {
   edited: boolean; blocking: number; supplied: number; warnings: number; category: string | null;
   storefront: StorefrontState | null;
   published: PublishState | null;
+  status: PieceStatus; thumb: string | null;
+}
+// One status per piece, from packages/journey.py (B-074). Every page shows this and works nothing out for itself.
+export type StatusId = "review-photo" | "ready-to-draft" | "review-copy" | "add-details" | "approve-for-store"
+  | "ready-to-publish" | "publishing" | "published" | "needs-look" | "rejected";
+export type StatusTone = "todo" | "wait" | "done" | "bad" | "off";
+export interface StatusLabel { id: StatusId; label: string; tone: StatusTone }
+export interface PieceStatus extends StatusLabel {
+  next: string; detail: string; blockers: Array<{ target: string; question: string }>;
 }
 // A listing against the storefront (B-064): blocked, ready to approve, approved, or approved but changed since.
 export type StorefrontState = "blocked" | "ready" | "approved" | "out_of_date";
@@ -32,7 +41,7 @@ export interface PublishDoc {
 export interface QueueRow {
   id: string; source: string; title: string | null; image: string | null;
   price: { amount_minor: number; currency: string } | null; sold_as: string | null; size: string | null;
-  state: PublishState | null; change_set_hash: string | null; approved_at: string | null; next: string[];
+  status: PieceStatus; state: PublishState | null; change_set_hash: string | null; approved_at: string | null; next: string[];
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
 }
@@ -63,6 +72,7 @@ export interface Job {
   cost_usd: number; results: Array<Record<string, unknown>>;
 }
 export interface State {
+  statuses: StatusLabel[];
   storefront: string; display_name: string; site_kind: "artist" | "product" | null;
   brand: { version: number; name: string; proposed_lessons: number } | null;
   items: ItemRow[]; key_configured: boolean; jobs: Job[]; onboarding: Steps;
@@ -84,7 +94,9 @@ export interface OnboardingDoc extends Steps {
 }
 export interface InboxStatus { new: number; waiting: number; folder: string }
 export interface HomeDoc {
-  onboarding: Steps; inbox: InboxStatus;
+  onboarding: Steps; inbox: InboxStatus; statuses: StatusLabel[]; pipeline: StatusLabel[];
+  pieces: Array<{ id: string; title: string | null; source: string; thumb: string | null; status: PieceStatus }>;
+  next: { headline: string; detail: string; label: string; href: string } | null;
   store: { connected: boolean; display_name: string | null; site_kind: string | null; provider: string | null;
            products: number | null; read_at: string | null; writes_enabled: boolean };
   photos: { total: number; to_review: number; ready: number; rejected: number };
@@ -117,7 +129,7 @@ export interface Detail {
   item: { id: string; source: string; kind: string; framed?: string };
   image?: string; listing: Listing; revisions: number[]; meanings: Meaning[];
   categories: Array<{ id: string; name: string }>; draft: Draft | null; size_from_name: string | null;
-  tier_types: string[];
+  tier_types: string[]; status: PieceStatus; pipeline: StatusLabel[];
 }
 export interface Lesson { id: string; text: string; status: "proposed" | "approved" | "rejected"; source: string; evidence: string[]; created_at: string }
 export interface Example { id: string; status: "proposed" | "approved" | "rejected"; category: string; title: string; short_description: string; collector_description: string; why: string }
@@ -137,7 +149,7 @@ export interface Photo {
   id: string; source: string; kind: "photo" | "artwork"; image?: string; photo?: string; framed?: string;
   stage: Stage; decision: "accept" | "reject" | "fix" | null; rotate: number; note: string;
   crop_flagged: boolean; crop_reasons: string[]; error?: string | null;
-  events: PhotoEvent[]; updated_at: string | null;
+  events: PhotoEvent[]; updated_at: string | null; status: PieceStatus | null; title: string | null;
 }
 export type Pt = [number, number];
 export interface PhotoDetail extends Photo {
@@ -172,7 +184,7 @@ export interface RoomsDoc {
   inbox: string; pieces: Array<{ id: string; source: string }>;
 }
 export type RoomChanges = Partial<Pick<Room, "name" | "wall" | "wall_width_cm" | "light" | "shadow" | "enabled" | "licence" | "credit" | "url" | "note">>;
-export interface PhotosDoc { stages: Array<{ id: Stage; label: string }>; photos: Photo[]; pending: number; review_page: string; intake: IntakeStatus }
+export interface PhotosDoc { stages: Array<{ id: Stage; label: string }>; statuses: StatusLabel[]; photos: Photo[]; pending: number; review_page: string; intake: IntakeStatus }
 // The local inbox folder (B-066): what's waiting, and what the last look found.
 export interface IntakeStatus {
   folder: string; waiting: number; new: number;

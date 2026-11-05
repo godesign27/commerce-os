@@ -1,11 +1,16 @@
 import { useMemo, useState } from "react";
-import { api, State, waitForJob, Job } from "../api";
+import { api, ItemRow, State, StatusId, waitForJob, Job } from "../api";
 import { NameSizes } from "../components/NameSizes";
+import { StatusBadge } from "../components/Status";
 
-type Filter = "all" | "drafted" | "to-draft" | "approved" | "edited" | "blocking" | "store-ready" | "store-approved" | "store-out-of-date";
-const FILTER_LABELS: Partial<Record<Filter, string>> = {
-  approved: "copy approved", "store-ready": "ready for the store", "store-approved": "approved for the store",
-  "store-out-of-date": "store approval out of date",
+// The status chips show where each piece is. The other views are still here, under More.
+type View = "all" | "drafted" | "to-draft" | "approved" | "edited" | "blocking";
+type Filter = View | StatusId;
+const MORE: Array<[View, string]> = [["drafted", "All drafted"], ["to-draft", "Not drafted"], ["approved", "Copy approved"],
+  ["edited", "Edited, not approved"], ["blocking", "Facts to supply in the draft"]];
+const VIEWS: Record<View, (i: ItemRow) => boolean> = {
+  all: () => true, drafted: (i) => i.drafted, "to-draft": (i) => !i.drafted, approved: (i) => i.approved,
+  edited: (i) => i.edited && !i.approved, blocking: (i) => i.blocking > 0,
 };
 
 export function Listings({ state, onChange }: { state: State; onChange: () => void }) {
@@ -13,11 +18,8 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const items = useMemo(() => state.items.filter((i) => i.has_art && i.crop_decision !== "reject"), [state.items]);
-  const shown = items.filter((i) => ({
-    all: true, drafted: i.drafted, "to-draft": !i.drafted, approved: i.approved, edited: i.edited && !i.approved,
-    blocking: i.blocking > 0, "store-ready": i.storefront === "ready", "store-approved": i.storefront === "approved",
-    "store-out-of-date": i.storefront === "out_of_date",
-  })[filter]);
+  const test = (i: ItemRow, f: Filter) => (f in VIEWS ? VIEWS[f as View](i) : i.status.id === f);
+  const shown = items.filter((i) => test(i, filter));
   const toDraft = items.filter((i) => !i.drafted).length;
 
   async function draft(n: number) {
@@ -29,17 +31,10 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
     } catch (e) { setError(String((e as Error).message)); }
   }
 
-  const counts: Record<Filter, number> = {
-    all: items.length, drafted: items.filter((i) => i.drafted).length, "to-draft": toDraft,
-    approved: items.filter((i) => i.approved).length, edited: items.filter((i) => i.edited && !i.approved).length,
-    blocking: items.filter((i) => i.blocking > 0).length,
-    "store-ready": items.filter((i) => i.storefront === "ready").length,
-    "store-approved": items.filter((i) => i.storefront === "approved").length,
-    "store-out-of-date": items.filter((i) => i.storefront === "out_of_date").length,
-  };
+  const statuses = state.statuses.filter((s) => items.some((i) => i.status.id === s.id));
   return (
     <main className="page">
-      <div className="row between">
+      <div className="row between page-head">
         <h1>Listings</h1>
         <div className="row">
           {job?.running && <span className="muted">{job.label}: {job.done}/{job.total}…</span>}
@@ -51,33 +46,38 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
         </div>
       </div>
       {error && <p className="error">{error}</p>}
-      <div className="filters" role="group" aria-label="Filter">
-        {(Object.keys(counts) as Filter[]).map((f) => (
-          <button key={f} className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-            {FILTER_LABELS[f] || f.replace("-", " ")} <span>{counts[f]}</span>
-          </button>
-        ))}
+      <div className="row between filter-row">
+        <div className="filters" role="group" aria-label="Status">
+          <button className="chip" aria-pressed={filter === "all"} onClick={() => setFilter("all")}>All <span>{items.length}</span></button>
+          {statuses.map((s) => (
+            <button key={s.id} className="chip" aria-pressed={filter === s.id} onClick={() => setFilter(s.id)}>
+              {s.label} <span>{items.filter((i) => i.status.id === s.id).length}</span>
+            </button>
+          ))}
+        </div>
+        <label className="row small sort">More
+          <select value={MORE.some(([k]) => k === filter) ? filter : ""} onChange={(e) => e.target.value && setFilter(e.target.value as View)}>
+            <option value="">Choose a view</option>
+            {MORE.map(([k, label]) => <option key={k} value={k}>{label} ({items.filter((i) => VIEWS[k](i)).length})</option>)}
+          </select>
+        </label>
       </div>
       <ul className="grid">
         {shown.map((i) => (
           <li key={i.id}>
-            <a className={`card ${i.approved ? "is-approved" : ""}`} href={`#/listings/${i.id}`}>
+            <a className={`card ${i.status.id === "published" ? "is-published" : ""}`} href={`#/listings/${i.id}`}>
               {i.image && <img src={`/${i.image}`} alt="" loading="lazy" />}
               <div className="card-body">
                 <strong>{i.title || <span className="muted">Not drafted</span>}</strong>
                 <span className="muted small">{i.source}</span>
-                <span className="badges">
-                  {i.approved && <span className="badge ok">Approved</span>}
-                  {i.published === "SUCCEEDED" ? <span className="badge ok">In test store</span>
-                    : i.storefront === "approved" && <span className="badge ok">Store ✓</span>}
-                  {i.storefront === "ready" && <span className="badge">Ready for the store</span>}
-                  {i.storefront === "out_of_date" && <span className="badge bad">Store approval out of date</span>}
-                  {i.edited && !i.approved && <span className="badge">Edited</span>}
-                  {i.drafted && <span className="badge">r{i.revision}</span>}
-                  {i.blocking > 0 && <span className="badge bad">{i.blocking} to supply</span>}
-                  {i.supplied > 0 && <span className="badge" title="Supplied since this draft: redraft to use it in the copy">
-                    {i.supplied} supplied · redraft</span>}
-                  {i.warnings > 0 && <span className="badge warn">{i.warnings} check{i.warnings === 1 ? "" : "s"}</span>}
+                <span className="card-status"><StatusBadge status={i.status} />
+                  {i.status.detail && <span className="small">{i.status.detail}</span>}</span>
+                <span className="card-meta small muted">
+                  {i.drafted && <span title="The draft's revision">Revision {i.revision}</span>}
+                  {i.edited && !i.approved && <span>Edited</span>}
+                  {i.blocking > 0 && <span className="warn-text">{i.blocking} to supply</span>}
+                  {i.supplied > 0 && <span title="Supplied since this draft: redraft to use it in the copy">{i.supplied} supplied · redraft</span>}
+                  {i.warnings > 0 && <span className="warn-text">{i.warnings} check{i.warnings === 1 ? "" : "s"}</span>}
                 </span>
               </div>
             </a>

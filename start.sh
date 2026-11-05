@@ -41,8 +41,8 @@ if [[ ! -f .venv/.installed ]] || [[ requirements.txt -nt .venv/.installed ]]; t
   .venv/bin/python -m pip install -q -r requirements.txt && touch .venv/.installed
 fi
 dash=apps/review-dashboard
-if [[ ! -d $dash/node_modules ]]; then
-  echo "Setting up the dashboard (first run only)…"; (cd "$dash" && npm ci --silent)
+if [[ ! -d $dash/node_modules ]] || [[ $dash/package-lock.json -nt $dash/node_modules/.package-lock.json ]]; then
+  echo "Setting up the dashboard…"; (cd "$dash" && npm ci --silent)
 fi
 if [[ ! -f $dash/dist/index.html ]] || [[ -n "$(find "$dash/src" "$dash/package-lock.json" -newer "$dash/dist/index.html" -print -quit)" ]]; then
   echo "Building the dashboard…"; (cd "$dash" && npm run build --silent >/dev/null)

@@ -80,21 +80,21 @@ export function Rooms() {
   const ready = doc.rooms.filter((r) => r.status === "ready").length;
   return (
     <main className="page">
-      <div className="row between">
+      <div className="row between page-head">
         <h1>Rooms</h1>
         <div className="row">
           {job?.running && <span className="muted">{job.label}: {job.done}/{job.total}…</span>}
           <button ref={opener} onClick={() => setAdding(true)} aria-haspopup="dialog" aria-expanded={adding}>Add a room</button>
           <button className="secondary" disabled={busy} onClick={scan}>{busy && !adding ? "Looking…" : "Look for new rooms"}</button>
-          <button disabled={!ready || !!job?.running} onClick={renderAll}>
+          <button className="secondary" disabled={!ready || !!job?.running} onClick={renderAll}>
             {ready ? "Hang every piece in its room" : "No room is ready yet"}</button>
         </div>
       </div>
-      <p className="muted small">
+      <details className="help"><summary className="small">How rooms work</summary><p className="muted small">
         Room photos for showing each framed piece on a wall. Press <strong>Add a room</strong> to upload one, or put
         photos in <code>{doc.inbox}</code> and press <strong>Look for new rooms</strong>. Use only photos you have the right to use: your own, or ones whose
         licence allows it. A room is used once its licence is recorded and its wall is marked.
-      </p>
+      </p></details>
       {adding && (
         <Drawer title="Add a room" onClose={close} busy={busy} opener={opener} focus="input[type=file]" className="add-room">
           <label className="small">Room photo{files.length > 1 ? "s" : ""} <span className="muted">(JPEG, PNG, WebP, HEIC or TIFF; several at once is fine)</span>

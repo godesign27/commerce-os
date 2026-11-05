@@ -104,3 +104,19 @@ From schema-only dumps of both storefronts. Detail: [discovery/storefront-schema
 ## Open
 
 PRD §22 questions 1–13 are BACKLOG B-001 to B-013.
+
+## Decided while planning the real connection (2026-11-04)
+
+| Decision | Why | Revisit when |
+|---|---|---|
+| Treat Storefront A's Supabase project as production, and never test-publish to it. This replaces the 2026-10-26 entries that called it the test copy | The owner reports the live site is on Supabase and deploys from the store's `main`. The evidence doesn't settle the database: `main` doesn't contain the Supabase storage code, and the project's images and products haven't changed since 2026-10-26. Reading it as production is the safe way to be wrong. | The owner confirms which database the live site uses. |
+| Proposed test environment (B-047, awaiting approval): a separate Supabase project with the store's schema and only its catalog tables, with the store run locally against it | A Supabase branch with data could copy customers and orders. A separate project holds none of them. | The owner decides. |
+
+## Decided for the dashboard redesign (2026-11-04)
+
+| Decision | Why | Revisit when |
+|---|---|---|
+| One status per piece, worked out on the server (`packages/journey.py`), and no page works one out for itself | Listings said "Approved" and "Blocking 0" while every listing was blocked. A status only describes a piece: approval and publishing rules don't read it. | Never expected. |
+| Details come after copy in the journey; a piece missing both shows Review copy, with the missing details named beside it | Approving copy is the owner's first decision on a draft, and facts can be added at any point. | The owner finds the order gets in the way. |
+| Photo cards keep Accept, Rotate and Reject, quieter, instead of moving Reject to the photo page as first proposed | The owner asked to lose no feature, and rejecting from the grid is a real way to work through photos. | — |
+

@@ -27,7 +27,7 @@ export function Brand({ state, onChange }: { state: State; onChange: () => void 
 
   return (
     <main className="page narrow">
-      <div className="row between">
+      <div className="row between page-head sticky-head">
         <h1>{artist ? "Artist context" : "Brand context"} <span className="muted">v{ctx.version}</span></h1>
         <div className="row">{msg && <span className="muted small">{msg}</span>}<button disabled={!dirty} onClick={save}>Save as new version</button></div>
       </div>
@@ -44,7 +44,7 @@ export function Brand({ state, onChange }: { state: State; onChange: () => void 
       <fieldset><legend>{artist ? "Kinds of work" : "Product lines"}</legend>
         {ctx.categories.map((c, i) => (
           <div key={c.id} className="cat">
-            <label>{c.id} <input value={c.name} onChange={(e) => up({ categories: ctx.categories.map((x, j) => j === i ? { ...x, name: e.target.value } : x) })} /></label>
+            <label title={c.id}>Name <input value={c.name} onChange={(e) => up({ categories: ctx.categories.map((x, j) => j === i ? { ...x, name: e.target.value } : x) })} /></label>
             <label>What it is <textarea rows={2} value={c.description} onChange={(e) => up({ categories: ctx.categories.map((x, j) => j === i ? { ...x, description: e.target.value } : x) })} /></label>
             <label>How to write about it <textarea rows={4} value={c.writing_approach} onChange={(e) => up({ categories: ctx.categories.map((x, j) => j === i ? { ...x, writing_approach: e.target.value } : x) })} /></label>
           </div>
@@ -88,6 +88,10 @@ export function Brand({ state, onChange }: { state: State; onChange: () => void 
           </article>
         ))}
         {dirty && <p className="muted small">Save your changes before approving examples.</p>}
+      </section>
+
+      <section className="panel"><h2>Start over</h2>
+        <p className="muted small">Voice setup asks the questions again and replaces the voice sections with a new version. <a href="#/setup">Open Voice setup</a></p>
       </section>
 
       <section className="panel"><h2>Versions</h2>

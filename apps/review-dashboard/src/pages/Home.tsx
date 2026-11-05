@@ -2,23 +2,8 @@ import { useEffect, useState } from "react";
 import { api, HomeDoc } from "../api";
 import { ago } from "./Photos";
 
-// The start page: which store is connected, and where each area stands.
-function Stat({ n, label, tone }: { n: number; label: string; tone?: "warn" | "ok" }) {
-  return <div className={`stat ${tone && n > 0 ? tone : ""}`}><strong>{n}</strong><span>{label}</span></div>;
-}
-
-function AreaCard({ href, title, line, children }: { href: string; title: string; line: string; children: React.ReactNode }) {
-  return (
-    <li className="area">
-      <a href={href}>
-        <h2>{title} <span aria-hidden="true">→</span></h2>
-        <div className="stats">{children}</div>
-        <p className="muted small">{line}</p>
-      </a>
-    </li>
-  );
-}
-
+// The start page (B-074): the one thing to do next, then every piece under its status, drawn as the piece itself.
+// Each count is written out, and zeros stay, so the shape is readable without colour.
 export function Home({ tick }: { tick: number }) {
   const [d, setD] = useState<HomeDoc | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,28 +11,13 @@ export function Home({ tick }: { tick: number }) {
   if (!d) return <main className="page">{error ? <p className="error">{error}</p> : <p className="muted">Loading…</p>}</main>;
   const { store, photos: p, listings: l, rooms: r, learning: t } = d;
   const left = d.onboarding.steps.filter((s) => !s.done && s.id !== "photos").length;
-
-  const photoLine = p.to_review ? "Some photos need your review." : p.ready ? "Accepted photos are ready to draft." : p.total ? "Nothing waiting on you." : "Add photos to the inbox to begin.";
-  const publishLine = l.publish_problems ? "A publish needs a look." : l.to_publish ? "Approved listings are ready to publish." : l.published ? "Nothing waiting on you." : "Listings you approve for the store appear here.";
-  const listingLine = l.out_of_date ? "Some approvals went out of date: check them again." : l.ready ? "Some are ready for your approval."
-    : l.blocked ? "Some need a price or other facts." : l.drafted ? "Nothing waiting on you." : "Drafts appear here once photos are accepted.";
+  const off = d.pieces.filter((x) => x.status.id === "rejected").length;
+  const here = (id: string) => d.pieces.filter((x) => x.status.id === id || (id === "published" && x.status.id === "publishing"));
+  const problems = d.pieces.filter((x) => x.status.id === "needs-look");
 
   return (
     <main className="page">
-      {store.connected ? (
-        <section className="store-card connected" aria-label="Connected store">
-          <div>
-            <p className="muted small">Connected store</p>
-            <h1>{store.display_name}</h1>
-            <p className="small">{store.site_kind === "artist" ? "Artist site" : "Product site"}{store.provider ? ` · ${store.provider}` : ""} · {store.products} products ·
-              {" "}catalog read {ago(store.read_at)}</p>
-          </div>
-          <div className="store-side">
-            <span className="badge ok">✓ Read only</span>
-            <p className="muted small">Commerce OS can read this store's catalog. It can't change anything there.</p>
-          </div>
-        </section>
-      ) : (
+      {!store.connected && (
         <section className="store-card empty" aria-label="No store connected">
           <div>
             <h1>No store connected yet</h1>
@@ -59,28 +29,71 @@ export function Home({ tick }: { tick: number }) {
       {store.connected && left > 0 && (
         <p className="banner">{left} setup step{left > 1 ? "s" : ""} left. <a href="#/start">Finish getting started →</a></p>
       )}
-      <ul className="areas">
-        <AreaCard href="#/photos" title="Photos" line={photoLine}>
-          <Stat n={p.total} label="in all" /><Stat n={p.to_review} label="to review" tone="warn" /><Stat n={p.ready} label="ready to draft" />
-          <Stat n={d.inbox.new} label="new in inbox" tone="warn" />
-        </AreaCard>
-        <AreaCard href="#/listings" title="Listings" line={listingLine}>
-          <Stat n={l.drafted} label="drafted" /><Stat n={l.blocked} label="need facts" tone="warn" /><Stat n={l.ready} label="ready to approve" tone="warn" />
-          <Stat n={l.approved} label="approved" tone="ok" />
-        </AreaCard>
-        <AreaCard href="#/publish" title="Publish" line={publishLine}>
-          <Stat n={l.to_publish} label="ready to publish" tone="warn" /><Stat n={l.published} label="in test store" tone="ok" />
-          {l.publish_problems > 0 && <Stat n={l.publish_problems} label="need a look" tone="warn" />}
-        </AreaCard>
-        <AreaCard href="#/rooms" title="Rooms" line={r.total ? (r.need_attention ? "Some rooms need setting up." : "Rooms are ready to hang work in.") : "Add a room to show work on a wall."}>
-          <Stat n={r.total} label="in all" /><Stat n={r.ready} label="ready" tone="ok" /><Stat n={r.need_attention} label="need setup" tone="warn" />
-        </AreaCard>
-        <AreaCard href="#/learning" title="Learning" line={t.proposed_lessons ? "Lessons are waiting for your answer." : "Commerce OS learns from what you change in drafts."}>
-          <Stat n={t.approvals} label="approvals learned from" /><Stat n={t.proposed_lessons} label="lessons to review" tone="warn" />
-        </AreaCard>
-      </ul>
-      <p className="muted small">{d.publishing.kill_switch.on ? "Writing is switched off. " : ""}{d.publishing.worker.running ? "" : "The publishing worker isn't running. "}
-        Publishing only reaches the {d.publishing.target.toLowerCase()} on this computer: {store.display_name || "your store"} itself can't be changed yet.</p>
+      {d.next ? (
+        <section className="next-step home-next" aria-label="Next step">
+          <div className="next-text">
+            <h1>{d.next.headline}</h1>
+            <p className="muted">{d.next.detail}</p>
+          </div>
+          <a className="button-link" href={d.next.href}>{d.next.label}</a>
+        </section>
+      ) : (
+        <section className="next-step home-next" aria-label="Next step">
+          <div className="next-text"><h1>Nothing is waiting on you</h1>
+            <p className="muted">{d.pieces.length ? "Every piece is as far along as it can go." : "Add photos to the inbox to begin."}</p></div>
+          <a className="button-link" href="#/photos">Go to Photos</a>
+        </section>
+      )}
+
+      <section aria-labelledby="pipe-h">
+        <h2 id="pipe-h">Where every piece is</h2>
+        <div className="pipeline">
+          {d.pipeline.map((s) => {
+            const pieces = here(s.id);
+            return (
+              <section key={s.id} className={`stage ${pieces.length && s.tone === "todo" ? "needs-you" : ""}`} style={{ flexGrow: Math.min(Math.max(pieces.length, 3), 16) }}>
+                <h3>{s.label}</h3>
+                <p className="stage-n">{pieces.length}</p>
+                <div className="stage-pieces">
+                  {pieces.map((x) => (
+                    <a key={x.id} href={x.status.id === "ready-to-draft" || x.status.id === "review-photo" ? `#/photos/${x.id}` : `#/listings/${x.id}`} title={`${x.title || x.source}: ${x.status.label}`}>
+                      {x.thumb ? <img src={`/${x.thumb}`} alt={x.title || x.source} loading="lazy" /> : <span className="no-thumb">{x.title || x.source}</span>}
+                    </a>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+        {(problems.length > 0 || off > 0) && (
+          <p className="small">
+            {problems.length > 0 && <span className="warn-text">{problems.length} need{problems.length === 1 ? "s" : ""} a look: {problems.map((x, i) => <span key={x.id}>{i > 0 && ", "}<a href={`#/listings/${x.id}`}>{x.title || x.source}</a></span>)}. </span>}
+            {off > 0 && <a href="#/photos">{off} rejected</a>}
+          </p>
+        )}
+      </section>
+
+      <div className="home-more">
+        <section>
+          <h2>Also worth a look</h2>
+          <ul className="plain">
+            <li><a href="#/photos">Photos</a>: {p.total} in all, {p.to_review} to review, {p.ready} ready to draft, {d.inbox.new} new in the inbox</li>
+            <li><a href="#/listings">Listings</a>: {l.drafted} drafted, {l.copy_approved} with approved copy, {l.approved} approved for the store</li>
+            <li><a href="#/rooms">Rooms</a>: {r.total} in all, {r.ready} ready, {r.need_attention} need setting up</li>
+            <li><a href="#/learning">Learning</a>: learned from {t.approvals} approval{t.approvals === 1 ? "" : "s"}, {t.proposed_lessons} lesson{t.proposed_lessons === 1 ? "" : "s"} to review</li>
+          </ul>
+        </section>
+        <section>
+          <h2>{store.display_name || "Your store"}</h2>
+          {store.connected ? (
+            <p className="small">{store.site_kind === "artist" ? "Artist site" : "Product site"}{store.provider ? `, ${store.provider}` : ""}. {store.products} products, catalog read {ago(store.read_at)}.
+              {" "}Commerce OS can read this store's catalog. It can't change anything there.</p>
+          ) : <p className="small muted">Not connected yet.</p>}
+          <p className="small"><a href="#/publish">Publish</a>: {l.to_publish} ready, {l.published} in the test store{l.publish_problems ? `, ${l.publish_problems} need a look` : ""}.
+            {" "}{d.publishing.kill_switch.on ? "Writing is switched off. " : ""}{d.publishing.worker.running ? "" : "The publishing worker isn't running. "}
+            Publishing only reaches the {d.publishing.target.toLowerCase()} on this computer: {store.display_name || "your store"} itself can't be changed yet.</p>
+        </section>
+      </div>
     </main>
   );
 }
