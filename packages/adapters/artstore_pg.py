@@ -5,8 +5,9 @@ so anything that passes against the fake has been held to the same rules, and th
 it adds is the write: one transaction, parameters only (a title can never be read as SQL), and exact reporting.
 If a write was sent and its result wasn't seen, that's OutcomeUnknown, never a guess.
 
-The write login is passed in by the publishing worker alone. For now any target but a local Unix socket is
-refused here (require_local): this adapter cannot reach a real store, whatever it's given.
+The write login is passed in by the publishing worker alone. Any target but a local Unix socket is refused here
+(require_local), unless packages/publisher/live_store.py has passed its checks and names the one live host it allows
+(require_live). Whatever it's given, this adapter only ever adds Drafts.
 """
 import datetime
 import decimal
@@ -19,6 +20,7 @@ from psycopg.conninfo import conninfo_to_dict
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from packages.adapters import artstore_map
 from packages.adapters.contract import Issue, OutcomeUnknown, PublishResult, Refused, approval_issues
 from packages.adapters.fake import ENTITY_TABLES, FakeStorefront
 
@@ -30,11 +32,19 @@ class NotLocal(ValueError):
 
 
 def require_local(dsn: str) -> str:
-    """Only a Unix socket on this computer. Lifted only when publishing to a real test environment is built."""
+    """Only a Unix socket on this computer: the local test store."""
     info = conninfo_to_dict(dsn)
     host = info.get("host") or ""
     if not host.startswith("/") or "," in host or info.get("hostaddr"):
         raise NotLocal("Publishing can only reach the local test store for now, so nothing was connected.")
+    return dsn
+
+
+def require_live(dsn: str, host: str) -> str:
+    """Only the one host live_store named, with an encrypted connection."""
+    info = conninfo_to_dict(dsn)
+    if not host or info.get("host") != host or info.get("hostaddr") or info.get("sslmode") not in ("require", "verify-ca", "verify-full"):
+        raise NotLocal("That login isn't for the live store over an encrypted connection, so nothing was connected.")
     return dsn
 
 
@@ -54,10 +64,11 @@ class PostgresArtStore(FakeStorefront):
 
     def __init__(self, storefront_id: str, environment: str, profile: dict, structure: dict, *, write_dsn: str,
                  read_dsn: str, currency: str, features: list, writes_enabled: bool = False,
-                 read_structure: Optional[Callable] = None):
+                 read_structure: Optional[Callable] = None, live_host: Optional[str] = None):
         super().__init__(storefront_id, environment, profile, structure, currency=currency, features=features,
                          writes_enabled=writes_enabled)
-        self.write_dsn, self.read_dsn = require_local(write_dsn), require_local(read_dsn)
+        allowed = (lambda dsn: require_live(dsn, live_host)) if live_host is not None else require_local
+        self.write_dsn, self.read_dsn = allowed(write_dsn), allowed(read_dsn)
         self._read_structure = read_structure      # rows -> {"tables", "fingerprint"}, as the store is right now
 
     def _value(self, table: str, column: str, value):
@@ -100,6 +111,9 @@ class PostgresArtStore(FakeStorefront):
         issues = approval_issues(change_set, approval)
         if change_set.get("simulated"):
             issues.append(Issue("simulated", "a simulated change set can only be dry-run"))
+        if change_set.get("requested_status") != artstore_map.STATUS or any(
+                (op.get("fields", {}).get("status") or {}).get("value") != artstore_map.STATUS for op in change_set.get("operations", [])):
+            issues.append(Issue("not_a_draft", "Commerce OS only adds Drafts: you make a product live in the store's admin"))
         if issues:
             raise Refused(issues)
         self.refresh()

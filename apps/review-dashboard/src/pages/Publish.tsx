@@ -98,8 +98,11 @@ export function Publish({ onChange }: { onChange: () => void }) {
             {busy ? "Publishing…" : selected.length ? `Publish ${selected.length}` : "Publish"}</button>
         </div>
       </div>
-      <p className="pq-target small"><strong>Publishing to: {q.target}.</strong> Each listing goes in as a hidden draft on
-        this computer. {q.display_name} itself can't be changed yet, so nothing appears on your site.</p>
+      {q.live
+        ? <p className="pq-target small"><strong>Publishing to: {q.target}.</strong> Each listing goes into {q.display_name} as a Draft.
+            Shoppers can't see it until you set it to Active in the store's admin.</p>
+        : <p className="pq-target small"><strong>Publishing to: {q.target}.</strong> Each listing goes in as a hidden draft on
+            this computer. {q.display_name} itself isn't changed, so nothing appears on your site.</p>}
       {off && <p className="banner small">Writing is switched off{q.kill_switch.forced ? ` by ${q.kill_switch.by}` : ""}, so nothing can be published.</p>}
       {!q.worker.running && <p className="small warn-text">The publishing worker isn't running, so anything you publish will wait. Start Commerce OS with ./start.sh.</p>}
       {q.worker.running && !q.worker.ok && q.worker.reason && <p className="small warn-text">{q.worker.reason}</p>}
@@ -179,7 +182,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
           <h2 id="pq-published">Published to the {target} <span className="muted">{q.published.length}</span></h2>
           <ul className="pq-list">
             {q.published.map((r) => (
-              <Row key={r.id} r={r}><span className="muted small"><span className="badge ok">✓ Confirmed</span> Hidden draft, {ago(r.published_at)}. Product {r.product_id}</span></Row>))}
+              <Row key={r.id} r={r}><span className="muted small"><span className="badge ok">✓ Confirmed</span> {q.live ? "Draft in the store's admin" : "Hidden draft"}, {ago(r.published_at)}. Product {r.product_id}</span></Row>))}
           </ul>
         </section>)}
     </main>

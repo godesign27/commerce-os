@@ -9,6 +9,7 @@ import { Setup } from "./pages/Setup";
 import { GettingStarted } from "./pages/GettingStarted";
 import { Home } from "./pages/Home";
 import { Publish } from "./pages/Publish";
+import { Support } from "./pages/Support";
 import { NewPhotos } from "./components/NewPhotos";
 import { Photos } from "./pages/Photos";
 import { PhotoDetailPage } from "./pages/PhotoDetail";
@@ -64,7 +65,7 @@ function App() {
   if (!state) return <main className="page"><p className="muted">Loading…</p></main>;
   const needsStart = !state.onboarding.complete;
   const [, section, id] = route.split("/");
-  const nav = [["home", "Home"], ["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["publish", "Publish"], ["learning", "Learning"]];
+  const nav = [["home", "Home"], ["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["publish", "Publish"], ["learning", "Learning"], ["support", "Support"]];
   const toPublish = state.items.filter((i) => (i.storefront === "approved" && i.published === null)
     || i.published === "FAILED" || i.published === "OUTCOME_UNKNOWN").length;
   const menu = [["brand", state.site_kind === "product" ? "Brand context" : "Artist context"], ["start", "Getting started"], ["setup", "Voice setup"]];
@@ -75,6 +76,7 @@ function App() {
   else if (section === "setup") page = <Setup state={state} onDone={refresh} />;
   else if (section === "listings" && id) page = <ListingDetail id={id} state={state} onChange={refresh} />;
   else if (section === "publish") page = <Publish onChange={refresh} />;
+  else if (section === "support") page = <Support state={state} />;
   else if (section === "brand") page = <Brand state={state} onChange={refresh} />;
   else if (section === "learning") page = <Learning state={state} onChange={refresh} />;
   else if (section === "photos" && id) page = <PhotoDetailPage key={id} id={id} onChange={refresh} />;
@@ -94,7 +96,7 @@ function App() {
           <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="1" width="20" height="20" fill="none" stroke="var(--oak)" strokeWidth="2" /><rect x="6" y="6" width="10" height="10" fill="var(--accent)" /></svg>
           <span>Commerce OS</span>
         </div>
-        {state.onboarding.steps[0].done && <div className="side-store"><strong>{state.display_name}</strong><span className="small muted">Local review, read only</span></div>}
+        {state.onboarding.steps[0].done && <div className="side-store"><strong>{state.display_name}</strong><span className="small muted">{state.publish_target === "live" ? "Publishes Drafts to your store" : "Publishes to a local test store"}</span></div>}
         <nav aria-label="Sections">
           {nav.map(([k, label]) => (
             <a key={k} href={`#/${k}`} aria-current={section === k ? "page" : undefined}>
@@ -113,7 +115,7 @@ function App() {
         {state.onboarding.complete && !state.key_configured && <div className="banner">There's no Claude API key, so drafting is off. <a href="#/start">Add one →</a></div>}
         <div className="sheet">
           {page}
-          <footer className="foot">Local only (127.0.0.1). Publishing reaches only a local test store; your real store can't be changed from here.</footer>
+          <footer className="foot">{state.publish_target === "live" ? "Runs on this computer only (127.0.0.1). Publishing adds Drafts to your live store; shoppers see nothing until you set a product to Active." : "Local only (127.0.0.1). Publishing reaches only a local test store; your real store can't be changed from here."}</footer>
         </div>
       </div>
     </div>

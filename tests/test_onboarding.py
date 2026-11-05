@@ -467,5 +467,67 @@ class Wiring(unittest.TestCase):
         self.assertIn("./start.sh", skill)
 
 
+class InstallGuide(unittest.TestCase):
+    CLONE = "https://github.com/godesign27/commerce-os.git"
+    HELP = "apps/review-dashboard/src/components/SetupHelp.tsx"
+
+    def test_the_guide_gives_every_fix_the_start_command_gives(self):
+        guide = read(REPO / "INSTALL.md")
+        for fix in ("brew install python", "brew install node", "brew install libpq", "brew install postgresql@16"):
+            self.assertIn(fix, read(REPO / "start.sh"))
+            self.assertIn(fix, guide)
+
+    def test_the_guide_only_uses_what_the_start_command_accepts(self):
+        guide, start = read(REPO / "INSTALL.md"), read(REPO / "start.sh")
+        for flag in ("--check", "COMMERCE_OS_PORT"):
+            self.assertIn(flag, guide)
+            self.assertIn(flag, start)
+        self.assertIn("8770", guide)
+        self.assertIn('COMMERCE_OS_PORT:-8770', start)
+
+    def test_the_guide_warns_that_work_stays_on_this_computer(self):
+        guide = read(REPO / "INSTALL.md")
+        self.assertIn("Back up the folder", guide)
+        for local in (".env", ".commerce-os/", "config/storefronts.local.json"):
+            self.assertIn(local, read(REPO / ".gitignore"))
+
+    def test_the_panel_and_the_guide_give_the_same_commands(self):
+        guide, panel = read(REPO / "INSTALL.md"), read(REPO / self.HELP)
+        for command in (f"cd ~ && git clone {self.CLONE} && cd commerce-os", "./start.sh --check", "./start.sh", "git pull"):
+            self.assertIn(command, guide)
+            self.assertIn(command, panel)
+        self.assertIn("blob/main/INSTALL.md", panel)
+        self.assertIn("INSTALL.md", read(REPO / "README.md"))
+
+    def test_every_step_has_help(self):
+        panel = read(REPO / self.HELP)
+        for step, _ in ob.STEPS:
+            self.assertIn(f'id === "{step}"', panel, step)
+
+    def test_the_supabase_help_matches_the_login_step(self):
+        panel = read(REPO / self.HELP)
+        self.assertIn('provider === "supabase"', panel)
+        self.assertIn("Session pooler", panel)
+        self.assertIn("Session pooler", ob.login_where("supabase"))
+        self.assertIn(f"{ob.READ_ROLE}.", panel)
+        self.assertIn(f"{ob.READ_ROLE}.<project-ref>", ob.login_example("supabase"))
+
+    def test_the_photo_help_matches_the_inbox_limits(self):
+        panel = read(REPO / self.HELP)
+        self.assertIn(f"up to {intake.MAX_BYTES // 1_000_000} MB", panel)
+        self.assertIn("JPEG, HEIC, PNG, WebP or TIFF", panel)
+
+    def test_the_help_never_takes_a_credential(self):
+        self.assertNotIn("<input", read(REPO / self.HELP))
+
+    def test_the_page_shows_the_help_beside_and_inside_the_steps(self):
+        page, css = read(REPO / "apps/review-dashboard/src/pages/GettingStarted.tsx"), read(REPO / "apps/review-dashboard/src/styles.css")
+        self.assertEqual(page.count("<StepHelp"), 2)
+        self.assertIn("<InstallHelp", page)
+        self.assertIn("gs-help-inline", css)
+        narrow = css[css.index("@media (max-width: 1000px)"):]
+        self.assertIn(".gs-help-side { display: none; }", narrow[:narrow.index("\n}\n")])
+
+
 if __name__ == "__main__":
     unittest.main()

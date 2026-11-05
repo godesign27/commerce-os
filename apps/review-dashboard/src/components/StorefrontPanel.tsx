@@ -100,8 +100,10 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
           : a.state === "out_of_date" ? <span className="badge bad">Approval out of date</span>
           : p.approvable ? <span className="badge">Ready to approve</span>
           : <span className="badge bad">{blocking.length} to resolve</span>}</h2>
-      <p className="muted small">What this piece would become, as a new hidden product. For now it can only be published
-        to a local test store on this computer: {name} itself can't be changed.</p>
+      {pub?.live
+        ? <p className="muted small">What this piece would become, as a new Draft in {name}. Shoppers can't see it until you set it to Active in the store's admin.</p>
+        : <p className="muted small">What this piece would become, as a new hidden product. For now it can only be published
+            to a local test store on this computer: {name} itself isn't changed.</p>}
 
       {blocking.length > 0 && (
         <div className="sf-block"><h3 className="small">Before you can approve it</h3>
@@ -187,8 +189,10 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
 
           {(pub!.state === "QUEUED" || pub!.state === "WRITING") && <p className="small">{pub!.state === "QUEUED" ? "Queued: the worker will run its final check." : "Publishing…"}</p>}
           {pub!.state === "SUCCEEDED" && (
-            <p className="banner ok small">Published to the {pub!.target.toLowerCase()} as a hidden draft, and confirmed by reading it back.
-              Product {pub!.product_id}, receipt {pub!.receipt_id}. {name} itself hasn't changed.</p>)}
+            <p className="banner ok small">{pub!.live
+              ? <>Added to {name} as a Draft, and confirmed by reading it back. Product {pub!.product_id}, receipt {pub!.receipt_id}. Set it to Active in the store's admin to make it live.</>
+              : <>Published to the {pub!.target.toLowerCase()} as a hidden draft, and confirmed by reading it back.
+              Product {pub!.product_id}, receipt {pub!.receipt_id}. {name} itself hasn't changed.</>}</p>)}
           {pub!.state === "FAILED" && (
             <div className="small"><p className="error">Not published. Nothing went into the store.</p>
               <ul>{pub!.reasons.map((r) => <li key={r}>{r}</li>)}</ul></div>)}
