@@ -35,6 +35,13 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
   const [history, setHistory] = useState(false);
   const load = useCallback(() => api.storefront(id).then(setP).catch((e) => setError(String(e.message))), [id]);
   useEffect(() => { load(); }, [load, version]);
+  // While the worker has it, or it's being checked, keep looking.
+  const active = p?.publish && (p.publish.state === "QUEUED" || p.publish.state === "WRITING" || p.publish.checking);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setInterval(load, 1500);
+    return () => clearInterval(timer);
+  }, [active, load]);
 
   async function approve() {
     if (!p?.change_set) return;
@@ -62,6 +69,20 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
     setBusy(false);
   }
 
+  async function run(fn: () => Promise<StorefrontPreview>) {
+    setBusy(true); setError(null);
+    try { setP(await fn()); onChange(); }
+    catch (e) { setError(String((e as Error).message)); await load(); }
+    setBusy(false);
+  }
+
+  async function switchWriting(on: boolean) {
+    setBusy(true); setError(null);
+    try { await api.killSwitch(on); await load(); onChange(); }
+    catch (e) { setError(String((e as Error).message)); }
+    setBusy(false);
+  }
+
   if (!p) return error ? <p className="error">{error}</p> : null;
   const name = p.display_name || "the store";
   if (!p.available) return <section className="panel storefront"><h2>{name}</h2><p className="muted small">{p.reason}</p></section>;
@@ -69,6 +90,7 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
   const warnings = (p.blockers || []).filter((b) => b.severity === "warning");
   const delivery = (p.blockers || []).find((b) => b.target === AFTER_APPROVAL);
   const a = p.approval!;
+  const pub = p.publish;
   const status = STATUS_WORDS[p.change_set!.requested_status] || p.change_set!.requested_status;
 
   return (
@@ -78,8 +100,8 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
           : a.state === "out_of_date" ? <span className="badge bad">Approval out of date</span>
           : p.approvable ? <span className="badge">Ready to approve</span>
           : <span className="badge bad">{blocking.length} to resolve</span>}</h2>
-      <p className="muted small">What {name} would receive for this piece, as a new product. This is a preview against a
-        test copy of the store: nothing is sent, and publishing comes in a later phase.</p>
+      <p className="muted small">What this piece would become, as a new hidden product. For now it can only be published
+        to a local test store on this computer: {name} itself can't be changed.</p>
 
       {blocking.length > 0 && (
         <div className="sf-block"><h3 className="small">Before you can approve it</h3>
@@ -153,6 +175,38 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
           <button disabled={!p.approvable || busy} onClick={approve}>
             {busy ? "Approving…" : `${a.state === "out_of_date" ? "Approve this version" : `Approve for ${name}`} as Draft`}</button>
           {!p.approvable && <span className="muted small">Resolve the items above first.</span>}
+        </div>
+      )}
+      {a.state === "current" && p.publish && (
+        <div className="sf-publish" role="status">
+          <h3 className="small">Publish</h3>
+          {pub!.state === null && <p className="small muted">This listing is on the <a href="#/publish">Publish page</a> with everything else that's ready, or you can publish just this one here.</p>}
+          {pub!.kill_switch.on && <p className="banner small">Writing is switched off{pub!.kill_switch.forced ? ` by ${pub!.kill_switch.by}` : ""}, so nothing can be published.</p>}
+          {!pub!.worker.running && <p className="small warn-text">The publishing worker isn't running, so a publish will wait. Start Commerce OS with ./start.sh.</p>}
+          {pub!.worker.running && !pub!.worker.ok && pub!.worker.reason && <p className="small warn-text">{pub!.worker.reason}</p>}
+
+          {(pub!.state === "QUEUED" || pub!.state === "WRITING") && <p className="small">{pub!.state === "QUEUED" ? "Queued: the worker will run its final check." : "Publishing…"}</p>}
+          {pub!.state === "SUCCEEDED" && (
+            <p className="banner ok small">Published to the {pub!.target.toLowerCase()} as a hidden draft, and confirmed by reading it back.
+              Product {pub!.product_id}, receipt {pub!.receipt_id}. {name} itself hasn't changed.</p>)}
+          {pub!.state === "FAILED" && (
+            <div className="small"><p className="error">Not published. Nothing went into the store.</p>
+              <ul>{pub!.reasons.map((r) => <li key={r}>{r}</li>)}</ul></div>)}
+          {pub!.state === "OUTCOME_UNKNOWN" && (
+            <div className="small warn-text">
+              {pub!.finding === "mismatch"
+                ? <p>The store has this product, but it doesn't match what you approved ({pub!.fields.join(", ")}). Nothing will overwrite it: this needs your decision.</p>
+                : <p>The result of the publish wasn't seen, so it may or may not have gone in. Publishing again could add it twice, so check the store first.{pub!.finding === "not_found" ? " It wasn't there at the last check; one more check a minute later settles it." : ""}</p>}
+              <button className="secondary" disabled={busy || pub!.checking} onClick={() => run(() => api.publishRecheck(id))}>{pub!.checking ? "Checking…" : "Check again"}</button>
+            </div>)}
+          {(pub!.state === null || pub!.state === "FAILED") && (
+            <div className="row section-actions">
+              <button disabled={busy || pub!.kill_switch.on} onClick={() => run(() => api.publish(id, p.change_set!.change_set_hash))}>
+                {pub!.state === "FAILED" ? "Publish again" : "Publish"} to {pub!.target.toLowerCase()}</button>
+            </div>)}
+          {!pub!.kill_switch.forced && (
+            <button className="link" disabled={busy} onClick={() => switchWriting(!pub!.kill_switch.on)}>
+              {pub!.kill_switch.on ? "Switch writing back on" : "Stop all writing"}</button>)}
         </div>
       )}
       {error && <p className="error">{error}</p>}

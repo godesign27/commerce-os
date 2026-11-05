@@ -4,10 +4,9 @@ Commerce OS prepares new products for independently operated storefronts. It tur
 framed listing images and drafted copy, checks them against your store's catalog, and gives you one place to
 review and approve each listing. The specification is [PRD.md](PRD.md).
 
-> **Status: Phase 2, on one computer.** Photos, drafts, the review dashboard, read-only catalog checks and
-> approval of an exact change set all work. **Nothing can write to a storefront yet:** an approved listing
-> waits for the publishing phase (Phase 3). Photos come from a local folder; Google Drive is a later
-> enhancement.
+> **Status: Phase 3, on one computer.** Photos, drafts, the review dashboard, read-only catalog checks, approval of
+> an exact change set and publishing all work. **Publishing only reaches a local test store:** no real storefront
+> can be written to yet. Photos come from a local folder; Google Drive is a later enhancement.
 
 ## Start here
 
@@ -22,6 +21,7 @@ through connecting your store. You'll need:
 - Access to your store's database, to create a read-only login. Commerce OS checks that login and refuses one
   that can change data or see customer tables.
 - A Claude API key, for drafting ([console.anthropic.com](https://console.anthropic.com)).
+- Postgres (`brew install postgresql@16`), only for publishing to the local test store.
 
 To add pieces later, put one photo per piece in `inbox/`. The dashboard tells you when it sees them.
 

@@ -9,8 +9,9 @@ the learning loop, first-run setup and the start page. Binds 127.0.0.1 only, nev
 that changes something must carry the header `X-Commerce-OS: 1`, which a page on another site can't send
 without a CORS preflight this server never grants.
 
-Nothing here writes to a storefront. Approving copy locks it locally. The Storefront A preview and its approval
-(Gate 3, B-064) run against the fake test storefront only; publication stays behind Phase 3 and Gate 4.
+Nothing here writes to a storefront, and it holds no write login. Approving copy locks it locally. The preview and
+its approval (Gate 3, B-064) run against a fake store. Publishing only asks: services/workers/publisher.py is the
+one program that writes, after Gate 4 (B-070).
 """
 import argparse
 import json
@@ -32,6 +33,7 @@ from packages.adapters import artstore_map, catalog  # noqa: E402
 from packages.drafting import audit, brand, editing, learning, listing, publication, service  # noqa: E402
 from packages.drafting.store import LockedError, Store  # noqa: E402
 from packages.image_pipeline import intake, room_suggest, rooms, stages  # noqa: E402
+from packages.publisher import records as publishing  # noqa: E402
 
 
 def _load_script(name: str):
@@ -68,7 +70,8 @@ class App:
                  learning_root: Path = learning.LEARNING, config: Path = CONFIG, client_factory=None, call=None,
                  source: Path = None, rooms_root: Path = rooms.ROOMS, approvals_root: Path = None,
                  audit_root: Path = None, mapping: Path = None, catalog_root: Path = None, inbox: Path = None,
-                 intake_root: Path = None, read_catalog=None, env_file: Path = None, connect=None, check_key=None):
+                 intake_root: Path = None, read_catalog=None, env_file: Path = None, connect=None, check_key=None,
+                 publications_root: Path = None):
         self.rooms_root = Path(rooms_root)
         # also next to the review folder; the inbox is the one folder the owner uses directly, so it's easy to find
         self.catalog = catalog.Catalog(catalog_root or Path(out).parent / "catalog", storefront)
@@ -82,6 +85,7 @@ class App:
         # next to the review folder (.commerce-os/approvals, .commerce-os/audit), so a test's folder holds its own
         self.audit = audit.Audit(audit_root or Path(out).parent / "audit")
         self.approvals = publication.Approvals(approvals_root or Path(out).parent / "approvals", self.audit)
+        self.pubs = publishing.Publications(publications_root or Path(out).parent / "publications", self.audit)
         self._mapping_path, self._mapping, self._fake = mapping, None, None
         self.out, self.storefront, self.brand_root, self.config = Path(out), storefront, Path(brand_root), Path(config)
         self.source = Path(source) if source else ri.DEFAULT_SOURCE
@@ -135,6 +139,7 @@ class App:
                 "warnings": sum(i["severity"] == "warning" for i in issues),
                 "category": rec["draft"]["product"]["attributes"].get("category", {}).get("value") if rec else None,
                 "storefront": self._storefront_state(it, entry, rec) if rec else None,
+                "published": self.pubs.state(it["id"]),
             })
         ctx = self.brand_ctx()
         entry = self.storefront_entry()
@@ -294,16 +299,18 @@ class App:
         assets, notes = [], []
         if self.decisions().get(it["id"], {}).get("decision") == "reject" or not it.get("framed"):
             return assets, notes
-        h = artstore_map.file_hash(self.out / it["framed"].split("?")[0])
+        # The full-size file is what's delivered; the page shows a smaller copy of it.
+        framed = self.out / (it.get("framed_full") or it["framed"]).split("?")[0]
+        h = artstore_map.file_hash(framed)
         if h:
             assets.append({"derivative_id": f"drv-{it['id']}-framed", "kind": "framed", "sha256": h,
-                           "image": it["framed"]})
+                           "image": it["framed"], "file": str(framed)})
         if it.get("art_file"):
             view = rooms.room_view(it, rooms.load(self.rooms_root), self.out, self._dimensions(it["id"]))
             vh = artstore_map.file_hash(self.out / view["image"].split("?")[0]) if view and view.get("image") else None
             if vh and not view["stale"]:
                 assets.append({"derivative_id": f"drv-{it['id']}-room", "kind": "room", "sha256": vh,
-                               "image": view["image"]})
+                               "image": view["image"], "file": str(self.out / view["image"].split("?")[0])})
             else:
                 notes.append("No up-to-date room view: hang it in its room on the photo page to add one.")
         return assets, notes
@@ -316,7 +323,7 @@ class App:
         copy = self.store.effective(item_id, rec) if rec else None
         cs = artstore_map.build(item=it, entry=entry, record=rec, copy=copy, assets=assets, mapping=self.mapping(),
                                 store=self.fake_store(), catalog_issues=catalog.issues(self._candidates(item_id, entry, rec)),
-                                taken_slugs=catalog.taken_slugs(self.catalog.load()))
+                                taken_slugs=catalog.taken_slugs(self.catalog.load()), simulated=False)
         return cs, assets, notes
 
     def _candidates(self, item_id: str, entry: dict, rec: dict) -> list:
@@ -370,8 +377,124 @@ class App:
             "approvable": artstore_map.approvable(cs),
             "approval": self.approvals.status(item_id, cs),
             "catalog": self._catalog_doc(item_id),
+            "publish": self._publish_doc(item_id),
             "history": self._history(item_id),
         }
+
+    # ------------------------------------------------------------ publishing (B-070): asks; the worker does the rest
+    def _publish_doc(self, item_id: str) -> dict:
+        state = self.pubs.state(item_id)
+        published = self.pubs.latest(item_id, "published") if state == publishing.SUCCEEDED else None
+        rechecked = self.pubs.latest(item_id, "rechecked") if state == publishing.UNKNOWN else None
+        ended = next((e for e in reversed(self.pubs.events(item_id)) if e.get("state") == publishing.FAILED), None)
+        return {"target": "Local test store", "state": state, "kill_switch": self.pubs.kill_switch(),
+                "worker": self.pubs.worker(), "product_id": (published or {}).get("product_id"),
+                "receipt_id": (published or {}).get("receipt_id"), "published_at": (published or {}).get("at"),
+                "reasons": (ended or {}).get("reasons", []) if state == publishing.FAILED else [],
+                "finding": (rechecked or {}).get("finding"), "fields": (rechecked or {}).get("fields", []),
+                "checking": self.pubs.recheck_wanted(item_id)}
+
+    def publish(self, item_id: str, body: dict) -> dict:
+        """Ask the worker to publish what the owner approved. This writes nothing to a store."""
+        self.item(item_id)
+        if not isinstance(body, dict) or set(body) != {"change_set_hash"}:
+            raise ApiError(400, 'send {"change_set_hash": "<the hash you approved>"}')
+        if not self.can_preview():
+            raise ApiError(400, "the store isn't connected yet: finish Getting started")
+        cs, _, _ = self.change_set(item_id)
+        status = self.approvals.status(item_id, cs)
+        if status["state"] != "current" or status["approval"]["change_set_hash"] != body["change_set_hash"]:
+            raise ApiError(409, "This version isn't approved: approve it first.")
+        try:
+            self.pubs.request(item_id, cs, status["approval"], OWNER["id"])
+        except publishing.PublishError as e:
+            raise ApiError(409, str(e))
+        return self.storefront_preview(item_id)
+
+    @staticmethod
+    def _queue_section(publish_state, approval_state: str) -> str:
+        """Where a drafted listing belongs on the publish page. What already happened comes first: only new products
+        can go in, so a published listing stays published whatever has changed since."""
+        if publish_state == publishing.SUCCEEDED:
+            return "published"
+        if publish_state in (publishing.QUEUED, publishing.WRITING):
+            return "working"
+        if publish_state == publishing.UNKNOWN:
+            return "problems"
+        if approval_state != "current":
+            return "waiting"
+        return "problems" if publish_state == publishing.FAILED else "ready"
+
+    def _queue_row(self, it: dict, rec: dict):
+        cs, assets, _ = self.change_set(it["id"], it, None, rec)
+        fields = cs["operations"][0]["fields"]
+        tiers = (fields.get("pricing_tiers") or {}).get("value") or [{}]
+        status = self.approvals.status(it["id"], cs)
+        doc = self._publish_doc(it["id"])
+        section = self._queue_section(doc["state"], status["state"])
+        if status["state"] == "out_of_date":
+            nxt = [f"Changed since you approved it: {', '.join(status['changes'])}. Approve this version."]
+        elif artstore_map.approvable(cs):
+            nxt = ["Check what the store would receive, then approve it."]
+        else:
+            nxt = [b["question"] for b in cs["blockers"] if b["severity"] == "blocking" and b["target"] != "assets.delivery"]
+        row = {"id": it["id"], "source": it["source"], "title": (self.store.effective(it["id"], rec) or {}).get("title"),
+               "image": assets[0]["image"] if assets else self._image(it), "price": (fields.get("price") or {}).get("value"),
+               "sold_as": tiers[0].get("type"), "size": tiers[0].get("size"),
+               "change_set_hash": cs["change_set_hash"] if section in ("ready", "problems") else None,
+               "approved_at": (status["approval"] or {}).get("approved_at"), "next": nxt if section == "waiting" else []}
+        row.update({k: doc[k] for k in ("state", "product_id", "receipt_id", "published_at", "reasons", "finding", "fields", "checking")})
+        return section, row
+
+    def publish_queue(self) -> dict:
+        """The publish page: every drafted listing, sorted by what it needs next. This reads; it changes nothing."""
+        entry = self.storefront_entry()
+        doc = {"available": self.can_preview(), "target": "Local test store", "display_name": entry.get("display_name", self.storefront),
+               "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker(), "not_drafted": 0,
+               "ready": [], "working": [], "problems": [], "waiting": [], "published": []}
+        if not doc["available"]:
+            return dict(doc, reason="The store isn't connected yet.")
+        decisions, drafts = self.decisions(), self.store.all_drafts()
+        for it in self.items():
+            if decisions.get(it["id"], {}).get("decision") == "reject":
+                continue
+            rec = drafts.get(it["id"])
+            if not rec:
+                doc["not_drafted"] += 1 if it.get("art_file") else 0
+                continue
+            section, row = self._queue_row(it, rec)
+            doc[section].append(row)
+        return doc
+
+    def publish_many(self, body: dict) -> dict:
+        """Ask for several at once. Each names the version the owner saw and passes the same checks as one alone, and
+        one refused doesn't stop the rest."""
+        items = body.get("items") if isinstance(body, dict) and set(body) == {"items"} else None
+        if not isinstance(items, list) or not items or not all(isinstance(i, dict) and set(i) == {"id", "change_set_hash"} for i in items):
+            raise ApiError(400, 'send {"items": [{"id": "...", "change_set_hash": "<the hash you approved>"}]}')
+        results = []
+        for i in items:
+            try:
+                self.publish(i["id"], {"change_set_hash": i["change_set_hash"]})
+                results.append({"id": i["id"], "ok": True})
+            except ApiError as e:
+                results.append({"id": i["id"], "ok": False, "error": str(e)})
+        return {"results": results, "queue": self.publish_queue()}
+
+    def publish_recheck(self, item_id: str) -> dict:
+        self.item(item_id)
+        try:
+            self.pubs.ask_recheck(item_id, OWNER["id"])
+        except publishing.PublishError as e:
+            raise ApiError(409, str(e))
+        return self.storefront_preview(item_id)
+
+    def kill_switch(self, body: dict) -> dict:
+        if not isinstance(body, dict) or not isinstance(body.get("on"), bool):
+            raise ApiError(400, 'send {"on": true} or {"on": false}')
+        state = self.pubs.set_kill_switch(body["on"], OWNER["id"])
+        self.audit.append("_setup", "kill_switch", f"Writing switched {'off' if body['on'] else 'on'}", by=OWNER["id"])
+        return state
 
     # ------------------------------------------------------------ the store's catalog, read only (B-065)
     def _catalog_doc(self, item_id: str = None) -> dict:
@@ -631,7 +754,11 @@ class App:
                        "ready": by_stage.get("ready", 0), "rejected": by_stage.get("rejected", 0)},
             "listings": {"drafted": len(drafted), "copy_approved": sum(i["approved"] for i in drafted),
                          "blocked": count("blocked"), "ready": count("ready"), "approved": count("approved"),
-                         "out_of_date": count("out_of_date")},
+                         "out_of_date": count("out_of_date"),
+                         "published": sum(i["published"] == publishing.SUCCEEDED for i in rows),
+                         "publish_problems": sum(i["published"] in (publishing.FAILED, publishing.UNKNOWN) for i in rows),
+                         "to_publish": sum(i["storefront"] == "approved" and i["published"] is None for i in drafted)},
+            "publishing": {"target": "Local test store", "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker()},
             "rooms": {"total": len(lib), "ready": room_states.count("ready"), "need_attention": sum(s not in ("ready", "off") for s in room_states)},
             "learning": {"approvals": self.learn.stats()["approvals"],
                          "proposed_lessons": (state["brand"] or {}).get("proposed_lessons", 0)},
@@ -1139,6 +1266,16 @@ def _unlock(app, m, body): return app.unlock(m.group(1))
 def _meaning(app, m, body): return app.add_meaning(m.group(1), body)
 @route("POST", "/api/draft-pending")
 def _pending(app, m, body): return app.draft_pending(int(body.get("limit", 5)))
+@route("POST", r"/api/items/([\w.-]+)/publish")
+def _publish(app, m, body): return app.publish(m.group(1), body)
+@route("POST", r"/api/items/([\w.-]+)/publish/recheck")
+def _publish_recheck(app, m, body): return app.publish_recheck(m.group(1))
+@route("GET", "/api/publishing/queue")
+def _publish_queue(app, m, body): return app.publish_queue()
+@route("POST", "/api/publishing/publish")
+def _publish_many(app, m, body): return app.publish_many(body)
+@route("PUT", "/api/publishing/kill-switch")
+def _kill_switch(app, m, body): return app.kill_switch(body)
 @route("GET", "/api/home")
 def _home(app, m, body): return app.home()
 @route("GET", "/api/inbox")

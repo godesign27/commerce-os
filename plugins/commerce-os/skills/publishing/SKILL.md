@@ -61,4 +61,6 @@ None asserted; this skill reports adapter and workflow results verbatim.
 
 ## Current status
 
-Not runnable: no workflow interface or adapter exists. The command `/publish` explains this and stops.
+Dry runs and requests aren't connected to agents yet: no workflow interface exists, so the command `/publish`
+explains this and stops. The owner publishes from the dashboard, and the worker (`services/workers/publisher.py`)
+writes to a local test store only (Gate 4, receipts, read-back). No real store can be reached.

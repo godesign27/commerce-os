@@ -68,7 +68,8 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
                 <span className="muted small">{i.source}</span>
                 <span className="badges">
                   {i.approved && <span className="badge ok">Approved</span>}
-                  {i.storefront === "approved" && <span className="badge ok">Store ✓</span>}
+                  {i.published === "SUCCEEDED" ? <span className="badge ok">In test store</span>
+                    : i.storefront === "approved" && <span className="badge ok">Store ✓</span>}
                   {i.storefront === "ready" && <span className="badge">Ready for the store</span>}
                   {i.storefront === "out_of_date" && <span className="badge bad">Store approval out of date</span>}
                   {i.edited && !i.approved && <span className="badge">Edited</span>}

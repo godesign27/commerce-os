@@ -43,6 +43,7 @@ class FakeStorefront(Adapter):
         self.clock = clock or (lambda: FIXED_CLOCK)
         self.tables = {t: {} for t in structure["tables"]}
         self.receipts = {}       # change_set_id -> (hash, PublishResult)
+        self.delivered = set()   # derivative ids delivered since sealing: a sealed change set never changes
         self.calls = []          # every method call, for tests to assert on
         self._fail = None
         for table, rows in (seed or {}).items():
@@ -159,7 +160,7 @@ class FakeStorefront(Adapter):
         seqs = [op.get("seq") for op in change_set.get("operations", [])]
         if seqs != sorted(set(seqs)):
             issues.append(Issue("bad_sequence", "operation seq values must be unique and ascending"))
-        if any(not a.get("delivered") for a in change_set.get("assets", [])):
+        if any(not a.get("delivered") and a.get("derivative_id") not in self.delivered for a in change_set.get("assets", [])):
             issues.append(Issue("assets_not_delivered", "every asset must be delivered before publishing"))
         for op in change_set.get("operations", []):
             issues += self._op_issues(op, requested, status_rule)

@@ -29,6 +29,13 @@ Phase 2 is proceeding in legs, and the owner decided on 2026-11-04 to keep it on
 | A sandboxed decoder for images, and a time limit | **Deferred until photos come from anyone but the owner.** |
 | Outbound fetch allowlist for workers and agent tools | **Deferred until workers exist.** The only outbound calls are the model API and the catalog read. |
 
+## Publishing
+
+Only the publishing worker writes, as a separate program from the dashboard, which can only ask. Today it reaches
+only the local test store: the adapter refuses any target but a local Unix socket, and the worker never reads
+`.env`. Its write login can add products and read the catalog, and nothing else. Writes use parameters only, so
+listing text can never run as SQL. The kill switch stops writing, and fails safe if its file is unreadable.
+
 ## Credentials on the local page
 
 The read-only login and the Claude API key are entered on the dashboard's Getting started page (owner decision

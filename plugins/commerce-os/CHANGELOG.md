@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0] - 2026-11-05
+
+### Changed
+
+- publishing: the owner publishes an approved listing from the dashboard, and the publishing worker writes it to a
+  local test store. Agents still can't publish or hold a write login, and a real store can't be reached yet.
+
 ## [0.8.0] - 2026-11-04
 
 ### Changed

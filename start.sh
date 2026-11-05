@@ -27,6 +27,10 @@ if ! command -v npm >/dev/null; then need "Node.js" "brew install node"; else ec
 if command -v psql >/dev/null || [[ -x /opt/homebrew/opt/libpq/bin/psql ]] || [[ -x /usr/local/opt/libpq/bin/psql ]]; then
   echo "✓ psql"
 else need "psql (used to read your store's catalog)" "brew install libpq"; fi
+if ! command -v initdb >/dev/null && ! ls /opt/homebrew/opt/postgresql*/bin/initdb /usr/local/opt/postgresql*/bin/initdb >/dev/null 2>&1 && [[ ! -x /opt/homebrew/opt/libpq/bin/initdb ]]; then
+  echo "! Postgres isn't installed. Everything works except publishing to the local test store. To add it:"
+  echo "    brew install postgresql@16"
+fi
 if [[ $missing == 1 ]]; then echo; echo "Install what's missing, then run ./start.sh again."; exit 1; fi
 if $CHECK_ONLY; then echo "This computer has what Commerce OS needs."; exit 0; fi
 
@@ -54,4 +58,10 @@ if curl -fs -m 2 "${URL}api/inbox" >/dev/null 2>&1; then
 fi
 echo "Commerce OS: $URL  (press Ctrl-C to stop)"
 ( sleep 1; open_it ) &
-exec .venv/bin/python services/local_api/server.py --port "$PORT"
+.venv/bin/python services/workers/publisher.py &     # the only program that can write to a store
+WORKER=$!
+.venv/bin/python services/local_api/server.py --port "$PORT" &
+SERVER=$!
+stop() { trap - EXIT INT TERM; kill "$SERVER" "$WORKER" 2>/dev/null || true; wait 2>/dev/null || true; exit 0; }
+trap stop EXIT INT TERM
+wait "$SERVER"      # waiting in the background is what lets a stop signal act right away

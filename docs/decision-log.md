@@ -90,6 +90,17 @@ From schema-only dumps of both storefronts. Detail: [discovery/storefront-schema
 | The start page is the dashboard's front door, and new inbox photos are announced on every page | Owner request. Files already reported with a problem don't keep announcing themselves. | Photos start arriving from somewhere other than this folder. |
 | Previews use the structure read from the connected store, so any store fitting the profile works; a store that doesn't fit stops at Check the store | The preview only worked for a store with committed files, which a new install doesn't have. | A second catalog profile exists. |
 
+## Decided for publishing (2026-11-05)
+
+| Decision | Why | Revisit when |
+|---|---|---|
+| Publish records live in local append-only files, with one worker at a time enforced by a lock | Matches approvals and history, and suits one computer. The operational database's publication tables wait, because using them means moving all records. | The system is hosted, or a second worker is wanted. |
+| Publishing is a separate step after approval | Approving says it's correct; publishing says send it now (PRD Gate 3 and Gate 4). A batch can be approved and published later. | Never expected. |
+| New products only (B-007): a piece already in a store stays blocked, and nothing is overwritten | The safest first write, and it needs no conflict handling for live edits. | Updates are wanted; they need expected-row checks and diff approval. |
+| The adapter refuses anything but a local Unix socket, and the worker never reads `.env` | A real store can't be reached by accident or by misconfiguration, whatever is passed in. | The real test environment is built, on purpose, after B-025, B-033, B-047 and B-049. |
+| The write login can add products and read the catalog: no updates or deletes | It's all new-products-only needs. The provider note allows UPDATE; it's left out until updates exist. | Updates are built. |
+| A write whose result wasn't seen is OUTCOME_UNKNOWN until the store is checked; not found twice, a minute apart, means not written | Retrying blindly could add a product twice, and one check might be too soon to be sure. | There's evidence about real connection-loss timing. |
+
 ## Open
 
 PRD §22 questions 1–13 are BACKLOG B-001 to B-013.
