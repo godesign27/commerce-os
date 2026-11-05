@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, PreviewRow, StorefrontPreview } from "../api";
+import { api, MatchCandidate, PreviewRow, StorefrontPreview, waitForJob } from "../api";
 
 // What the storefront would receive for this listing, field by field, and the owner's approval of exactly that
 // (Gate 3, B-064). It runs against the test copy of the store: nothing is sent anywhere. The approval names the
@@ -44,6 +44,24 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
     setBusy(false);
   }
 
+  async function readCatalog() {
+    setBusy(true); setError(null);
+    try {
+      const { job } = await api.refreshCatalog();
+      const j = await waitForJob(job);
+      if (j.error) setError(j.error);
+      await load(); onChange();
+    } catch (e) { setError(String((e as Error).message)); }
+    setBusy(false);
+  }
+
+  async function answer(c: MatchCandidate, value: "same" | "different" | null) {
+    setBusy(true); setError(null);
+    try { setP(await api.answerMatch(id, c.product_id, value)); onChange(); }
+    catch (e) { setError(String((e as Error).message)); }
+    setBusy(false);
+  }
+
   if (!p) return error ? <p className="error">{error}</p> : null;
   const name = p.display_name || "the store";
   if (!p.available) return <section className="panel storefront"><h2>{name}</h2><p className="muted small">{p.reason}</p></section>;
@@ -71,6 +89,40 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
         <ul className="small sf-warn">{warnings.map((w) => <li key={w.id}>{w.question}</li>)}
           {(p.notes || []).map((n) => <li key={n}>{n}</li>)}</ul>
       )}
+
+      <div className="sf-catalog">
+        <h3 className="small">Already in the store?</h3>
+        <p className="muted small">
+          {p.catalog?.read_at
+            ? `Checked against a copy of ${name}'s catalog read ${new Date(p.catalog.read_at).toLocaleString()} (${p.catalog.products} products). `
+            : `Not checked yet: ${name}'s catalog hasn't been read. `}
+          Reading it changes nothing in the store.{" "}
+          <button className="link" disabled={busy} onClick={readCatalog}>{p.catalog?.read_at ? "Read it again" : "Read the catalog"}</button>
+        </p>
+        {p.catalog?.read_at && !p.catalog.candidates.length && <p className="muted small">Nothing there looks like this piece.</p>}
+        {(p.catalog?.candidates.length || 0) > 0 && (
+          <ul className="sf-matches">
+            {p.catalog!.candidates.map((c) => (
+              <li key={c.product_id}>
+                <strong>{c.name || "Untitled"}</strong>{" "}
+                <span className={`badge ${c.level === "likely" && !c.answer ? "bad" : ""}`}>{c.level === "likely" ? "Looks like this piece" : "Possibly related"}</span>
+                <span className="muted small"> {[c.medium, c.dimensions, c.status].filter(Boolean).join(" · ")}</span>
+                <ul className="small">
+                  {c.matching.map((m) => <li key={m}>{m}</li>)}
+                  {c.conflicting.map((m) => <li key={m} className="warn-text">{m}</li>)}
+                </ul>
+                <div className="row">
+                  <span className="small">Same piece?</span>
+                  <button className={c.answer === "same" ? "" : "secondary"} aria-pressed={c.answer === "same"} disabled={busy}
+                    onClick={() => answer(c, c.answer === "same" ? null : "same")}>Same piece</button>
+                  <button className={c.answer === "different" ? "" : "secondary"} aria-pressed={c.answer === "different"} disabled={busy}
+                    onClick={() => answer(c, c.answer === "different" ? null : "different")}>Different piece</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <table className="sf-table">
         <tbody>

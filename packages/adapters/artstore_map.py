@@ -65,12 +65,16 @@ def test_seed(mapping: dict) -> dict:
             "products": []}
 
 
-def test_store(storefront: str, mapping: dict) -> FakeStorefront:
-    """The fake test storefront, seeded with the owner's catalog (no products). Writes stay disabled."""
+def test_store(storefront: str, mapping: dict, entry: Optional[dict] = None, structure: Optional[dict] = None) -> FakeStorefront:
+    """The fake test storefront, seeded with the owner's catalog (no products). Writes stay disabled. With `entry` and
+    `structure` (read from the connected store) it works for any store; without them, for one committed in the repo."""
+    if structure and entry:
+        profile = json.loads((REPO / "resources" / "catalog-profiles" / f"{entry['catalog_profile']}.json").read_text())
+        return FakeStorefront(storefront, ENVIRONMENT, profile, structure, currency=entry.get("currency", "USD"),
+                              features=entry.get("features", []), seed=test_seed(mapping), writes_enabled=False)
     store = FakeStorefront.from_repo(storefront, ENVIRONMENT, seed=False)
-    fresh = FakeStorefront(storefront, ENVIRONMENT, store.profile, store.structure, currency=store.currency,
-                           features=store.features, seed=test_seed(mapping), writes_enabled=False)
-    return fresh
+    return FakeStorefront(storefront, ENVIRONMENT, store.profile, store.structure, currency=store.currency,
+                          features=store.features, seed=test_seed(mapping), writes_enabled=False)
 
 
 # ---------------------------------------------------------------- pieces of the mapping
@@ -124,9 +128,12 @@ def has_unit(size: str) -> bool:
 # ---------------------------------------------------------------- the change set
 
 def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dict], assets: List[dict],
-          mapping: dict, store: FakeStorefront, status: str = STATUS) -> dict:
+          mapping: dict, store: FakeStorefront, status: str = STATUS, catalog_issues: Optional[List[dict]] = None,
+          taken_slugs: Optional[set] = None) -> dict:
     """The sealed change set for one listing. `assets` are the listing images in order, each
-    {"derivative_id", "kind", "sha256"}. Blockers are in `change_set["blockers"]`."""
+    {"derivative_id", "kind", "sha256"}. Blockers are in `change_set["blockers"]`. `catalog_issues` and
+    `taken_slugs` come from the store's real catalog (packages/adapters/catalog.py); they can block a change set
+    or move its web address, and no other value from the catalog ever enters it."""
     sf, facts = store.storefront_id, entry.get("facts") or {}
     issues = _Issues(sf)
     approved = entry.get("approved")
@@ -141,7 +148,7 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
 
     fields = {"id": {"value": key, "status": "observed"},
               "name": {"value": copy.get("title") or "", "status": copy_status},
-              "slug": {"value": _slug(copy.get("title"), key, store), "status": "inferred"},
+              "slug": {"value": _slug(copy.get("title"), key, store, taken_slugs), "status": "inferred"},
               "short_description": {"value": copy.get("short_description") or "", "status": copy_status},
               "description": {"value": copy.get("collector_description") or "", "status": copy_status},
               "status": {"value": status, "status": "human_confirmed"}}
@@ -177,17 +184,21 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
     if sold_as:
         fields["is_original"] = {"value": sold_as == ORIGINAL, "status": "supplied"}
 
-    category = _category(item.get("kind"), sold_as, mapping, store)
+    ptype = _product_type(item, record, mapping)
+    category = _category(ptype, sold_as, mapping, store)
     if category:
         fields["category_id"] = {"value": category, "status": "human_confirmed"}      # owner-confirmed mapping
     else:
-        issues.add("product.category", f"No store category is mapped for a {item.get('kind') or 'piece'}"
+        issues.add("product.category", f"No store category is mapped for a {ptype or 'piece'}"
                    f"{' sold as ' + sold_as if sold_as else ''}. Add it with /edit-mappings.", resolver="administrator")
 
     tag_ids, unknown = _tags(copy.get("store_tags") or [], store)
     fields["tags"] = {"value": tag_ids, "status": copy_status}
     for name in unknown:
         issues.add("product.tags", f"\"{name}\" isn't a tag in the store, so it's left off.", severity="warning")
+
+    for issue in catalog_issues or []:
+        issues.add(issue["target"], issue["question"])
 
     planned = [{"derivative_id": a["derivative_id"], "sha256": a["sha256"],
                 "destination_key": f"/objects/uploads/{key}-{a['kind']}-{a['sha256'][:12]}"} for a in assets]
@@ -222,14 +233,25 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
     return seal(body)
 
 
-def _slug(title, key: str, store: FakeStorefront) -> str:
+def _slug(title, key: str, store: FakeStorefront, also_taken: Optional[set] = None) -> str:
     slug = slugify(title)
-    taken = {r.get("slug") for r in store.tables["products"].values() if r.get("id") != key}
+    taken = {r.get("slug") for r in store.tables["products"].values() if r.get("id") != key} | set(also_taken or ())
     return slug if slug not in taken else f"{slug}-{hashlib.sha256(key.encode()).hexdigest()[:6]}"
 
 
 def _tier_id(key: str) -> str:
     return f"tier-{int(hashlib.sha256(key.encode()).hexdigest()[:11], 16)}"
+
+
+def _product_type(item: dict, record: Optional[dict], mapping: dict) -> Optional[str]:
+    """What's being sold. `photo` and `artwork` on an item only say whether it needs cropping, so a phone photo of a
+    painting is still artwork: the draft's own product type comes first."""
+    types = mapping.get("product_types") or {}
+    drafted = (((record or {}).get("draft") or {}).get("product", {}).get("attributes", {}).get("category") or {}).get("value")
+    for candidate in (drafted, item.get("kind")):
+        if candidate in types:
+            return candidate
+    return "artwork" if item.get("kind") == "photo" and "artwork" in types else drafted or item.get("kind")
 
 
 def _category(kind, sold_as, mapping: dict, store: FakeStorefront) -> Optional[str]:
@@ -279,6 +301,10 @@ def preview_rows(change_set: dict, plan: list, store: Optional[FakeStorefront] =
     return sorted(rows, key=lambda r: order.index(r["column"]) if r["column"] in order else len(order))
 
 
+def _catalog_blockers(change_set: dict) -> List[str]:
+    return sorted(b["question"] for b in change_set["blockers"] if b["target"] == "catalog.match")
+
+
 def differences(old: dict, new: dict) -> List[str]:
     """In words, what changed between an approved change set and the one the listing gives now."""
     out = []
@@ -298,6 +324,8 @@ def differences(old: dict, new: dict) -> List[str]:
         out.append("Store schema")
     if old["requested_status"] != new["requested_status"]:
         out.append("Status")
+    if _catalog_blockers(old) != _catalog_blockers(new):
+        out.append("Store catalog")
     if old["canonical_revision"] != new["canonical_revision"] and "Copy approval" not in out:
         out.append("Copy revision")
     return list(dict.fromkeys(out)) or (["Change set"] if old["change_set_hash"] != new["change_set_hash"] else [])

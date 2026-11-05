@@ -1,13 +1,29 @@
 # Commerce OS
 
-Commerce OS prepares new products for two independently operated storefronts. Product images arrive
-in Google Drive; four specialized agents prepare images, identify and structure products, assemble
-destination-specific drafts, and coordinate human-approved publication through a central review
-dashboard. The specification is [PRD.md](PRD.md).
+Commerce OS prepares new products for independently operated storefronts. It turns your photos into
+framed listing images and drafted copy, checks them against your store's catalog, and gives you one place to
+review and approve each listing. The specification is [PRD.md](PRD.md).
 
-> **Status: Phase 0a, scaffold only.** The plugin's agents, skills, commands and policies exist as
-> reviewable specifications. There is no workflow service, database, adapter, dashboard, or external
-> connection yet. Nothing in this repository can write to a storefront or to Google Drive.
+> **Status: Phase 2, on one computer.** Photos, drafts, the review dashboard, read-only catalog checks and
+> approval of an exact change set all work. **Nothing can write to a storefront yet:** an approved listing
+> waits for the publishing phase (Phase 3). Photos come from a local folder; Google Drive is a later
+> enhancement.
+
+## Start here
+
+```bash
+./start.sh
+```
+
+It checks that this computer has what's needed and gives the exact command for anything missing. Then it
+installs the rest, builds the dashboard, and opens it at `http://127.0.0.1:8770`. The start page leads you
+through connecting your store. You'll need:
+
+- Access to your store's database, to create a read-only login. Commerce OS checks that login and refuses one
+  that can change data or see customer tables.
+- A Claude API key, for drafting ([console.anthropic.com](https://console.anthropic.com)).
+
+To add pieces later, put one photo per piece in `inbox/`. The dashboard tells you when it sees them.
 
 ## What's here
 
@@ -19,6 +35,7 @@ dashboard. The specification is [PRD.md](PRD.md).
 | `.cursor/rules/commerce-os.mdc` | Cursor rule pointing at the canonical policies | No |
 | `apps/`, `services/`, `packages/`, `database/`, `resources/` | Runtime system (Phase 1 onward) | No |
 | `docs/` | Architecture, state machine, security, decision log | No |
+| `start.sh`, `inbox/` | Start command, and the folder new photos go in | No |
 | `tests/`, `run-tests.sh` | Structural test suite (stdlib Python) | No |
 
 ## Use it in Claude Code

@@ -15,14 +15,27 @@ Status: Phase 0a. Requirements from [PRD.md](../PRD.md) §17, and how this scaff
 
 ## Required before Phase 2
 
-- Separate read and write identities per storefront; write identities only in the publishing worker.
-- Dashboard authentication with server-enforced roles (submitter, reviewer, approver, administrator,
-  operator).
-- Isolation keys on every tenant-sensitive record, enforced in database policies.
-- Asset visibility policy: draft images are private; signed URLs only.
-- Image-processing resource limits (bytes, decoded pixels, time) and a sandboxed decoder.
-- Outbound fetch allowlist for workers and agent tools.
-- Redaction of secrets and unnecessary personal data in logs and audit.
+Phase 2 is proceeding in legs, and the owner decided on 2026-11-04 to keep it on one computer for now
+(see the decision log). Where each requirement stands:
+
+| Requirement | Status |
+|---|---|
+| Separate read and write identities per storefront; write identities only in the publishing worker | Read: done. Each catalog read checks the login and refuses one that can write or can see beyond the catalog tables. Write: no write identity exists; Phase 3. |
+| Image-processing limits (bytes, decoded pixels) | Done for the inbox (`packages/image_pipeline/intake.py`), checked before decoding. Time limit: not enforced. |
+| Redaction of secrets and unnecessary personal data in logs and audit | Catalog reads never put the connection string in a message, and they read no customer or price data. A wider review of logs comes with hosting. |
+| Dashboard authentication with server-enforced roles (submitter, reviewer, approver, administrator, operator) | **Deferred until hosted or a second person joins (B-008).** Today: 127.0.0.1 only, and writes need the `X-Commerce-OS` header. |
+| Isolation keys on every tenant-sensitive record, enforced in database policies | **Deferred until the operational database is in use.** Catalog copies and answers are kept per storefront, and a copy stamped for another storefront is refused. |
+| Asset visibility policy: draft images are private; signed URLs only | **Deferred to Phase 3.** Draft images are local files today. |
+| A sandboxed decoder for images, and a time limit | **Deferred until photos come from anyone but the owner.** |
+| Outbound fetch allowlist for workers and agent tools | **Deferred until workers exist.** The only outbound calls are the model API and the catalog read. |
+
+## Credentials on the local page
+
+The read-only login and the Claude API key are entered on the dashboard's Getting started page (owner decision
+2026-11-04). The rules: the page runs only on 127.0.0.1; both are checked before anything is saved; a login that
+can change data or see beyond the catalog tables is refused; they're saved in `.env`, readable by this user
+only; no response, message, log or audit record holds them; and a login already used elsewhere here is
+refused. Write logins never come through this page, and agents still never handle a credential.
 
 ## Required before production (Phase 4)
 

@@ -6,6 +6,9 @@ import { ListingDetail } from "./pages/ListingDetail";
 import { Brand } from "./pages/Brand";
 import { Learning } from "./pages/Learning";
 import { Setup } from "./pages/Setup";
+import { GettingStarted } from "./pages/GettingStarted";
+import { Home } from "./pages/Home";
+import { NewPhotos } from "./components/NewPhotos";
 import { Photos } from "./pages/Photos";
 import { PhotoDetailPage } from "./pages/PhotoDetail";
 import { Rooms } from "./pages/Rooms";
@@ -27,9 +30,9 @@ function reloadIfRebuilt() {
 
 // Hash routes keep the dashboard a set of static files the local API can serve as-is.
 function useRoute(): string {
-  const [route, setRoute] = useState(() => location.hash.slice(1) || "/listings");
+  const [route, setRoute] = useState(() => location.hash.slice(1) || "/home");
   useEffect(() => {
-    const on = () => { setRoute(location.hash.slice(1) || "/listings"); reloadIfRebuilt(); };
+    const on = () => { setRoute(location.hash.slice(1) || "/home"); reloadIfRebuilt(); };
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
@@ -42,15 +45,28 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const refresh = useCallback(() => api.state().then(setState).catch((e) => setError(String(e.message || e))), []);
   useEffect(() => { refresh(); }, [refresh, route]);
+  // New photos are announced on every page; a light check, not a page refresh.
+  const [inbox, setInbox] = useState(0);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const look = () => { if (!document.hidden) api.inbox().then((i) => setInbox(i.new)).catch(() => undefined); };
+    look();
+    const timer = setInterval(look, 10000);
+    document.addEventListener("visibilitychange", look);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", look); };
+  }, [tick]);
 
   if (error) return <main className="page"><p className="error">Can't reach the local API: {error}</p></main>;
   if (!state) return <main className="page"><p className="muted">Loading…</p></main>;
-  const needsSetup = !state.brand;
+  const needsStart = !state.onboarding.complete;
   const [, section, id] = route.split("/");
-  const nav = [["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["learning", "Learning"]];
-  const menu = [["brand", state.site_kind === "product" ? "Brand context" : "Artist context"], ["setup", "Setup"]];
+  const nav = [["home", "Home"], ["photos", "Photos"], ["rooms", "Rooms"], ["listings", "Listings"], ["learning", "Learning"]];
+  const menu = [["brand", state.site_kind === "product" ? "Brand context" : "Artist context"], ["start", "Getting started"], ["setup", "Voice setup"]];
   let page;
-  if (section === "setup" || (needsSetup && section !== "brand")) page = <Setup state={state} onDone={refresh} />;
+  // Photos and rooms work before setup is finished; listings need the store and the voice.
+  if (!section || section === "home") page = <Home tick={tick} />;
+  else if (section === "start" || (needsStart && section === "listings")) page = <GettingStarted state={state} onChange={refresh} />;
+  else if (section === "setup") page = <Setup state={state} onDone={refresh} />;
   else if (section === "listings" && id) page = <ListingDetail id={id} state={state} onChange={refresh} />;
   else if (section === "brand") page = <Brand state={state} onChange={refresh} />;
   else if (section === "learning") page = <Learning state={state} onChange={refresh} />;
@@ -64,11 +80,12 @@ function App() {
     <>
       <header className="top">
         <div className="top-left">
-          <div className="brandmark">Commerce OS <span>{state.display_name} · local review</span></div>
+          <div className="brandmark">Commerce OS <span>{state.onboarding.steps[0].done ? `${state.display_name} · ` : ""}local review</span></div>
           <nav aria-label="Sections">
             {nav.map(([k, label]) => (
               <a key={k} href={`#/${k}`} aria-current={section === k ? "page" : undefined}>
                 {label}
+                {k === "photos" && inbox > 0 ? <span className="pill" aria-label={`${inbox} new`}>{inbox}</span> : null}
                 {k === "learning" && state.brand?.proposed_lessons ? <span className="pill">{state.brand.proposed_lessons}</span> : null}
               </a>
             ))}
@@ -76,7 +93,8 @@ function App() {
         </div>
         <UserMenu name={state.brand?.name || state.display_name} items={menu} section={section} route={route} />
       </header>
-      {!state.key_configured && <div className="banner">ANTHROPIC_API_KEY isn't in .env, so drafting is off. Everything else works.</div>}
+      <NewPhotos count={inbox} onDone={() => { refresh(); setTick((t) => t + 1); }} />
+      {state.onboarding.complete && !state.key_configured && <div className="banner">There's no Claude API key, so drafting is off. <a href="#/start">Add one →</a></div>}
       {page}
       <footer className="foot">Local only (127.0.0.1). Nothing here publishes: approving copy locks it for the next gates.</footer>
     </>

@@ -18,6 +18,12 @@ export interface ItemRow {
 export type StorefrontState = "blocked" | "ready" | "approved" | "out_of_date";
 export interface HistoryEvent { at: string | null; event: string; label: string; by: string }
 export interface PreviewRow { column: string; label: string; value: unknown; display: unknown; before: unknown; evidence: string }
+// A product in the store that may already be this piece (B-065). Shown for the owner to answer; never a source of facts.
+export interface MatchCandidate {
+  product_id: string; name: string | null; slug: string | null; status: string | null; level: "likely" | "possible";
+  matching: string[]; conflicting: string[]; medium: string | null; dimensions: string | null;
+  answer: "same" | "different" | null;
+}
 export interface StorefrontPreview {
   available: boolean; reason?: string; storefront?: string; display_name?: string; environment?: string;
   change_set?: { change_set_id: string; change_set_hash: string; requested_status: string; mapping_version: number;
@@ -26,6 +32,7 @@ export interface StorefrontPreview {
   dry_run?: { would_publish: boolean; issues: Array<{ code: string; message: string }> }; approvable?: boolean;
   approval?: { state: "none" | "current" | "out_of_date"; changes: string[];
                approval: { approval_id: string; approved_at: string; change_set_hash: string; requested_status: string } | null };
+  catalog?: { read_at: string | null; products: number; candidates: MatchCandidate[] };
   history: HistoryEvent[];
 }
 export interface Job {
@@ -35,7 +42,32 @@ export interface Job {
 export interface State {
   storefront: string; display_name: string; site_kind: "artist" | "product" | null;
   brand: { version: number; name: string; proposed_lessons: number } | null;
-  items: ItemRow[]; key_configured: boolean; jobs: Job[];
+  items: ItemRow[]; key_configured: boolean; jobs: Job[]; onboarding: Steps;
+}
+// First run (B-068). Nothing here ever holds a credential.
+export interface Steps { steps: Array<{ id: string; label: string; done: boolean }>; complete: boolean; next: string | null }
+export interface OnboardingDoc extends Steps {
+  storefront: string;
+  store: { display_name: string | null; site_kind: "artist" | "product" | null; provider: string | null; currency: string | null };
+  providers: Array<{ id: string; label: string }>;
+  login: { env_key: string | null; saved: boolean; sql: string; example: string; where: string };
+  check: { read_at: string; products: number; categories: number; tags: number } | null;
+  choices: {
+    categories: Array<{ ref: string; name: string }>; tags: Array<{ ref: string; name: string }>; tier_types: string[];
+    product_types: Array<{ id: string; label: string }>;
+    chosen: { categories: string[]; tags: string[]; tier_types: string[];
+              product_types: Record<string, { category: string | null; alternative: string | null }> };
+  } | null;
+}
+export interface InboxStatus { new: number; waiting: number; folder: string }
+export interface HomeDoc {
+  onboarding: Steps; inbox: InboxStatus;
+  store: { connected: boolean; display_name: string | null; site_kind: string | null; provider: string | null;
+           products: number | null; read_at: string | null; writes_enabled: boolean };
+  photos: { total: number; to_review: number; ready: number; rejected: number };
+  listings: { drafted: number; copy_approved: number; blocked: number; ready: number; approved: number; out_of_date: number };
+  rooms: { total: number; ready: number; need_attention: number };
+  learning: { approvals: number; proposed_lessons: number };
 }
 export interface Meaning {
   id: string; scope: { kind: "artwork" | "series" | "catalog"; ref: string | null };
@@ -116,7 +148,13 @@ export interface RoomsDoc {
   inbox: string; pieces: Array<{ id: string; source: string }>;
 }
 export type RoomChanges = Partial<Pick<Room, "name" | "wall" | "wall_width_cm" | "light" | "shadow" | "enabled" | "licence" | "credit" | "url" | "note">>;
-export interface PhotosDoc { stages: Array<{ id: Stage; label: string }>; photos: Photo[]; pending: number; review_page: string }
+export interface PhotosDoc { stages: Array<{ id: Stage; label: string }>; photos: Photo[]; pending: number; review_page: string; intake: IntakeStatus }
+// The local inbox folder (B-066): what's waiting, and what the last look found.
+export interface IntakeStatus {
+  folder: string; waiting: number; new: number;
+  last: { at: string; added: Array<{ name: string; source_name: string }>; duplicates: Array<{ name: string; same_as: string }>;
+          problems: Array<{ name: string; reason: string }>; left: number } | null;
+}
 export interface EditRecord {
   id: string; at: string; item: string; field: string; event: string; changed: boolean;
   proposed: string; final: string; diff: { similarity: number; removed: string[]; added: string[]; length_change: number };
@@ -171,6 +209,18 @@ export const api = {
   decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null }) =>
     call<Photo>("PUT", `/api/photos/${id}`, body),
   applyPhotos: () => call<{ job: string }>("POST", "/api/photos/apply"),
+  home: () => call<HomeDoc>("GET", "/api/home"),
+  inbox: () => call<InboxStatus>("GET", "/api/inbox"),
+  onboarding: () => call<OnboardingDoc>("GET", "/api/onboarding"),
+  onboardingStore: (body: object) => call<OnboardingDoc>("PUT", "/api/onboarding/store", body),
+  onboardingLogin: (url: string) => call<OnboardingDoc>("POST", "/api/onboarding/login", { url }),
+  onboardingCheck: () => call<OnboardingDoc>("POST", "/api/onboarding/check"),
+  onboardingMapping: (body: object) => call<OnboardingDoc>("PUT", "/api/onboarding/mapping", body),
+  onboardingKey: (key: string) => call<OnboardingDoc>("POST", "/api/onboarding/key", { key }),
+  scanInbox: () => call<{ job: string }>("POST", "/api/intake/scan"),
+  refreshCatalog: () => call<{ job: string }>("POST", "/api/catalog/refresh"),
+  answerMatch: (id: string, product_id: string, answer: "same" | "different" | null) =>
+    call<StorefrontPreview>("PUT", `/api/items/${id}/catalog-match`, { product_id, answer }),
   // {} hangs the piece in its room; {room} chooses that room first; {room: null} goes back to the automatic pick.
   photoRoom: (id: string, body: { room?: string | null } = {}) => call<PhotoDetail>("POST", `/api/photos/${id}/room`, body),
   rooms: () => call<RoomsDoc>("GET", "/api/rooms"),

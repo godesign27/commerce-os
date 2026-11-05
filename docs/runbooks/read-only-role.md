@@ -67,7 +67,7 @@ The project ref is in the dashboard URL (Storefront A's is noted in your local
 Use the Neon console's **SQL Editor**, not its Roles page: Neon adds roles created in the console, CLI
 or API to `neon_superuser`. Check the database first with `SELECT current_database();`, then run the same
 `CREATE ROLE`, `ALTER ROLE`, `GRANT CONNECT` (with that database's name), `GRANT USAGE` and
-`GRANT SELECT` statements as 2a, without the policies. RLS is off on these databases.
+`GRANT SELECT` statements as 2a. Where row-level security is off the policies change nothing, so the Getting started page always includes them.
 
 **Connection string.** Use the direct host from **Connect**, without `-pooler`:
 

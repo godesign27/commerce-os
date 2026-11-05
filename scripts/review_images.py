@@ -31,7 +31,7 @@ sys.path.insert(0, str(REPO))
 
 OUT = REPO / ".commerce-os" / "review"
 DEFAULT_SOURCE = REPO / "discovery" / "raw"
-IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".tif", ".tiff"}
+IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".tif", ".tiff"}
 PHOTO_PATTERN = re.compile(r"^IMG_\d+", re.I)
 DECISIONS = "decisions.json"
 THUMB_PX = 700

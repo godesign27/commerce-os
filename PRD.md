@@ -117,6 +117,8 @@ Resources include category templates, permitted vocabularies, storefront mapping
 
 ## 7. Event-driven Google Drive intake
 
+> Owner decision 2026-11-04: photos come in from a local folder first (BACKLOG B-066), and this section becomes a later enhancement (B-067). Source identity (§7.3) and the limits in §7.2 still apply to the local folder.
+
 ### 7.1 Submission contract
 
 Recommended MVP unit: one product folder containing its source images and an optional metadata manifest. A folder-to-storefront policy can suggest destinations; the reviewer confirms them. Do not assume all images uploaded near each other belong to one product.
