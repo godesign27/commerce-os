@@ -429,3 +429,37 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
   .next-step { align-items: stretch; flex-direction: column; } .next-text { flex: none; } .next-field { width: 100%; } .button-link { text-align: center; }
   .filter-row .filters { flex-wrap: wrap; }
 }
+
+/* The task bar (B-077): pinned to the bottom of the sheet, on every page, only while there's something to show. */
+.taskbar { position: sticky; bottom: 0.5rem; margin: 0 1.25rem 0.5rem; background: var(--panel); border: 1px solid var(--line);
+  border-left: 4px solid var(--accent); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.08); z-index: 5; }
+.taskbar.held { border-left-color: var(--warn); } .taskbar.done { border-left-color: var(--ok); } .taskbar.bad { border-left-color: var(--bad); }
+.taskbar-line { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.9rem; }
+.taskbar-summary { flex: 1; margin: 0; min-width: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
+.taskbar-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--accent); flex: none; }
+.taskbar.busy .taskbar-dot { animation: taskbar-pulse 1.2s ease-in-out infinite; }
+.taskbar.held .taskbar-dot { background: var(--warn); } .taskbar.done .taskbar-dot { background: var(--ok); } .taskbar.bad .taskbar-dot { background: var(--bad); }
+@keyframes taskbar-pulse { 50% { opacity: 0.25; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) { .taskbar.busy .taskbar-dot { animation: none; } }
+.taskbar-list { list-style: none; margin: 0; padding: 0 0.9rem 0.6rem; max-height: 40vh; overflow: auto; border-top: 1px solid var(--line); }
+.taskbar-list li { display: grid; grid-template-columns: 1.2rem minmax(0, 14rem) minmax(0, 1fr); gap: 0.6rem; align-items: baseline;
+  padding: 0.4rem 0; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+.taskbar-list li:last-child { border-bottom: none; }
+.taskbar-mark { text-align: center; font-weight: 600; color: var(--accent); }
+.taskbar-list li.done .taskbar-mark { color: var(--ok); } .taskbar-list li.bad .taskbar-mark, .taskbar-list li.bad .taskbar-stage { color: var(--bad); }
+.taskbar-list li.held .taskbar-mark, .taskbar-list li.held .taskbar-stage { color: var(--warn); }
+.taskbar-what { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taskbar-stage { color: var(--muted); display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.taskbar-stage progress { width: 8rem; accent-color: var(--accent); }
+@media (max-width: 760px) {
+  .taskbar { margin: 0 0.5rem 0.5rem; }
+  .taskbar-list li { grid-template-columns: 1.2rem minmax(0, 1fr); } .taskbar-stage { grid-column: 2; }
+}
+
+/* Usual pricing tiers on Getting started (B-078) */
+.ladder { padding: 0.5rem 0; border-top: 1px solid var(--line); }
+.ladder:first-of-type { border-top: none; }
+.ladder > label.inline { margin: 0; }
+.ladder-basis { margin: 0.1rem 0 0 1.6rem; }
+.ladder-tiers { margin: 0.3rem 0 0 1.6rem; padding: 0; list-style: none; columns: 2; column-gap: 1.5rem; }
+@media (max-width: 760px) { .ladder-tiers { columns: 1; } }

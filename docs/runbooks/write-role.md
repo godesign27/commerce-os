@@ -40,12 +40,16 @@ Don't grant anything else. Never give this role `BYPASSRLS`, and don't add it to
    and auto-confirm it.
 3. Copy the new user's **UID**.
 
-Then, in the **SQL Editor**, replace `<uid>` and the bucket if yours isn't `artwork`, and run this:
+Then, in the **SQL Editor**, put that UID in place of `<uid>` (keep the quotes around it), change the bucket if yours
+isn't `artwork`, and run this:
 
 ```sql
 CREATE POLICY commerce_os_upload ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'artwork' AND auth.uid() = '<uid>'::uuid AND (name LIKE 'uploads/%' OR name LIKE '_meta/uploads/%'));
 ```
+
+If it stops with `invalid input syntax for type uuid: "<uid>"`, the UID wasn't filled in: nothing was saved, so fill
+it in and run it again.
 
 This user can add images to those two folders. It can't read, replace or delete anything, and your store signs in
 with Clerk, so it gets no access to the store itself.

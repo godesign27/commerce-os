@@ -77,11 +77,12 @@ function MappingStep({ doc, act }: { doc: OnboardingDoc; act: Act }) {
   const [tiers, setTiers] = useState<string[]>(c.chosen.tier_types);
   const [typed, setTyped] = useState("");
   const [types, setTypes] = useState(c.chosen.product_types);
+  const [ladders, setLadders] = useState<string[]>(c.chosen.tier_ladders || []);
   const toggle = (list: string[], set: (x: string[]) => void, v: string) => set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const inUse = c.categories.filter((x) => cats.includes(x.ref));
   const tierOptions = useMemo(() => Array.from(new Set([...c.tier_types, ...tiers])), [c.tier_types, tiers]);
   return (
-    <form onSubmit={(e) => { e.preventDefault(); act(() => api.onboardingMapping({ categories: cats, tags, tier_types: tiers, product_types: types })); }}>
+    <form onSubmit={(e) => { e.preventDefault(); act(() => api.onboardingMapping({ categories: cats, tags, tier_types: tiers, product_types: types, tier_ladders: ladders })); }}>
       <p className="small">These are your store's own lists. Choose what Commerce OS may use.</p>
       <fieldset><legend>Categories</legend>
         {c.categories.map((x) => <label className="inline" key={x.ref}><input type="checkbox" checked={cats.includes(x.ref)} onChange={() => toggle(cats, setCats, x.ref)} /> {x.name}</label>)}
@@ -99,6 +100,21 @@ function MappingStep({ doc, act }: { doc: OnboardingDoc; act: Act }) {
             <button type="button" className="secondary" disabled={!typed.trim()} onClick={() => { setTiers([...tiers, typed.trim()]); setTyped(""); }}>Add</button>
           </div>)}
       </fieldset>
+      {c.tier_ladders.length > 0 && (
+        <fieldset><legend>Usual pricing tiers</legend>
+          <p className="muted small">Your store usually sells an original with these prints. Tick a size to add its tiers to
+            every new original that size. You'll see them in each listing's preview before you approve it.</p>
+          {c.tier_ladders.map((l) => (
+            <div key={l.size} className="ladder">
+              <label className="inline"><input type="checkbox" checked={ladders.includes(l.size)} onChange={() => toggle(ladders, setLadders, l.size)} />
+                {" "}<strong>{l.label} originals</strong></label>
+              <p className="ladder-basis muted small">Seen on {l.based_on} of your {l.of} originals this size</p>
+              <ul className="ladder-tiers small">
+                {l.tiers.map((t, i) => <li key={i}>{t.type}, {t.size}: {t.price.toLocaleString("en-US", { style: "currency", currency: "USD" })}
+                  {t.description ? ` (${t.description})` : ""}</li>)}
+              </ul>
+            </div>))}
+        </fieldset>)}
       <fieldset><legend>Where things go</legend>
         {c.product_types.map((t) => (
           <div key={t.id} className="row">

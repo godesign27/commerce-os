@@ -42,10 +42,19 @@ if [[ ! -f .venv/.installed ]] || [[ requirements.txt -nt .venv/.installed ]]; t
 fi
 dash=apps/review-dashboard
 if [[ ! -d $dash/node_modules ]] || [[ $dash/package-lock.json -nt $dash/node_modules/.package-lock.json ]]; then
-  echo "Setting up the dashboard…"; (cd "$dash" && npm ci --silent)
+  echo "Setting up the dashboard…"
+  if ! out=$(cd "$dash" && npm ci --silent 2>&1); then
+    echo "$out" | tail -20; echo "The dashboard's packages didn't install. Check your internet connection, then run ./start.sh again."; exit 1
+  fi
 fi
 if [[ ! -f $dash/dist/index.html ]] || [[ -n "$(find "$dash/src" "$dash/package-lock.json" -newer "$dash/dist/index.html" -print -quit)" ]]; then
-  echo "Building the dashboard…"; (cd "$dash" && npm run build --silent >/dev/null)
+  echo "Building the dashboard…"
+  if ! out=$(cd "$dash" && npm run build --silent 2>&1); then
+    echo "$out" | tail -20
+    echo "The dashboard didn't build. To reinstall its packages and try again, run:"
+    echo "  rm -rf $dash/node_modules && ./start.sh"
+    exit 1
+  fi
 fi
 
 URL="http://127.0.0.1:$PORT/"

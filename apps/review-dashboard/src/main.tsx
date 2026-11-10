@@ -11,6 +11,7 @@ import { Home } from "./pages/Home";
 import { Publish } from "./pages/Publish";
 import { Support } from "./pages/Support";
 import { NewPhotos } from "./components/NewPhotos";
+import { TaskBar } from "./components/TaskBar";
 import { Photos } from "./pages/Photos";
 import { PhotoDetailPage } from "./pages/PhotoDetail";
 import { Rooms } from "./pages/Rooms";
@@ -115,6 +116,7 @@ function App() {
         {state.onboarding.complete && !state.key_configured && <div className="banner">There's no Claude API key, so drafting is off. <a href="#/start">Add one →</a></div>}
         <div className="sheet">
           {page}
+          <TaskBar onSettled={() => { refresh(); setTick((t) => t + 1); }} />
           <footer className="foot">{state.publish_target === "live" ? "Runs on this computer only (127.0.0.1). Publishing adds Drafts to your live store; shoppers see nothing until you set a product to Active." : "Local only (127.0.0.1). Publishing reaches only a local test store; your real store can't be changed from here."}</footer>
         </div>
       </div>

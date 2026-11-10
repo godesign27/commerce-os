@@ -87,7 +87,7 @@ class NoRealNames(unittest.TestCase):
         hits = []
         for p in repo_files():
             rel = str(p.relative_to(REPO))
-            if rel.startswith(ignored) or ".local." in p.name:
+            if rel.startswith(ignored) or ".local." in p.name or p.name == ".env":    # .env is git-ignored and holds real logins
                 continue
             try:
                 text = read(p).lower()

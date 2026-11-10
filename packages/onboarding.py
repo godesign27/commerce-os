@@ -243,13 +243,16 @@ def _merge(live: List[dict], chosen: List[str], old: List[dict], kind: str) -> L
         entry["id"] = dict(entry.get("id") or {}, **{ENVIRONMENT: r["id"]})
         entry["slug"] = r["slug"]
         entry["status"] = "in_scope" if ref in chosen else "excluded"
+        if kind == "tags":
+            entry.setdefault("kind", "descriptive")     # a tag new in the store; the owner can mark it `type` by hand
         out.append(entry)
     return out + [o for o in old if id(o) not in used]       # entries the store doesn't list stay as they were
 
 
 def build_mapping(storefront: str, snapshot: dict, choices: dict, old: Optional[dict], today: str) -> dict:
     """The mapping, from the store's real lists and the owner's choices. Ids come only from the store."""
-    if not isinstance(choices, dict) or set(choices) != {"categories", "tags", "tier_types", "product_types"}:
+    if not isinstance(choices, dict) or not {"categories", "tags", "tier_types", "product_types"} <= set(choices) <= {
+            "categories", "tags", "tier_types", "product_types", "tier_ladders"}:
         raise SetupError("Send categories, tags, tier_types and product_types.")
     old = old or {}
     chosen = choices["categories"]
@@ -277,11 +280,19 @@ def build_mapping(storefront: str, snapshot: dict, choices: dict, old: Optional[
                 raise SetupError(f"{ptype}'s other category isn't one you've chosen.")
             row["alternative_categories"] = [by_ref[alternative]]
         types[ptype] = row
+    ladders = old.get("tier_ladders") or {}
+    if "tier_ladders" in choices:              # the owner's ticks: only ladders the store itself proposed (B-078)
+        proposed = {p["size"]: p for p in snapshot.get("tier_ladders") or []}
+        picked_sizes = choices["tier_ladders"] if isinstance(choices["tier_ladders"], list) else None
+        if picked_sizes is None or [s for s in picked_sizes if s not in proposed]:
+            raise SetupError("Those pricing tiers aren't ones the store showed. Check the store again.")
+        ladders = {s: {"tiers": proposed[s]["tiers"], "original_stock": proposed[s].get("original_stock"),
+                       "based_on": proposed[s]["based_on"], "confirmed": today} for s in picked_sizes}
     version = int(old.get("version") or 0) + 1
     changes = list(old.get("changes") or []) + [{"version": version, "date": today, "by": "owner, on the Getting started page",
                                                   "summary": "Chosen from the store's own lists."}]
     return {"storefront": storefront, "version": version, "environments": [ENVIRONMENT], "changes": changes,
-            "tier_types": tiers, "categories": categories,
+            "tier_types": tiers, "tier_ladders": ladders, "categories": categories,
             "tags": _merge(snapshot["tags"], choices["tags"], old.get("tags", []), "tags"), "product_types": types}
 
 

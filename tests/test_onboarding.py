@@ -179,6 +179,13 @@ class Mapping(unittest.TestCase):
                          {"originals": "in_scope", "prints": "in_scope", "journal": "excluded"})
         self.assertEqual({t["key"]: t["status"] for t in m["tags"]}, {"bold": "in_scope", "calm": "excluded"})
 
+    def test_every_tag_has_a_kind_and_a_set_one_is_kept(self):
+        m = self.build()
+        self.assertEqual({t["key"]: t.get("kind") for t in m["tags"]}, {"bold": "descriptive", "calm": "descriptive"})
+        m["tags"][0]["kind"] = "type"
+        self.assertEqual(self.build(old=m)["tags"][0]["kind"], "type")
+        self.assertNotIn("kind", self.build()["categories"][0])
+
     def test_it_is_refused_when_incomplete_or_invented(self):
         for bad in ({"categories": []}, {"categories": ["made-up"]}, {"tags": ["made-up"]}, {"tier_types": []},
                     {"tier_types": ["Made Up"]}, {"product_types": {}},

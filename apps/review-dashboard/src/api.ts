@@ -45,6 +45,15 @@ export interface QueueRow {
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
 }
+// The task bar on every page (B-077): what's being processed now, and what finished in the last few minutes.
+export interface ActivityJob { id: string; label: string; running: boolean; done: number; total: number; error: string | null }
+export interface ActivityPublish {
+  id: string; title: string; state: string; stage: string; at: string; active: boolean; detail: string | null;
+}
+export interface Activity {
+  jobs: ActivityJob[]; publishing: ActivityPublish[]; target: string; live: boolean; active: boolean;
+  worker: { running: boolean; ok: boolean; reason: string | null }; kill_switch: { on: boolean };
+}
 export interface PublishQueue {
   available: boolean; reason?: string; target: string; live: boolean; display_name: string; kill_switch: KillSwitch; worker: WorkerStatus;
   ready: QueueRow[]; working: QueueRow[]; problems: QueueRow[]; waiting: QueueRow[]; published: QueueRow[]; not_drafted: number;
@@ -88,9 +97,15 @@ export interface OnboardingDoc extends Steps {
   choices: {
     categories: Array<{ ref: string; name: string }>; tags: Array<{ ref: string; name: string }>; tier_types: string[];
     product_types: Array<{ id: string; label: string }>;
-    chosen: { categories: string[]; tags: string[]; tier_types: string[];
+    tier_ladders: TierLadder[];
+    chosen: { categories: string[]; tags: string[]; tier_types: string[]; tier_ladders: string[];
               product_types: Record<string, { category: string | null; alternative: string | null }> };
   } | null;
+}
+// The tiers an original of one size usually sells with, as the store has them (B-078). Used only once confirmed.
+export interface TierLadder {
+  size: string; label: string; based_on: number; of: number; original_stock: number | null;
+  tiers: Array<{ type: string; size: string; price: number; description: string; stock: number | null }>;
 }
 export interface InboxStatus { new: number; waiting: number; folder: string }
 export interface HomeDoc {
@@ -209,8 +224,10 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error((data as { error?: string }).error || `${res.status}`);
+  if (method !== "GET") window.dispatchEvent(new Event(ACTIVITY_EVENT));   // the task bar looks now, not at its next tick
   return data as T;
 }
+export const ACTIVITY_EVENT = "commerce-os:activity";
 
 export interface NameSize { id: string; source: string; size: string; image?: string }   // a size read from the file name
 export const api = {
@@ -246,6 +263,7 @@ export const api = {
     call<Photo>("PUT", `/api/photos/${id}`, body),
   applyPhotos: () => call<{ job: string }>("POST", "/api/photos/apply"),
   publish: (id: string, change_set_hash: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish`, { change_set_hash }),
+  activity: () => call<Activity>("GET", "/api/activity"),
   publishQueue: () => call<PublishQueue>("GET", "/api/publishing/queue"),
   publishMany: (items: Array<{ id: string; change_set_hash: string }>) =>
     call<{ results: Array<{ id: string; ok: boolean; error?: string }>; queue: PublishQueue }>("POST", "/api/publishing/publish", { items }),
