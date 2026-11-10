@@ -242,6 +242,18 @@ class Live(unittest.TestCase):
         self.assertEqual(done["report"]["verified_state"], pub.SUCCEEDED)
         self.assertTrue(done["receipt_id"])
 
+    def test_a_confirmed_ladder_goes_in_and_reads_back(self):
+        from tests.test_tier_ladders import LADDER
+        (self.dir / "mapping.json").write_text(json.dumps(dict(MAPPING, tier_ladders={"16x20": LADDER})))
+        self.app._mapping = None
+        self.app._reset_store()
+        self.queue()
+        self.assertEqual(self.worker.run_once(), 1)
+        self.assertEqual(self.state(), pub.SUCCEEDED, self.app.pubs.events("fox"))
+        tiers = self.sql("SELECT pricing_tiers FROM public.products")[0][0]
+        self.assertEqual([(t["type"], t["price"], t.get("stock")) for t in tiers],
+                         [("Original", 450, 1), ("Print", 185, 100), ("Canvas Print", 300, 100)])
+
     def test_images_go_first_and_are_the_approved_bytes(self):
         self.queue()
         self.worker.run_once()

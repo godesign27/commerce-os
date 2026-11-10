@@ -20,6 +20,7 @@ import os
 import re
 import sys
 import threading
+import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -526,6 +527,44 @@ class App:
             doc[section].append(row)
         return doc
 
+    # What the task bar says about each step the worker records (B-077). A publish moves down this list.
+    STAGES = {"queued": "Waiting for the publisher", "gate4_passed": "Final check passed", "writing": "Sending images",
+              "images_delivered": "Adding it to the store", "published": "In the store as a Draft",
+              "gate4_refused": "Didn't go in", "failed": "Didn't go in", "outcome_unknown": "Not sure it went in"}
+    RECENT_SECONDS = 600            # a finished job or publish stays on the bar this long
+
+    def activity(self) -> dict:
+        """What's being processed right now, for the task bar on every page. It reads; it changes nothing."""
+        now = time.time()
+        jobs = [{k: j.get(k) for k in ("label", "running", "done", "total", "error")} | {"id": jid}
+                for jid, j in list(self.jobs.items())
+                if j["running"] or now - (j.get("finished_at") or 0) <= self.RECENT_SECONDS]
+        worker, switch = self.pubs.worker(), self.pubs.kill_switch()
+        publishing_rows = []
+        for item in self.pubs.items():
+            events = self.pubs.events(item)
+            last = next((e for e in reversed(events) if e.get("state")), None)
+            if not last:
+                continue
+            active = last["state"] in (publishing.QUEUED, publishing.WRITING)
+            if not active and publishing._seconds_since(last["at"]) > self.RECENT_SECONDS:
+                continue
+            step = events[-1]
+            stage = self.STAGES.get(step["event"], step["event"].replace("_", " ").capitalize())
+            if step["event"] == "queued" and switch["on"]:
+                stage = "Held: writing is switched off"
+            elif step["event"] == "queued" and not worker["running"]:
+                stage = "Held: the publisher isn't running"
+            elif step["event"] == "queued" and not worker["ok"]:
+                stage = "Held: " + (worker["reason"] or "the publisher hit a problem")
+            title = (self.store.effective(item) or {}).get("title") or item
+            publishing_rows.append({"id": item, "title": title, "state": last["state"], "stage": stage, "at": step["at"],
+                                    "active": active, "detail": "; ".join(last.get("reasons") or []) or last.get("why")})
+        publishing_rows.sort(key=lambda r: (not r["active"], r["at"]))
+        return {"jobs": jobs, "publishing": publishing_rows, "target": self._target(), "live": self._live(),
+                "worker": worker, "kill_switch": switch,
+                "active": any(j["running"] for j in jobs) or any(r["active"] for r in publishing_rows)}
+
     def publish_many(self, body: dict) -> dict:
         """Ask for several at once. Each names the version the owner saw and passes the same checks as one alone, and
         one refused doesn't stop the rest."""
@@ -673,10 +712,12 @@ class App:
                 "categories": [{"ref": ref(r), "name": r["name"]} for r in snap["categories"]],
                 "tags": [{"ref": ref(r), "name": r["name"]} for r in snap["tags"]],
                 "tier_types": snap.get("tier_types") or [],
+                "tier_ladders": snap.get("tier_ladders") or [],
                 "product_types": onboarding.product_types(entry.get("site_kind")),
                 "chosen": {"categories": in_scope(snap["categories"], mapping.get("categories", [])),
                            "tags": in_scope(snap["tags"], mapping.get("tags", [])),
-                           "tier_types": mapping.get("tier_types", []), "product_types": self._chosen_types(mapping)}}
+                           "tier_types": mapping.get("tier_types", []), "product_types": self._chosen_types(mapping),
+                           "tier_ladders": sorted(mapping.get("tier_ladders") or {})}}
         return doc
 
     @staticmethod
@@ -1252,6 +1293,7 @@ class App:
             except Exception as e:                # report, don't crash the server
                 job["error"] = f"{type(e).__name__}: {e}"
             finally:
+                job["finished_at"] = time.time()
                 job["running"] = False
         threading.Thread(target=run, daemon=True).start()
         return {"job": jid}
@@ -1343,6 +1385,8 @@ def _pending(app, m, body): return app.draft_pending(int(body.get("limit", 5)))
 def _publish(app, m, body): return app.publish(m.group(1), body)
 @route("POST", r"/api/items/([\w.-]+)/publish/recheck")
 def _publish_recheck(app, m, body): return app.publish_recheck(m.group(1))
+@route("GET", "/api/activity")
+def _activity(app, m, body): return app.activity()
 @route("GET", "/api/publishing/queue")
 def _publish_queue(app, m, body): return app.publish_queue()
 @route("POST", "/api/publishing/publish")

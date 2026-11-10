@@ -406,6 +406,13 @@ class Wiring(unittest.TestCase):
         self.assertIn("WITH CHECK (status = 'draft')", book)
         self.assertIn("scripts/go_live.py storefront-a --on", book)
 
+    def test_the_upload_rule_says_what_an_unfilled_uid_looks_like(self):
+        # The owner ran the rule with <uid> still in it; the runbook must name that error and say nothing was saved.
+        book = read(REPO / "docs/runbooks/write-role.md")
+        self.assertIn("auth.uid() = '<uid>'::uuid AND (name LIKE 'uploads/%'", runbook_sql("CREATE POLICY commerce_os_upload"))
+        self.assertIn('invalid input syntax for type uuid: "<uid>"', book)
+        self.assertIn("DROP POLICY commerce_os_upload ON storage.objects;", book)
+
 
 class Support(unittest.TestCase):
     PAGE = "apps/review-dashboard/src/pages/Support.tsx"

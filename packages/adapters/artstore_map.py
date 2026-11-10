@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
+from packages.adapters import tier_ladders
 from packages.adapters.contract import canonical_json, change_set_hash, sha256_hex
 from packages.adapters.fake import FakeStorefront, seal
 
@@ -200,11 +201,22 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
         fields["price"] = {"value": money(price, store.currency), "status": "supplied"}
     else:
         issues.add("product.price", "What does it sell for? Supply the price under About this piece.")
+    not_touched = list(NOT_TOUCHED)
     if price and sold_as:
         tier = {"id": _tier_id(key), "type": sold_as, "price": _number(price), "description": ""}
         if size:
             tier["size"] = size
-        fields["pricing_tiers"] = {"value": [tier], "status": "supplied"}
+        value = [tier]
+        ladder = tier_ladders.ladder_for(mapping, size) if sold_as == ORIGINAL else None
+        if ladder:                                       # the owner confirmed this size's usual tiers (B-078)
+            if ladder.get("original_stock") is not None:
+                tier["stock"] = ladder["original_stock"]
+            value += [dict({"id": _tier_id(f"{key}-{i}"), "type": x["type"], "price": x["price"],
+                            "description": x.get("description") or "", "size": x["size"]},
+                           **({"stock": x["stock"]} if x.get("stock") is not None else {}))
+                      for i, x in enumerate(ladder["tiers"], 1)]
+            not_touched.remove("pricing_tiers[].stock")
+        fields["pricing_tiers"] = {"value": value, "status": "supplied"}
     if sold_as:
         fields["is_original"] = {"value": sold_as == ORIGINAL, "status": "supplied"}
 
@@ -249,7 +261,7 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
                         "precondition": {"must_not_exist": True}, "fields": fields}],
         "assets": [{"derivative_id": a["derivative_id"], "destination_key": a["destination_key"], "delivered": False}
                    for a in planned],
-        "not_touched": list(NOT_TOUCHED),
+        "not_touched": not_touched,
         "blockers": issues.items,
         "change_set_hash": None,
         "simulated": simulated,

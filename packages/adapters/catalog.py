@@ -18,6 +18,7 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from packages.adapters import tier_ladders
 from packages.adapters.artstore_map import ORIGINAL, slugify
 
 ALLOWED = ("products", "categories", "tags")
@@ -71,11 +72,13 @@ def read_snapshot(pg, storefront: str, now: str) -> dict:
             "products": pg.rows(f"SELECT {', '.join(PRODUCT_COLUMNS)} FROM public.products ORDER BY id"),
             "categories": pg.rows(f"SELECT {', '.join(LIST_COLUMNS)} FROM public.categories ORDER BY name"),
             "tags": pg.rows(f"SELECT {', '.join(LIST_COLUMNS)} FROM public.tags ORDER BY name"),
-            "tier_types": read_tier_types(pg)}
+            "tier_types": read_tier_types(pg),
+            "tier_ladders": tier_ladders.propose(tier_ladders.read(pg))}
 
 
 def read_tier_types(pg) -> List[str]:
-    """How the store sells things, as names only: never a tier's price."""
+    """How the store sells things, as names only. Prices are read only for the usual ladders (tier_ladders.py),
+    which are proposals the owner must confirm before any of them is used."""
     rows = pg.rows("SELECT DISTINCT t->>'type' AS type FROM public.products p, jsonb_array_elements(p.pricing_tiers) t "
                    "WHERE jsonb_typeof(p.pricing_tiers) = 'array' AND t->>'type' IS NOT NULL")
     return sorted(r["type"] for r in rows)
