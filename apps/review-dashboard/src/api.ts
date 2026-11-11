@@ -171,13 +171,14 @@ export interface PhotoDetail extends Photo {
   photo_size?: [number, number]; photo_preview_size?: [number, number]; cropped?: string; original?: string;
   art_size?: [number, number];
   detected: { corners: Pt[] | null; method: string | null; ok: boolean | null; reasons: string[] };
-  corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number };
+  corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number; mat: boolean }; mat: boolean;
   prev: string | null; next: string | null; listing_title: string | null;
   dimensions: string | null; facts: { edition?: string; medium?: string; dimensions?: string; price?: string; sold_as?: string }; series: string;
   room: RoomView | null; room_options: RoomOption[]; size_from_name: string | null; tier_types: string[];
 }
 export interface RoomOption { id: string; name: string; status: RoomStatus; image: string; preview: string | null }
-export interface RoomView { room: string; name: string; auto: boolean; unavailable: string | null; image: string | null; stale: boolean; guessed: boolean; fitted: boolean; overflows: boolean; frame_cm: [number, number] | null; fits_elsewhere: string[] }
+export interface RoomView { room: string; name: string; auto: boolean; unavailable: string | null; image: string | null; stale: boolean; guessed: boolean; fitted: boolean; overflows: boolean; frame_cm: [number, number] | null; fits_elsewhere: string[];
+  scale: number; moved: boolean; corners: [number, number][] | null }
 export type RoomStatus = "ready" | "needs-licence" | "needs-wall" | "off";
 export interface Room {
   id: string; name: string; file: string; image: string; preview: string | null; size: [number, number];
@@ -248,6 +249,7 @@ export const api = {
     call<StorefrontPreview>("POST", `/api/items/${id}/storefront/approve`, { change_set_hash, status }),
   addMeaning: (id: string, body: { scope: string; subject: string; meaning: string; series?: string }) =>
     call<BrandContext>("POST", `/api/items/${id}/meaning`, body),
+  draftSelected: (ids: string[]) => call<{ job: string }>("POST", "/api/draft-selected", { ids }),
   draftPending: (limit: number) => call<{ job: string }>("POST", "/api/draft-pending", { limit }),
   job: (id: string) => call<Job>("GET", `/api/jobs/${id}`),
   brand: () => call<{ context: BrandContext | null; history: Array<{ version: number; updated_at: string; updated_by: string }>; storefront: Record<string, unknown> }>("GET", "/api/brand"),
@@ -259,7 +261,7 @@ export const api = {
   distil: () => call<{ job: string }>("POST", "/api/learning/distil"),
   photos: () => call<PhotosDoc>("GET", "/api/photos"),
   photo: (id: string) => call<PhotoDetail>("GET", `/api/photos/${id}`),
-  decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null }) =>
+  decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null; mat?: boolean }) =>
     call<Photo>("PUT", `/api/photos/${id}`, body),
   applyPhotos: () => call<{ job: string }>("POST", "/api/photos/apply"),
   publish: (id: string, change_set_hash: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish`, { change_set_hash }),
@@ -282,7 +284,8 @@ export const api = {
   answerMatch: (id: string, product_id: string, answer: "same" | "different" | null) =>
     call<StorefrontPreview>("PUT", `/api/items/${id}/catalog-match`, { product_id, answer }),
   // {} hangs the piece in its room; {room} chooses that room first; {room: null} goes back to the automatic pick.
-  photoRoom: (id: string, body: { room?: string | null } = {}) => call<PhotoDetail>("POST", `/api/photos/${id}/room`, body),
+  // {scale} sizes it by hand in its room (null: real size); {centre} moves where art hangs in that room, for every piece.
+  photoRoom: (id: string, body: { room?: string | null; scale?: number | null; centre?: [number, number] | null } = {}) => call<PhotoDetail>("POST", `/api/photos/${id}/room`, body),
   rooms: () => call<RoomsDoc>("GET", "/api/rooms"),
   room: (id: string) => call<Room>("GET", `/api/rooms/${id}`),
   saveRoom: (id: string, body: RoomChanges) => call<Room>("PUT", `/api/rooms/${id}`, body),

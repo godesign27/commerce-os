@@ -1036,15 +1036,18 @@ class App:
             raise ApiError(400, "no framed piece to preview with yet")
         art = Path(it["art_file"])
         rooms.render_view(r, self.rooms_root, art if art.is_absolute() else REPO / art, self._dimensions(it["id"]),
-                          self.rooms_root / "previews" / f"{room_id}.jpg")
+                          self.rooms_root / "previews" / f"{room_id}.jpg", recipe_id=rooms.recipe_of(it))
         return dict(self.room(room_id), preview_piece=it["id"])
 
     def photo_room(self, item_id: str, body: dict) -> dict:
         """Hang a piece in its room. {"room": id} chooses that room first; {"room": null} goes back to the
-        automatic pick. Only a ready room can be chosen."""
+        automatic pick. Only a ready room can be chosen. {"scale": n | null} sizes this piece by hand in its
+        room (null: its real size); {"centre": [x, y] | null} moves where art hangs in that room, for every
+        piece (x and y are shares of the view; null: the middle of the wall)."""
         it = self.item(item_id)
-        if not isinstance(body, dict) or set(body) - {"room"}:
-            raise ApiError(400, 'send {} to hang it, or {"room": "room-…" | null} to change its room')
+        if not isinstance(body, dict) or set(body) - {"room", "scale", "centre"} or ("room" in body and len(body) > 1):
+            raise ApiError(400, 'send {} to hang it, {"room": "room-…" | null} to change its room, or '
+                                '{"scale": …, "centre": …} to size and place it')
         if not it.get("art_file"):
             raise ApiError(400, "this piece isn't cropped and framed yet")
         with _ROOMS_LOCK:
@@ -1063,6 +1066,18 @@ class App:
             if not room:
                 raise ApiError(400, "no room is ready yet: set one up on the Rooms page")
             try:
+                if "scale" in body:
+                    rooms.save_size(self.out, item_id, room["id"], body["scale"])
+                if "centre" in body:
+                    at = body["centre"]
+                    if at is not None and not (isinstance(at, list) and len(at) == 2 and all(
+                            isinstance(n, (int, float)) and not isinstance(n, bool) and 0 <= n <= 1 for n in at)):
+                        raise ValueError("centre is [x, y], each between 0 and 1, or null")
+                    hang = None if at is None else rooms.centre_on_wall(room, at)
+                    if hang != room.get("hang"):
+                        room = rooms.update(room, {"hang": hang})
+                        lib["rooms"] = [room if r["id"] == room["id"] else r for r in lib["rooms"]]
+                        rooms.save(lib, self.rooms_root)
                 rooms.render_item(it, lib, self.rooms_root, self.out, dims, [room])
             except ValueError as e:
                 raise ApiError(400, str(e))
@@ -1095,9 +1110,11 @@ class App:
         as the image review page. Saving corners marks the photo corrected ("fix"); null corners go back to
         the outline the crop found."""
         it = self.item(item_id)
-        if not isinstance(body, dict) or not body or set(body) - {"decision", "rotate", "note", "corners"}:
+        if not isinstance(body, dict) or not body or set(body) - {"decision", "rotate", "note", "corners", "mat"}:
             raise ApiError(400, 'send any of {"decision": "accept"|"reject"|null, "rotate": 0|90|180|270, '
-                                '"corners": [[x, y] ×4] | null, "note": "…"}')
+                                '"corners": [[x, y] ×4] | null, "mat": true|false, "note": "…"}')
+        if "mat" in body and not isinstance(body["mat"], bool):
+            raise ApiError(400, "mat is true (a white mat) or false (the frame against the artwork)")
         if "decision" in body and body["decision"] not in ("accept", "reject", None):
             raise ApiError(400, "decision is accept, reject or null (save corners to mark a photo corrected)")
         if "corners" in body:
@@ -1114,6 +1131,10 @@ class App:
             for k in ("decision", "rotate", "note"):
                 if k in body:
                     entry[k] = body[k]
+            if body.get("mat") is True:
+                entry.pop("mat", None)
+            elif body.get("mat") is False:
+                entry["mat"] = False
             if "corners" in body:
                 if body["corners"] is None:
                     entry.pop("corners", None)
@@ -1133,7 +1154,7 @@ class App:
         return next(r for r in self.photos()["photos"] if r["id"] == item_id)
 
     def apply_photos(self) -> dict:
-        """Re-crop and re-frame every photo whose corners or rotation changed, as a background job."""
+        """Re-crop and re-frame every photo whose corners, rotation or mat changed, as a background job."""
         ids = ri.pending(self.decisions(), self.items())
         if not ids:
             raise ApiError(400, "nothing to apply")
@@ -1330,6 +1351,19 @@ class App:
                and not listings.get(it["id"], {}).get("approved") and not self.store.draft(it["id"])]
         return self.draft(ids[:max(1, min(limit, 60))], f"Draft {min(len(ids), limit)} new piece(s)")
 
+    def draft_selected(self, body: dict) -> dict:
+        """Draft the pieces the owner ticked on the Listings page (B-081). Only pieces not drafted yet."""
+        ids = body.get("ids") if isinstance(body, dict) else None
+        if not isinstance(ids, list) or not ids or len(ids) > 60 or not all(isinstance(i, str) for i in ids):
+            raise ApiError(400, 'send {"ids": ["…"]}: between 1 and 60 pieces')
+        ids = list(dict.fromkeys(ids))
+        decisions, known = self.decisions(), {it["id"]: it for it in self.items()}
+        bad = [i for i in ids if i not in known or not known[i].get("art_file")
+               or decisions.get(i, {}).get("decision") == "reject" or self.store.draft(i)]
+        if bad:
+            raise ApiError(400, "these can't be drafted from here (already drafted, rejected or not framed): " + ", ".join(bad))
+        return self.draft(ids, f"Draft {len(ids)} selected piece(s)")
+
     def distil(self) -> dict:
         client = self._client()
 
@@ -1379,6 +1413,8 @@ def _storefront_approve(app, m, body): return app.approve_storefront(m.group(1),
 def _unlock(app, m, body): return app.unlock(m.group(1))
 @route("POST", r"/api/items/([\w.-]+)/meaning")
 def _meaning(app, m, body): return app.add_meaning(m.group(1), body)
+@route("POST", "/api/draft-selected")
+def _draft_selected(app, m, body): return app.draft_selected(body)
 @route("POST", "/api/draft-pending")
 def _pending(app, m, body): return app.draft_pending(int(body.get("limit", 5)))
 @route("POST", r"/api/items/([\w.-]+)/publish")

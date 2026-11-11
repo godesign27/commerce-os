@@ -216,6 +216,8 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
                            **({"stock": x["stock"]} if x.get("stock") is not None else {}))
                       for i, x in enumerate(ladder["tiers"], 1)]
             not_touched.remove("pricing_tiers[].stock")
+        for t in value:                                  # the store won't save a product with a blank tier description
+            t["description"] = tier_ladders.describe(t)
         fields["pricing_tiers"] = {"value": value, "status": "supplied"}
     if sold_as:
         fields["is_original"] = {"value": sold_as == ORIGINAL, "status": "supplied"}

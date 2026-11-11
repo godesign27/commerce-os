@@ -431,12 +431,22 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 }
 
 /* The task bar (B-077): pinned to the bottom of the sheet, on every page, only while there's something to show. */
-.taskbar { position: sticky; bottom: 0.5rem; margin: 0 1.25rem 0.5rem; background: var(--panel); border: 1px solid var(--line);
-  border-left: 4px solid var(--accent); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.08); z-index: 5; }
+/* The bar is the page's opposite (dark on the light theme, light on the dark one) so it can't be missed (B-077).
+   It sets its own colours, so the dot, links and stages inside it stay readable on it. */
+.taskbar { --tb-bg: #1c2326; --ink: #f4f4f1; --muted: #b9bdbd; --line: #3a4245; --accent: #8fd3e3; --ok: #86d9a9; --warn: #f2b86e; --bad: #f7a29a;
+  position: sticky; bottom: 0.5rem; margin: 0 1.25rem 0.5rem; background: var(--tb-bg); color: var(--ink); border: 1px solid var(--tb-bg);
+  border-left: 6px solid var(--accent); border-radius: 10px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.28); z-index: 5; }
+@media (prefers-color-scheme: dark) {
+  .taskbar { --tb-bg: #f4f4f1; --ink: #17181a; --muted: #4f5254; --line: #d6d5d0; --accent: #1b6c80; --ok: #1e7b4f; --warn: #92400e; --bad: #b3261e;
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.6); }
+}
+.taskbar .taskbar-summary { font-weight: 600; font-size: 0.95rem; }
+.taskbar button.link, .taskbar a { color: var(--accent); font-weight: 600; }
+.taskbar :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .taskbar.held { border-left-color: var(--warn); } .taskbar.done { border-left-color: var(--ok); } .taskbar.bad { border-left-color: var(--bad); }
 .taskbar-line { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.9rem; }
 .taskbar-summary { flex: 1; margin: 0; min-width: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
-.taskbar-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--accent); flex: none; }
+.taskbar-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--accent); flex: none; }
 .taskbar.busy .taskbar-dot { animation: taskbar-pulse 1.2s ease-in-out infinite; }
 .taskbar.held .taskbar-dot { background: var(--warn); } .taskbar.done .taskbar-dot { background: var(--ok); } .taskbar.bad .taskbar-dot { background: var(--bad); }
 @keyframes taskbar-pulse { 50% { opacity: 0.25; transform: scale(0.8); } }
@@ -463,3 +473,17 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 .ladder-basis { margin: 0.1rem 0 0 1.6rem; }
 .ladder-tiers { margin: 0.3rem 0 0 1.6rem; padding: 0; list-style: none; columns: 2; column-gap: 1.5rem; }
 @media (max-width: 760px) { .ladder-tiers { columns: 1; } }
+.room-adjust-stage { position: relative; touch-action: none; user-select: none; overflow: hidden; border-radius: var(--radius); }
+.room-adjust-stage img { width: 100%; display: block; border-radius: var(--radius); }
+.room-adjust-box { position: absolute; outline: 2px dashed #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 0 9999px rgba(0, 0, 0, 0.25); cursor: move; }
+.room-adjust-box:focus-visible { outline: 3px solid var(--accent, #2b7a8c); }
+.room-adjust-handle { position: absolute; right: -9px; bottom: -9px; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid rgba(0, 0, 0, 0.6); cursor: nwse-resize; }
+.room-adjust { display: grid; gap: 0.5rem; }
+.mat-switch { margin: 0.25rem 0 0.75rem; }
+.mat-switch p { margin: 0.1rem 0 0 1.6rem; }
+.pickable { position: relative; }
+.card-pick { position: absolute; top: 0.5rem; left: 0.5rem; z-index: 1; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+.card-pick input { width: 1.15rem; height: 1.15rem; margin: 0; cursor: pointer; }
+.card-pick.on { border-color: var(--accent); }
+.card.is-picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.draft-help { margin: -0.4rem 0 0.8rem; }

@@ -122,6 +122,7 @@ def photo_detail(item: dict, row: dict, decision: dict, neighbours: List[Optiona
         "detected": {"corners": crop.get("corners"), "method": crop.get("method"), "ok": crop.get("ok"),
                      "reasons": crop.get("reasons") or []},
         "corners": decision.get("corners"),
-        "applied": item.get("applied") or {"corners": None, "rotate": 0},
+        "applied": dict({"corners": None, "rotate": 0, "mat": True}, **(item.get("applied") or {})),
+        "mat": decision.get("mat", True),
         "prev": neighbours[0], "next": neighbours[1],
     })

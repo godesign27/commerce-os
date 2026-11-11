@@ -101,6 +101,19 @@ def propose(products: List[list], min_products: int = MIN_PRODUCTS) -> List[dict
     return out
 
 
+def describe(tier: dict) -> str:
+    """A tier's description, which the store requires on every tier: its own when it has one, otherwise its size and
+    type the way the store's admin suggests them (`30 × 30 in original`). A blank or the admin's placeholder counts
+    as none, or the store refuses to save the product the next time it's edited."""
+    own = _text(tier.get("description"))
+    if own and own.lower() != PLACEHOLDER:
+        return own
+    kind = _text(tier.get("type")) or "Piece"
+    key = size_key(tier.get("size"))
+    size = label(key) if key else _text(tier.get("size"))
+    return f"{size} {kind.lower()}" if size else kind
+
+
 def ladder_for(mapping: Optional[dict], dimensions) -> Optional[dict]:
     """The confirmed ladder for an original of this size, or None."""
     key = size_key(dimensions)

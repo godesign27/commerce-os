@@ -138,9 +138,11 @@ class Worker:
         handled = 0
         for item in self.pubs.in_state(UNKNOWN):
             if self.pubs.recheck_wanted(item):
+                self.pubs.beat(True)                   # still alive: a long batch mustn't look like a stopped worker
                 self.recheck(item)
                 handled += 1
         for item in self.pubs.in_state(QUEUED):
+            self.pubs.beat(True)
             self.publish(item)
             handled += 1
         return handled
