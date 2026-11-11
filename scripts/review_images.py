@@ -198,13 +198,14 @@ def process(source: Path, out: Path, corners=None, rotate: int = 0, mat: bool = 
 
 
 def pending(decisions: dict, items: list) -> set:
-    """Items whose saved corners, rotation or mat differ from what was last applied."""
+    """Items whose saved corners, rotation or mat differ from what was last applied, or whose frame is out of date."""
+    from packages.image_pipeline import framing
     out = set()
     for item in items:
         d = decisions.get(item["id"], {})
         applied = item.get("applied") or {"corners": None, "rotate": 0}
         if d.get("corners") != applied.get("corners") or d.get("rotate", 0) != applied.get("rotate", 0) \
-                or d.get("mat", True) != applied.get("mat", True):
+                or d.get("mat", True) != applied.get("mat", True) or framing.outdated(item.get("frame")):
             out.add(item["id"])
     return out
 

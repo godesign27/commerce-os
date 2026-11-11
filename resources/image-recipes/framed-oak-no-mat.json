@@ -1,9 +1,9 @@
 {
   "id": "framed-oak-no-mat",
-  "version": 1,
+  "version": 2,
   "status": "draft",
-  "display_name": "Framed listing image: thin oak frame against the artwork, no mat, soft shadow",
-  "purpose": "For work framed without a mat, such as canvases (B-080). Same frame, canvas and shadow as framed-oak-white-mat; the artwork is placed unchanged, so this derivative is not consequential.",
+  "display_name": "Framed listing image: thin oak floater frame with a narrow shadow gap around the artwork, no mat, soft shadow",
+  "purpose": "For work framed without a mat, such as canvases (B-080). Same frame, canvas and shadow as framed-oak-white-mat; the canvas floats in the frame with a narrow gap (B-084). The artwork is placed unchanged, so this derivative is not consequential.",
   "consequential": false,
   "measured_from": "Owner's framed portrait example, 1024 x 1536 (2026-10-27). Mat and frame ratios are relative to the artwork's displayed width.",
   "canvas": {
@@ -46,17 +46,17 @@
   },
   "mat": {
     "rgb": [
-      252,
-      251,
-      252
+      150,
+      138,
+      122
     ],
-    "side_ratio": 0,
-    "top_ratio": 0,
-    "bottom_ratio": 0,
-    "note": "No mat: the frame sits against the artwork (owner, 2026-11-10: canvases aren't matted).",
+    "side_ratio": 0.018,
+    "top_ratio": 0.018,
+    "bottom_ratio": 0.018,
+    "note": "No mat: a floater frame. The gap between the canvas and the oak is about 1.8% of the artwork's width, in a shadowed oak tone (owner's floater example, 2026-11-11).",
     "inner_shadow": {
-      "size_ratio": 0.012,
-      "opacity": 0
+      "size_ratio": 0.016,
+      "opacity": 0.45
     }
   },
   "frame": {

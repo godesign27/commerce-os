@@ -172,6 +172,7 @@ export interface PhotoDetail extends Photo {
   art_size?: [number, number];
   detected: { corners: Pt[] | null; method: string | null; ok: boolean | null; reasons: string[] };
   corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number; mat: boolean }; mat: boolean;
+  frame_outdated: boolean;   // framed with an older version of its frame recipe; applying reframes it
   prev: string | null; next: string | null; listing_title: string | null;
   dimensions: string | null; facts: { edition?: string; medium?: string; dimensions?: string; price?: string; sold_as?: string }; series: string;
   room: RoomView | null; room_options: RoomOption[]; size_from_name: string | null; tier_types: string[];

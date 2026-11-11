@@ -130,7 +130,8 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
             <div className="panel dirty">
               <strong>Saved, not applied yet.</strong>
               <p className="small muted">The crop and frame below still show the old {p.rotate !== p.applied.rotate ? "rotation"
-                : p.mat !== p.applied.mat ? "mat" : "corners"}.</p>
+                : p.mat !== p.applied.mat ? "mat"
+                : JSON.stringify(p.corners) !== JSON.stringify(p.applied.corners) ? "corners" : "frame"}.</p>
               <button disabled={!!job?.running} onClick={apply}>{job?.running ? `Applying ${job.done}/${job.total}…` : "Apply changes"}</button>
             </div>
           )}

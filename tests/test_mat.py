@@ -15,14 +15,33 @@ spec.loader.exec_module(ri)
 
 
 class Recipe(unittest.TestCase):
-    def test_no_mat_puts_the_frame_against_the_art_and_keeps_everything_else(self):
+    def test_no_mat_floats_the_art_in_the_frame_and_keeps_everything_else(self):
         mat, bare = framing.load_recipe(ri.MAT_RECIPE), framing.load_recipe(ri.NO_MAT_RECIPE)
         self.assertEqual(bare["id"], ri.NO_MAT_RECIPE)
         for k in ("canvas", "frame", "shadow", "output"):
             self.assertEqual(bare[k], mat[k], k)
         lay = framing.layout((400, 500), bare)
-        self.assertEqual(lay.opening, lay.art, "nothing between the frame and the artwork")
-        self.assertNotEqual(framing.layout((400, 500), mat).opening, framing.layout((400, 500), mat).art)
+        art_w = lay.art[2] - lay.art[0]
+        gaps = (lay.art[0] - lay.opening[0], lay.art[1] - lay.opening[1],
+                lay.opening[2] - lay.art[2], lay.opening[3] - lay.art[3])
+        for g in gaps:                                       # a narrow gap all round, like a floater frame (B-084)
+            self.assertTrue(0.01 * art_w <= g <= 0.03 * art_w, gaps)
+        m = framing.layout((400, 500), mat)
+        self.assertGreater(m.art[0] - m.opening[0], 4 * gaps[0], "much narrower than a mat")
+
+    def test_the_gap_is_a_shadow_not_a_mat(self):
+        gap, white = framing.load_recipe(ri.NO_MAT_RECIPE)["mat"], framing.load_recipe(ri.MAT_RECIPE)["mat"]
+        self.assertLess(sum(gap["rgb"]), sum(white["rgb"]) * 0.7, "darker than the white mat")
+        self.assertGreater(gap["inner_shadow"]["opacity"], 0)
+
+    def test_a_piece_framed_with_an_older_recipe_waits_to_be_applied(self):
+        v = framing.load_recipe(ri.NO_MAT_RECIPE)["version"]
+        old = {"id": "a", "frame": {"recipe": ri.NO_MAT_RECIPE, "recipe_version": v - 1}}
+        new = {"id": "b", "frame": {"recipe": ri.NO_MAT_RECIPE, "recipe_version": v}}
+        self.assertEqual(ri.pending({}, [old, new, {"id": "c"}, {"id": "d", "frame": {"recipe": "gone", "recipe_version": 1}}]),
+                         {"a"})
+        self.assertTrue(framing.outdated(old["frame"]))
+        self.assertFalse(framing.outdated(new["frame"]))
 
     def test_the_art_is_bigger_without_a_mat(self):
         a = framing.layout((400, 500), framing.load_recipe(ri.MAT_RECIPE)).art
@@ -75,7 +94,8 @@ class Rendering(unittest.TestCase):
         self.assertEqual(rooms.recipe_of({"frame": {"recipe": ri.NO_MAT_RECIPE}}), ri.NO_MAT_RECIPE)
         self.assertEqual(rooms.recipe_of({}), ri.MAT_RECIPE)
         piece, lay = rooms.framed_piece(self.src, ri.NO_MAT_RECIPE)
-        self.assertEqual(lay.opening, lay.art)
+        bare = framing.layout((400, 500), framing.load_recipe(ri.NO_MAT_RECIPE), lay.canvas[0])
+        self.assertEqual((lay.opening, lay.art), (bare.opening, bare.art), "the room view floats it the same way")
 
     def test_hanging_a_piece_uses_its_frame(self):
         from tests.test_rooms import ROOM

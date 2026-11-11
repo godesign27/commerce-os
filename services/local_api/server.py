@@ -312,8 +312,9 @@ class App:
         return bool(self.mapping()) and (known or bool(self.catalog.structure()))
 
     def _assets(self, it: dict):
-        """The listing images in order (framed, then the room view), each with its file's hash; and notes on
-        what's missing. A rejected photo has none."""
+        """The listing images in order (the room view, then the framed piece on its own), each with its file's hash;
+        and notes on what's missing. A rejected photo has none. The store shows the first image in its listings, so
+        the piece on a wall goes first (owner, 2026-11-11)."""
         assets, notes = [], []
         if self.decisions().get(it["id"], {}).get("decision") == "reject" or not it.get("framed"):
             return assets, notes
@@ -327,7 +328,7 @@ class App:
             view = rooms.room_view(it, rooms.load(self.rooms_root), self.out, self._dimensions(it["id"]))
             vh = artstore_map.file_hash(self.out / view["image"].split("?")[0]) if view and view.get("image") else None
             if vh and not view["stale"]:
-                assets.append({"derivative_id": f"drv-{it['id']}-room", "kind": "room", "sha256": vh,
+                assets.insert(0, {"derivative_id": f"drv-{it['id']}-room", "kind": "room", "sha256": vh,
                                "image": view["image"], "file": str(self.out / view["image"].split("?")[0])})
             else:
                 notes.append("No up-to-date room view: hang it in its room on the photo page to add one.")

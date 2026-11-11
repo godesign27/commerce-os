@@ -106,6 +106,18 @@ class Api(unittest.TestCase):
         self.assertTrue(owl["moved"] and owl["stale"], "the other piece in the room moves too, once it's hung again")
         self.assertFalse(self.app.photo_room("fox", {"centre": None})["room"]["moved"])
 
+    def test_the_store_gets_the_room_view_first(self):
+        from PIL import Image
+        (self.out / "img").mkdir()
+        Image.new("RGB", (300, 300), (250, 250, 250)).save(self.out / "img" / "fox.framed.png")
+        it = dict(self.app.item("fox"), framed="img/fox.framed.png")
+        self.assertEqual([a["kind"] for a in self.app._assets(it)[0]], ["framed"], "framed alone until it's hung")
+        self.app.photo_room("fox", {})
+        assets, notes = self.app._assets(it)
+        self.assertEqual([a["kind"] for a in assets], ["room", "framed"],
+                         "the store shows the first image in its listings, so the piece on a wall leads (B-083)")
+        self.assertEqual(notes, [])
+
     def test_bad_requests_change_nothing(self):
         for body in ({"scale": 9}, {"centre": [2, 0]}, {"centre": "middle"}, {"room": None, "scale": 2}):
             with self.assertRaises(self.srv.ApiError, msg=body) as e:
