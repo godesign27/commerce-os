@@ -115,7 +115,8 @@ def main(argv=None) -> int:
     for n, item in enumerate(todo, 1):
         try:
             record = service.draft_item(client, item, store=store, ctx=ctx, product_types=product_types,
-                                        tags=tags, model=args.model, learn=learn)
+                                        tags=tags, model=args.model, learn=learn,
+                                        reference=brand.reference_text(args.storefront))
         except listing.ModelError as e:
             failed.append((item["source"], str(e)))
             print(f"[{n:>3}] failed   {item['source']}: {e}")

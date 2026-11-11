@@ -30,7 +30,8 @@ def resolve_art(item: dict) -> Path:
 
 
 def draft_item(client, item: dict, *, store: Store, ctx: Optional[dict], product_types: dict, tags: list,
-               model: str = listing.MODEL, learn: Optional[learning.Learning] = None, call=None) -> dict:
+               model: str = listing.MODEL, learn: Optional[learning.Learning] = None, call=None,
+               reference: str = "") -> dict:
     """Draft `item` (a review-page item with `art_file`) and save it as the next revision."""
     learn = learn or learning.Learning()
     entry = store.listing(item["id"])
@@ -48,13 +49,14 @@ def draft_item(client, item: dict, *, store: Store, ctx: Optional[dict], product
     image, media = listing.encode_image(resolve_art(item))
     request = listing.build_request(image, media, product_types, tags, model, brand_ctx=ctx, meanings=meanings,
                                     facts=draft_facts(entry.get("facts")), note=entry.get("note", ""),
-                                    series=entry.get("series", ""), others=others, edit_pairs=pairs)
+                                    series=entry.get("series", ""), others=others, edit_pairs=pairs,
+                                    reference=reference)
     result = (call or listing.call_model)(client, request)
     revision = store.next_revision(item["id"])
     draft = listing.to_canonical_draft(result["output"], item_id=item["id"], file_id=f"file-{item['id']}",
                                        product_types=product_types, model=result["model"], store_tags=tags,
                                        brand_ctx=ctx, meanings=meanings, facts=draft_facts(entry.get("facts")),
-                                       others=others, revision=revision)
+                                       others=others, revision=revision, reference=reference)
     record = {
         "item": item["id"], "source": item["source"], "art_file": item["art_file"],
         "drafted_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),

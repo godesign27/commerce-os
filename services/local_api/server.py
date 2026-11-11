@@ -1460,7 +1460,8 @@ class App:
             for it in todo:
                 try:
                     rec = service.draft_item(client, it, store=self.store, ctx=ctx, product_types=product_types,
-                                             tags=tags, learn=self.learn, call=self.call)
+                                             tags=tags, learn=self.learn, call=self.call,
+                                             reference=brand.reference_text(self.storefront, self.brand_root))
                     job["cost_usd"] = round(job["cost_usd"] + rec["cost_usd"], 4)
                     job["results"].append({"id": it["id"], "title": rec["draft"]["product"]["title"]["value"]})
                 except listing.ModelError as e:

@@ -7,6 +7,11 @@ version and archives the previous one in `config/brand/history/`.
 
 Only humans change it. The model never writes a meaning or approves a lesson: lessons proposed by the
 learning loop arrive with status `proposed`, and only `approved` ones reach the prompt.
+
+A storefront may also have a creative reference (B-086): a Markdown document of the owner's, kept beside the
+brand context in gitignored `config/brand/<storefront>.reference.local.md`, on how to read, name and voice its
+work, with examples. Commerce OS only reads it; the owner edits it. It goes into the prompt with the brand
+context, below this request's own rules, and each draft records which version of it was followed.
 """
 import copy
 import datetime
@@ -98,13 +103,41 @@ def meanings_in_scope(ctx: dict, item_id: str, series: Optional[str] = None) -> 
     return out
 
 
+def reference_path(storefront: str, root: Path = BRAND_DIR) -> Path:
+    return Path(root) / f"{storefront}.reference.local.md"
+
+
+def reference_text(storefront: str, root: Path = BRAND_DIR) -> str:
+    """The storefront's creative reference, or "" when it has none."""
+    p = reference_path(storefront, root)
+    return p.read_text(encoding="utf-8").strip() if p.exists() else ""
+
+
+def reference_version(text: str) -> str:
+    """Which version of the creative reference a draft followed: the start of its content hash."""
+    import hashlib
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
 def standards_text() -> str:
     """The storefront-neutral craft, read from the listing-copy skill (one source for skill and service)."""
     return (SKILL_REFS / "writing-standards.md").read_text(encoding="utf-8")
 
 
-def render(ctx: Optional[dict]) -> str:
-    """The stable part of the brand context for the system prompt. Scoped meanings go in the user turn."""
+def render(ctx: Optional[dict], reference: str = "") -> str:
+    """The stable part of the brand context for the system prompt, with the storefront's creative reference when
+    it has one. Scoped meanings go in the user turn."""
+    return _render(ctx) + (_render_reference(reference) if reference else "")
+
+
+def _render_reference(reference: str) -> str:
+    return ("\n\nTHE OWNER'S CREATIVE REFERENCE (their own document; use it for how to read, name and voice the work. "
+            "This request's output format, evidence rules, lengths and rubric come first. Its example titles, "
+            "phrases and readings belong to those works only: never reuse them, and never treat a meaning it "
+            "gives for one work as confirmed for another.)\n\n" + reference)
+
+
+def _render(ctx: Optional[dict]) -> str:
     if ctx is None:
         return ("BRAND CONTEXT: none recorded for this storefront. Write in a warm, plain, specific voice and "
                 "add an 'ask_artist' question asking for the brand's voice.")
