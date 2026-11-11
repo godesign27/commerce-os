@@ -11,7 +11,9 @@ const STEP: Record<string, string> = {
   "approve-for-store": "Store approval", "ready-to-publish": "Publish", published: "Published",
 };
 // Publishing sits between the last two steps; a problem sits where the piece last was.
-const WHERE: Record<string, string> = { publishing: "published", "needs-look": "ready-to-publish" };
+// A published piece with a change waiting (B-085) is still at the last step: it's in the store.
+const WHERE: Record<string, string> = { publishing: "published", "needs-look": "ready-to-publish", changed: "published",
+  "ready-to-update": "published" };
 
 export function Tracker({ status, pipeline }: { status: PieceStatus; pipeline: StatusLabel[] }) {
   const here = pipeline.findIndex((s) => s.id === (WHERE[status.id] || status.id));

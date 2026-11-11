@@ -69,10 +69,24 @@ class Records(unittest.TestCase):
         with self.assertRaisesRegex(pub.PublishError, "add it twice"):
             self.p.request("fox", CS, APPROVAL, "owner")
 
-    def test_only_new_products_can_go_in(self):
+    def test_a_published_piece_goes_again_only_as_an_update(self):
         self.p.append("fox", "published", pub.SUCCEEDED)
-        with self.assertRaisesRegex(pub.PublishError, "Only new products"):
+        with self.assertRaisesRegex(pub.PublishError, "already published: approve an update"):
             self.p.request("fox", CS, APPROVAL, "owner")
+        update = dict(CS, operations=[{"op": "update"}])
+        self.p.request("fox", update, APPROVAL, "owner")
+        self.assertEqual((self.p.state("fox"), self.p.latest("fox", "queued")["op"]), (pub.QUEUED, "update"))
+        with self.assertRaisesRegex(pub.PublishError, "nothing to update"):
+            self.p.request("owl", update, APPROVAL, "owner")
+
+    def test_what_reached_the_store(self):
+        self.p.append("fox", "queued", pub.QUEUED, change_set_hash="h1")
+        self.p.append("fox", "published", pub.SUCCEEDED)                       # recorded before B-085: no hash
+        self.p.append("fox", "queued", pub.QUEUED, change_set_hash="h2")
+        self.p.append("fox", "failed", pub.FAILED)
+        self.p.append("fox", "queued", pub.QUEUED, change_set_hash="h3")
+        self.p.append("fox", "published", pub.SUCCEEDED, change_set_hash="h3")
+        self.assertEqual(self.p.published_hashes("fox"), ["h1", "h3"])
 
     def test_a_failed_publish_can_be_asked_for_again(self):
         self.p.append("fox", "failed", pub.FAILED)
@@ -545,7 +559,9 @@ class Live(unittest.TestCase):
 
     def test_the_write_login_can_only_add_products(self):
         self.sql("INSERT INTO public.products (id, name, slug, price, status) VALUES ('w', 'W', 'w', 1, 'draft')", WRITE_ROLE)
-        self.expect_denied(WRITE_ROLE, "UPDATE public.products SET name = 'x'")
+        self.expect_denied(WRITE_ROLE, "UPDATE public.products SET status = 'active'")    # updates never touch these (B-085)
+        self.expect_denied(WRITE_ROLE, "UPDATE public.products SET slug = 'x'")
+        self.expect_denied(WRITE_ROLE, "UPDATE public.products SET id = 'x'")
         self.expect_denied(WRITE_ROLE, "DELETE FROM public.products")
         self.expect_denied(WRITE_ROLE, "TRUNCATE public.products")
         self.expect_denied(WRITE_ROLE, "INSERT INTO public.categories (id, name, slug) VALUES ('c', 'c', 'c')")

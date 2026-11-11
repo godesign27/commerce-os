@@ -24,13 +24,14 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from packages import onboarding  # noqa: E402
-from packages.adapters import artstore_map, catalog  # noqa: E402
+from packages.adapters import artstore_map, catalog, updates  # noqa: E402
 from packages.drafting import audit, brand, editing, learning, listing, publication, service  # noqa: E402
 from packages.drafting.store import LockedError, Store  # noqa: E402
 from packages.image_pipeline import intake, room_suggest, rooms, stages  # noqa: E402
@@ -73,13 +74,15 @@ class App:
                  source: Path = None, rooms_root: Path = rooms.ROOMS, approvals_root: Path = None,
                  audit_root: Path = None, mapping: Path = None, catalog_root: Path = None, inbox: Path = None,
                  intake_root: Path = None, read_catalog=None, env_file: Path = None, connect=None, check_key=None,
-                 publications_root: Path = None):
+                 publications_root: Path = None, read_product=None):
         self.rooms_root = Path(rooms_root)
         # also next to the review folder; the inbox is the one folder the owner uses directly, so it's easy to find
         self.catalog = catalog.Catalog(catalog_root or Path(out).parent / "catalog", storefront)
         self.inbox = Path(inbox) if inbox else (intake.INBOX if Path(out) == OUT else Path(out).parent / "inbox")
         self.intake_root = Path(intake_root) if intake_root else Path(out).parent / "intake"
         self._read_catalog = read_catalog         # tests inject a stand-in for reading the store
+        self._read_product = read_product         # tests inject: product id -> the store's row, or None
+        self._rows = {}                           # product id -> (read at, row): a short cache of store reads
         self.env_file = Path(env_file) if env_file else (REPO / ".env" if Path(out) == OUT else Path(out).parent / ".env")
         self._connect = connect                   # tests inject: url -> an object with .rows(sql)
         self._check_key = check_key               # tests inject: key -> raises if it's refused
@@ -343,7 +346,83 @@ class App:
         cs = artstore_map.build(item=it, entry=entry, record=rec, copy=copy, assets=assets, mapping=self.mapping(),
                                 store=self.fake_store(), catalog_issues=catalog.issues(self._candidates(item_id, entry, rec)),
                                 taken_slugs=catalog.taken_slugs(self.catalog.load()), simulated=False)
+        sets, product_id = self._published(item_id)
+        if sets and product_id:                   # in the store already: what changed goes as an update (B-085)
+            cs = self._as_update(cs, sets, product_id)
         return cs, assets, notes
+
+    # ------------------------------------------------------------ updates (B-085)
+    PRODUCT_ID = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
+    STORE_ROW_SECONDS = 10                     # one look at the store serves a page's worth of reads
+
+    def _published(self, item_id: str):
+        """The change sets that reached the store for this piece, oldest first, and its product id there."""
+        hashes = self.pubs.published_hashes(item_id)
+        if not hashes:
+            return [], None
+        approved = {r["change_set"]["change_set_hash"]: r["change_set"]
+                    for r in self.approvals.records(item_id) if r["event"] == "approved"}
+        sets = [approved[h] for h in hashes if h in approved]
+        last = self.pubs.latest(item_id, "published") or {}
+        return sets, last.get("product_id") or (sets[-1]["operations"][0]["key"] if sets else None)
+
+    def store_product(self, product_id: str, fresh: bool = False) -> Optional[dict]:
+        """The product as the store has it right now, read with the read-only login. None if it isn't there."""
+        if not self.PRODUCT_ID.fullmatch(product_id or ""):
+            raise catalog.CatalogError("that isn't a product id")
+        hit = self._rows.get(product_id)
+        if hit and not fresh and time.time() - hit[0] < self.STORE_ROW_SECONDS:
+            return hit[1]
+        try:
+            if self._read_product:
+                row = self._read_product(product_id)
+            elif self._live():
+                url = self._login_url()
+                if not url:
+                    raise catalog.CatalogError("there's no read-only login saved for this store")
+                rows = self._pg(url).rows(f"SELECT * FROM public.products WHERE id = '{product_id}'")
+                row = rows[0] if rows else None
+            else:                                  # the local test store has no admin, so nobody edits it there:
+                row = self._as_published(product_id)   # it holds what was published (the worker checks that too)
+        except SystemExit as e:                    # the read session reports a failed query this way, without secrets
+            raise catalog.CatalogError(str(e))
+        self._rows[product_id] = (time.time(), row)
+        return row
+
+    def _pending_update(self, item_id: str, cs: dict) -> bool:
+        """An update that hasn't reached the store yet. Once it has, it's what's published, and nothing waits."""
+        return updates.is_update(cs) and cs["change_set_hash"] not in self.pubs.published_hashes(item_id)
+
+    def _as_published(self, product_id: str) -> Optional[dict]:
+        """The row Commerce OS last put in the local test store for this product, in the store's own terms."""
+        for it in self.items():
+            sets, pid = self._published(it["id"])
+            if pid == product_id and sets:
+                store = self.fake_store()
+                return {c: store._to_destination("products", c, f["value"])
+                        for c, f in updates.published_fields(sets).items()}
+        return None
+
+    def _as_update(self, cs: dict, sets: list, product_id: str) -> dict:
+        """For a piece already in the store: the last published change set while nothing changed, otherwise the
+        update that sends what changed here and keeps what was edited in the store."""
+        published = updates.published_fields(sets)
+        if not updates.changed_here(published, cs["operations"][0]["fields"]):
+            return sets[-1]
+        problem, row = None, None
+        try:
+            row = self.store_product(product_id)
+            if row is None:
+                problem = "The product isn't in the store any more, so there's nothing to update."
+        except Exception as e:                     # noqa: BLE001  shown to the owner as what's in the way
+            problem = f"Couldn't read the product from the store to compare it: {e}"
+        store = self.fake_store()
+        plan = (updates.plan(published, cs["operations"][0]["fields"], row,
+                             lambda col, value: store._to_destination("products", col, value))
+                if row is not None else {"send": {}, "expected": {}, "kept": []})
+        if not problem and not plan["send"]:       # every change was also made in the store, whose edits win
+            return sets[-1]
+        return updates.build(cs, product_id, plan, problem)
 
     def _candidates(self, item_id: str, entry: dict, rec: dict) -> list:
         snap = self.catalog.load()
@@ -360,11 +439,25 @@ class App:
             return None, [], []
         cs, _, _ = self.change_set(it["id"], it, entry, rec)
         approval = self.approvals.status(it["id"], cs)
+        if self._pending_update(it["id"], cs):   # a published piece's update needs its own approval
+            if approval["state"] == "current":
+                state = "approved"
+            else:
+                state = "ready" if artstore_map.approvable(cs) else "blocked"
+            return state, cs["blockers"], self._update_changes(cs)
         if approval["state"] != "none":
             state = {"current": "approved", "out_of_date": "out_of_date"}[approval["state"]]
         else:
             state = "ready" if artstore_map.approvable(cs) else "blocked"
         return state, cs["blockers"], approval.get("changes") or []
+
+    @staticmethod
+    def _update_changes(cs: dict) -> list:
+        """What an update would change, in words, then what it keeps as the store has it."""
+        op = cs["operations"][0]
+        sent = [artstore_map.LABELS.get(c, c) for c in updates.UPDATABLE if c in op["fields"]]
+        kept = [artstore_map.LABELS.get(k["column"], k["column"]) for k in cs.get("kept", [])]
+        return sent + [f"{k} (kept as the store has it)" for k in kept]
 
     def _storefront_state(self, it: dict, entry: dict, rec: dict):
         return self._store_check(it, entry, rec)[0]
@@ -373,9 +466,11 @@ class App:
         """The listing's state against the store, and the piece's one status (packages/journey.py)."""
         store_state, blockers, changes = self._store_check(it, entry, rec) if rec else (None, [], [])
         stage = stages.stage(it, decision, pending, bool(rec), bool(entry.get("approved")))
+        published = bool(self.pubs.published_hashes(it["id"]))
+        update = published and store_state is not None and bool(changes)
         return store_state, journey.status(stage=stage, drafted=bool(rec), copy_approved=bool(entry.get("approved")),
                                            publish_state=self.pubs.state(it["id"]), store_state=store_state,
-                                           blockers=blockers, changes=changes)
+                                           blockers=blockers, changes=changes, published=published, update=update)
 
     def _status_of(self, item_id: str) -> dict:
         it, decisions = self.item(item_id), self.decisions()
@@ -425,13 +520,28 @@ class App:
                     "history": self._history(item_id)}
         cs, assets, notes = self.change_set(item_id, it)
         fs = self.fake_store()
-        dry = fs.dry_run(cs)
+        update = None
+        if self._pending_update(item_id, cs):      # the store's copy has the row; the preview shows the change
+            expected = cs["operations"][0]["precondition"]["expected_fields"]
+            rows = artstore_map.preview_rows(cs, [], fs)
+            for r in rows:
+                r["before"] = expected.get(r["column"])
+            names = {r["id"]: r.get("name") for t in ("categories", "tags") for r in fs.tables[t].values()}
+            show = lambda col, v: ([names.get(x, x) for x in v] if col == "tags" and isinstance(v, list)  # noqa: E731
+                                   else names.get(v, v) if col == "category_id" else v)
+            update = {"product_id": cs["operations"][0]["key"], "kept": [
+                {"column": k["column"], "label": artstore_map.LABELS.get(k["column"], k["column"]),
+                 "store": show(k["column"], k["store"]), "ours": show(k["column"], k["ours"])} for k in cs.get("kept", [])]}
+            dry = {"would_publish": artstore_map.approvable(cs), "issues": [], "plan": []}
+        else:
+            dry = fs.dry_run(cs)
+            rows = artstore_map.preview_rows(cs, dry["plan"], fs)
         return {
             "available": True, "storefront": self.storefront,
             "display_name": entry.get("display_name", self.storefront), "environment": fs.environment,
             "change_set": {k: cs[k] for k in ("change_set_id", "change_set_hash", "requested_status", "mapping_version",
                                               "canonical_revision", "asset_manifest_hash", "not_touched")},
-            "rows": artstore_map.preview_rows(cs, dry["plan"], fs),
+            "rows": rows, "update": update,
             "images": [{"kind": a["kind"], "image": a["image"]} for a in assets],
             "blockers": cs["blockers"], "notes": notes,
             "dry_run": {"would_publish": dry["would_publish"], "issues": dry["issues"]},
@@ -445,7 +555,7 @@ class App:
     # ------------------------------------------------------------ publishing (B-070): asks; the worker does the rest
     def _publish_doc(self, item_id: str) -> dict:
         state = self.pubs.state(item_id)
-        published = self.pubs.latest(item_id, "published") if state == publishing.SUCCEEDED else None
+        published = self.pubs.latest(item_id, "published")     # still in the store after a failed update
         rechecked = self.pubs.latest(item_id, "rechecked") if state == publishing.UNKNOWN else None
         ended = next((e for e in reversed(self.pubs.events(item_id)) if e.get("state") == publishing.FAILED), None)
         return {"target": self._target(), "live": self._live(), "state": state, "kill_switch": self.pubs.kill_switch(),
@@ -453,7 +563,7 @@ class App:
                 "receipt_id": (published or {}).get("receipt_id"), "published_at": (published or {}).get("at"),
                 "reasons": (ended or {}).get("reasons", []) if state == publishing.FAILED else [],
                 "finding": (rechecked or {}).get("finding"), "fields": (rechecked or {}).get("fields", []),
-                "checking": self.pubs.recheck_wanted(item_id)}
+                "checking": self.pubs.recheck_wanted(item_id), "last_op": (published or {}).get("op", "create") if published else None}
 
     def publish(self, item_id: str, body: dict) -> dict:
         """Ask the worker to publish what the owner approved. This writes nothing to a store."""
@@ -473,15 +583,19 @@ class App:
         return self.storefront_preview(item_id)
 
     @staticmethod
-    def _queue_section(publish_state, approval_state: str) -> str:
-        """Where a drafted listing belongs on the publish page. What already happened comes first: only new products
-        can go in, so a published listing stays published whatever has changed since."""
-        if publish_state == publishing.SUCCEEDED:
-            return "published"
+    def _queue_section(publish_state, approval_state: str, published: bool = False, update: bool = False) -> str:
+        """Where a drafted listing belongs on the publish page. What's happening now comes first. A piece already in
+        the store stays published until its listing changes; then it waits in "changed" for an approved update (B-085)."""
         if publish_state in (publishing.QUEUED, publishing.WRITING):
             return "working"
         if publish_state == publishing.UNKNOWN:
             return "problems"
+        if update:
+            if approval_state != "current":
+                return "changed"
+            return "problems" if publish_state == publishing.FAILED else "ready"
+        if published or publish_state == publishing.SUCCEEDED:
+            return "published"
         if approval_state != "current":
             return "waiting"
         return "problems" if publish_state == publishing.FAILED else "ready"
@@ -492,8 +606,16 @@ class App:
         tiers = (fields.get("pricing_tiers") or {}).get("value") or [{}]
         status = self.approvals.status(it["id"], cs)
         doc = self._publish_doc(it["id"])
-        section = self._queue_section(doc["state"], status["state"])
-        if status["state"] == "out_of_date":
+        update = self._pending_update(it["id"], cs)
+        section = self._queue_section(doc["state"], status["state"], bool(doc["product_id"]), update)
+        if section == "changed":
+            op, kept = cs["operations"][0], cs.get("kept", [])
+            sent = [artstore_map.LABELS.get(c, c) for c in updates.UPDATABLE if c in op["fields"]]
+            nxt = ([f"Would change: {', '.join(sent)}."]
+                   + ([f"Kept as the store has it: {', '.join(artstore_map.LABELS.get(k['column'], k['column']) for k in kept)}."] if kept else [])
+                   if artstore_map.approvable(cs) else
+                   [b["question"] for b in cs["blockers"] if b["severity"] == "blocking" and b["target"] != "assets.delivery"])
+        elif status["state"] == "out_of_date":
             nxt = [f"Changed since you approved it: {', '.join(status['changes'])}. Approve this version."]
         elif artstore_map.approvable(cs):
             nxt = ["Check what the store would receive, then approve it."]
@@ -503,7 +625,8 @@ class App:
                "image": assets[0]["image"] if assets else self._image(it), "price": (fields.get("price") or {}).get("value"),
                "sold_as": tiers[0].get("type"), "size": tiers[0].get("size"),
                "change_set_hash": cs["change_set_hash"] if section in ("ready", "problems") else None,
-               "approved_at": (status["approval"] or {}).get("approved_at"), "next": nxt if section == "waiting" else []}
+               "approved_at": (status["approval"] or {}).get("approved_at"),
+               "next": nxt if section in ("waiting", "changed") else [], "update": update}
         row["status"] = self._status_of(it["id"])
         row.update({k: doc[k] for k in ("state", "product_id", "receipt_id", "published_at", "reasons", "finding", "fields", "checking")})
         return section, row
@@ -513,7 +636,7 @@ class App:
         entry = self.storefront_entry()
         doc = {"available": self.can_preview(), "target": self._target(), "live": self._live(), "display_name": entry.get("display_name", self.storefront),
                "kill_switch": self.pubs.kill_switch(), "worker": self.pubs.worker(), "not_drafted": 0,
-               "ready": [], "working": [], "problems": [], "waiting": [], "published": []}
+               "ready": [], "working": [], "problems": [], "waiting": [], "changed": [], "published": []}
         if not doc["available"]:
             return dict(doc, reason="The store isn't connected yet.")
         decisions, drafts = self.decisions(), self.store.all_drafts()

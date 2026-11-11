@@ -487,3 +487,11 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 .card-pick.on { border-color: var(--accent); }
 .card.is-picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .draft-help { margin: -0.4rem 0 0.8rem; }
+
+/* An update to a piece already in the store (B-085): what the store has now beside what it would become. */
+.sf-update thead th { text-align: left; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.sf-update td.muted { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.sf-kept { border-left: 3px solid var(--warn, #b45309); padding: 0.4rem 0.75rem; margin: 0.75rem 0; }
+.sf-kept h3 { margin: 0 0 0.25rem; }
+.sf-kept p { margin: 0 0 0.35rem; }
+.sf-kept ul { margin: 0; padding-left: 1.1rem; }

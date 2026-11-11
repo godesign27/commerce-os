@@ -18,7 +18,7 @@ export interface ItemRow {
 }
 // One status per piece, from packages/journey.py (B-074). Every page shows this and works nothing out for itself.
 export type StatusId = "review-photo" | "ready-to-draft" | "review-copy" | "add-details" | "approve-for-store"
-  | "ready-to-publish" | "publishing" | "published" | "needs-look" | "rejected";
+  | "ready-to-publish" | "publishing" | "published" | "changed" | "ready-to-update" | "needs-look" | "rejected";
 export type StatusTone = "todo" | "wait" | "done" | "bad" | "off";
 export interface StatusLabel { id: StatusId; label: string; tone: StatusTone }
 export interface PieceStatus extends StatusLabel {
@@ -36,12 +36,14 @@ export interface PublishDoc {
   target: string; live: boolean; state: PublishState | null; kill_switch: KillSwitch; worker: WorkerStatus;
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
+  last_op: "create" | "update" | null;      // what the last successful publish did (B-085)
 }
 // The publish page (B-071): every drafted listing, sorted by what it needs next.
 export interface QueueRow {
   id: string; source: string; title: string | null; image: string | null;
   price: { amount_minor: number; currency: string } | null; sold_as: string | null; size: string | null;
   status: PieceStatus; state: PublishState | null; change_set_hash: string | null; approved_at: string | null; next: string[];
+  update: boolean;                          // already in the store, and this is an update (B-085)
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
 }
@@ -56,7 +58,7 @@ export interface Activity {
 }
 export interface PublishQueue {
   available: boolean; reason?: string; target: string; live: boolean; display_name: string; kill_switch: KillSwitch; worker: WorkerStatus;
-  ready: QueueRow[]; working: QueueRow[]; problems: QueueRow[]; waiting: QueueRow[]; published: QueueRow[]; not_drafted: number;
+  ready: QueueRow[]; working: QueueRow[]; problems: QueueRow[]; waiting: QueueRow[]; changed: QueueRow[]; published: QueueRow[]; not_drafted: number;
 }
 // A product in the store that may already be this piece (B-065). Shown for the owner to answer; never a source of facts.
 export interface MatchCandidate {
@@ -68,7 +70,9 @@ export interface StorefrontPreview {
   available: boolean; reason?: string; storefront?: string; display_name?: string; environment?: string;
   change_set?: { change_set_id: string; change_set_hash: string; requested_status: string; mapping_version: number;
                  canonical_revision: number; asset_manifest_hash: string; not_touched: string[] };
-  rows?: PreviewRow[]; images?: Array<{ kind: "framed" | "room"; image: string }>; blockers?: Issue[]; notes?: string[];
+  rows?: PreviewRow[];
+  update?: { product_id: string; kept: Array<{ column: string; label: string; store: unknown; ours: unknown }> } | null;
+  images?: Array<{ kind: "framed" | "room"; image: string }>; blockers?: Issue[]; notes?: string[];
   dry_run?: { would_publish: boolean; issues: Array<{ code: string; message: string }> }; approvable?: boolean;
   approval?: { state: "none" | "current" | "out_of_date"; changes: string[];
                approval: { approval_id: string; approved_at: string; change_set_hash: string; requested_status: string } | null };
