@@ -83,6 +83,7 @@ class App:
         self._read_catalog = read_catalog         # tests inject a stand-in for reading the store
         self._read_product = read_product         # tests inject: product id -> the store's row, or None
         self._rows = {}                           # product id -> (read at, row): a short cache of store reads
+        self._rows_lock = threading.Lock()        # parallel page loads share one read of the store
         self.env_file = Path(env_file) if env_file else (REPO / ".env" if Path(out) == OUT else Path(out).parent / ".env")
         self._connect = connect                   # tests inject: url -> an object with .rows(sql)
         self._check_key = check_key               # tests inject: key -> raises if it's refused
@@ -354,7 +355,8 @@ class App:
 
     # ------------------------------------------------------------ updates (B-085)
     PRODUCT_ID = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
-    STORE_ROW_SECONDS = 10                     # one look at the store serves a page's worth of reads
+    STORE_ROW_SECONDS = 60                     # one look at the store serves a minute of page loads (the write
+                                               # checks every field it sends again, inside its transaction)
 
     def _published(self, item_id: str):
         """The change sets that reached the store for this piece, oldest first, and its product id there."""
@@ -368,27 +370,46 @@ class App:
         return sets, last.get("product_id") or (sets[-1]["operations"][0]["key"] if sets else None)
 
     def store_product(self, product_id: str, fresh: bool = False) -> Optional[dict]:
-        """The product as the store has it right now, read with the read-only login. None if it isn't there."""
+        """The product as the store has it, read with the read-only login, or None if it isn't there. One query reads
+        every product this storefront has published, and serves every page load for a minute: reading them one by
+        one, on each load, made each page wait on several round trips to the store."""
         if not self.PRODUCT_ID.fullmatch(product_id or ""):
             raise catalog.CatalogError("that isn't a product id")
-        hit = self._rows.get(product_id)
-        if hit and not fresh and time.time() - hit[0] < self.STORE_ROW_SECONDS:
-            return hit[1]
-        try:
-            if self._read_product:
-                row = self._read_product(product_id)
-            elif self._live():
-                url = self._login_url()
-                if not url:
-                    raise catalog.CatalogError("there's no read-only login saved for this store")
-                rows = self._pg(url).rows(f"SELECT * FROM public.products WHERE id = '{product_id}'")
-                row = rows[0] if rows else None
-            else:                                  # the local test store has no admin, so nobody edits it there:
-                row = self._as_published(product_id)   # it holds what was published (the worker checks that too)
-        except SystemExit as e:                    # the read session reports a failed query this way, without secrets
-            raise catalog.CatalogError(str(e))
-        self._rows[product_id] = (time.time(), row)
-        return row
+        with self._rows_lock:
+            hit = self._rows.get(product_id)
+            if hit and not fresh and time.time() - hit[0] < self.STORE_ROW_SECONDS:
+                return hit[1]
+            ids = sorted(self._published_product_ids() | {product_id})
+            try:
+                rows = self._read_products(ids)
+            except SystemExit as e:                # the read session reports a failed query this way, without secrets
+                raise catalog.CatalogError(str(e))
+            now = time.time()
+            for i in ids:
+                self._rows[i] = (now, rows.get(i))
+            return rows.get(product_id)
+
+    def _published_product_ids(self) -> set:
+        out = set()
+        for item in self.pubs.items():
+            pid = (self.pubs.latest(item, "published") or {}).get("product_id")
+            if pid and self.PRODUCT_ID.fullmatch(pid):
+                out.add(pid)
+        return out
+
+    def _read_products(self, ids: list) -> dict:
+        """The store's rows for these product ids, in one read."""
+        if self._read_product:
+            return {i: self._read_product(i) for i in ids}
+        if self._live():
+            url = self._login_url()
+            if not url:
+                raise catalog.CatalogError("there's no read-only login saved for this store")
+            listed = ", ".join(f"'{i}'" for i in ids)          # every id matched PRODUCT_ID: letters, digits, _.:-
+            return {r["id"]: r for r in self._pg(url).rows(f"SELECT * FROM public.products WHERE id IN ({listed})")}
+        # the local test store has no admin, so nobody edits it there: it holds what was published (the worker
+        # checks that too)
+        return {i: self._as_published(i) for i in ids}
 
     def _pending_update(self, item_id: str, cs: dict) -> bool:
         """An update that hasn't reached the store yet. Once it has, it's what's published, and nothing waits."""

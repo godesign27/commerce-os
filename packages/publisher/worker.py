@@ -22,8 +22,13 @@ class Worker:
         if getattr(app, "_read_product", False) is None:    # rebuilding an update reads the product through this
             app._read_product = self._store_row             # adapter's checked read login, never the dashboard's (B-085)
 
+    REREAD_SECONDS = 5          # one read of the store serves the products a check asks about together
+
     def _store_row(self, product_id: str):
-        self.adapter.refresh()
+        import time
+        if time.time() - getattr(self, "_read_at", 0.0) > self.REREAD_SECONDS:
+            self.adapter.refresh()
+            self._read_at = time.time()
         return self.adapter.tables.get("products", {}).get(product_id)
 
     # ------------------------------------------------------------ Gate 4

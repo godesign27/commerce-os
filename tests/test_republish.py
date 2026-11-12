@@ -178,6 +178,28 @@ def _down(cls):
     shutil.rmtree(cls.tmp, ignore_errors=True)
 
 
+class OneRead(unittest.TestCase):
+    """Pages ask about every changed piece: the store is read once for all of them, not once each (B-085 fix)."""
+    def test_one_read_serves_every_published_product_for_a_while(self):
+        from tests.test_listing_copy import load_server, tmp
+        srv = load_server()
+        out = tmp() / "review"
+        out.mkdir()
+        reads = []
+        app = srv.App(out=out, brand_root=out / "brand", learning_root=out / "learning", config=out / "none.json",
+                      source=tmp(), read_product=lambda pid: reads.append(pid) or {"id": pid})
+        for item, pid in (("fox", "cos-fox"), ("owl", "cos-owl")):
+            app.pubs.append(item, "published", pub.SUCCEEDED, product_id=pid)
+        self.assertEqual(app.store_product("cos-fox"), {"id": "cos-fox"})
+        self.assertEqual(sorted(reads), ["cos-fox", "cos-owl"], "both read together")
+        app.store_product("cos-owl")
+        app.store_product("cos-fox")
+        self.assertEqual(len(reads), 2, "and kept for the next page loads")
+        app.store_product("cos-fox", fresh=True)
+        self.assertEqual(len(reads), 4, "a fresh look reads again")
+        self.assertGreaterEqual(srv.App.STORE_ROW_SECONDS, 30)
+
+
 class Wiring(unittest.TestCase):
     def test_the_runbook_grants_exactly_the_updatable_columns(self):
         book = read(REPO / "docs/runbooks/write-role.md")
