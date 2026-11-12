@@ -164,6 +164,7 @@ class App:
                 "brand": {"version": ctx["version"], "name": ctx["identity"]["name"],
                           "proposed_lessons": sum(x["status"] == "proposed" for x in ctx["lessons"])} if ctx else None,
                 "items": rows, "statuses": journey.STATUSES, "key_configured": bool(self._key()), "jobs": self.job_list(),
+                "tier_types": self.tier_types(),
                 "onboarding": self._steps(), "publish_target": "live" if self._live() else "local"}
 
     @staticmethod
@@ -1489,6 +1490,125 @@ class App:
             raise ApiError(400, "these can't be drafted from here (already drafted, rejected or not framed): " + ", ".join(bad))
         return self.draft(ids, f"Draft {len(ids)} selected piece(s)")
 
+    # ------------------------------------------------------------ bulk actions on the Listings page (B-087)
+    BULK_MAX = 60
+    BULK_ACTIONS = ("approve_copy", "facts", "store_preview", "approve_store", "redraft")
+    FACT_NAMES = {"medium": "medium", "dimensions": "size", "price": "price", "sold_as": "sold as", "edition": "edition"}
+
+    def _bulk_ids(self, ids) -> list:
+        if not isinstance(ids, list) or not ids or len(ids) > self.BULK_MAX or not all(isinstance(i, str) for i in ids):
+            raise ApiError(400, f'send "ids": between 1 and {self.BULK_MAX} pieces')
+        ids = list(dict.fromkeys(ids))
+        known = {it["id"] for it in self.items()}
+        unknown = [i for i in ids if i not in known]
+        if unknown:
+            raise ApiError(400, "no such pieces: " + ", ".join(unknown))
+        return ids
+
+    def _name(self, item_id: str) -> str:
+        rec = self.store.draft(item_id)
+        title = (self.store.effective(item_id, rec) or {}).get("title") if rec else None
+        return title or self.item(item_id)["source"]
+
+    def bulk_listings(self, body: dict) -> dict:
+        """One action on the pieces ticked on the Listings page. Each piece goes through the same rules as doing it
+        on its own page; a piece the action doesn't suit is skipped, with the reason, and the rest still go."""
+        if not isinstance(body, dict) or body.get("action") not in self.BULK_ACTIONS:
+            raise ApiError(400, "action must be one of: " + ", ".join(self.BULK_ACTIONS))
+        action = body["action"]
+        if action == "approve_store":
+            pairs = body.get("items")
+            if not isinstance(pairs, list) or not all(isinstance(x, dict) and set(x) == {"id", "change_set_hash"} for x in pairs):
+                raise ApiError(400, 'send "items": [{"id", "change_set_hash"}], the versions you were shown')
+            ids = self._bulk_ids([x["id"] for x in pairs])
+            seen = {x["id"]: x["change_set_hash"] for x in pairs}
+        else:
+            ids = self._bulk_ids(body.get("ids"))
+        done, skipped = [], []
+
+        def skip(i, why):
+            skipped.append({"id": i, "title": self._name(i), "reason": why})
+
+        if action == "redraft":
+            ok = []
+            for i in ids:
+                if not self.store.draft(i):
+                    skip(i, "Not drafted yet: use Draft selected.")
+                elif self.store.listing(i).get("approved"):
+                    skip(i, "Its copy is approved: unlock it to redraft.")
+                else:
+                    ok.append(i)
+            if not ok:
+                return {"done": [], "skipped": skipped, "job": None}
+            return dict(self.draft(ok, f"Redraft {len(ok)} selected piece(s)"), done=ok, skipped=skipped)
+
+        if action == "facts":
+            facts, overwrite = body.get("facts"), body.get("overwrite", False)
+            if not isinstance(facts, dict) or not isinstance(overwrite, bool):
+                raise ApiError(400, 'send "facts": {"medium" | "dimensions" | "price" | "sold_as" | "edition": "…"}')
+            given = {k: v.strip() for k, v in facts.items() if isinstance(v, str) and v.strip()}
+            if set(facts) - set(self.FACT_NAMES) or not given:
+                raise ApiError(400, "give at least one of: " + ", ".join(self.FACT_NAMES.values()))
+        if action in ("store_preview", "approve_store") and not self.can_preview():
+            raise ApiError(400, "the store isn't connected yet: finish Getting started")
+
+        rows = []
+        for i in ids:
+            try:
+                if action == "approve_copy":
+                    if not self.store.draft(i):
+                        skip(i, "Not drafted yet.")
+                    elif self.store.listing(i).get("approved"):
+                        skip(i, "Its copy is already approved.")
+                    else:
+                        self.approve(i)
+                        done.append(i)
+                elif action == "facts":
+                    have = self.store.listing(i).get("facts") or {}
+                    new = {k: v for k, v in given.items() if overwrite or not have.get(k)}
+                    if not new:
+                        skip(i, "It already has these details (tick Replace to change them).")
+                    else:
+                        self.update_listing(i, {"facts": dict(have, **new)})
+                        done.append(i)
+                else:
+                    if not self.store.draft(i):
+                        skip(i, "Not drafted yet.")
+                        continue
+                    if self.pubs.state(i) in (publishing.QUEUED, publishing.WRITING):
+                        skip(i, "It's being published right now.")
+                        continue
+                    cs, _, _ = self.change_set(i)
+                    status = self.approvals.status(i, cs)
+                    if status["state"] == "current":
+                        skip(i, "Already approved for the store.")
+                    elif not artstore_map.approvable(cs):
+                        why = [b["question"] for b in cs["blockers"] if b["severity"] == "blocking"
+                               and b["target"] not in artstore_map.AFTER_APPROVAL]
+                        skip(i, why[0] if why else "Something still blocks it.")
+                    elif action == "store_preview":
+                        update = self._pending_update(i, cs)
+                        fields = cs["operations"][0]["fields"]
+                        tiers = (fields.get("pricing_tiers") or {}).get("value") or [{}]
+                        rows.append({"id": i, "title": self._name(i), "change_set_hash": cs["change_set_hash"],
+                                     "update": update, "changes": self._update_changes(cs) if update else [],
+                                     "price": (fields.get("price") or {}).get("value"), "sold_as": tiers[0].get("type"),
+                                     "size": tiers[0].get("size")})
+                    elif cs["change_set_hash"] != seen[i]:
+                        skip(i, "It changed since you looked: check it again, then approve.")
+                    else:
+                        self.approve_storefront(i, {"change_set_hash": seen[i], "status": cs["requested_status"]})
+                        done.append(i)
+            except ApiError as e:
+                skip(i, str(e))
+        out = {"done": done, "skipped": skipped}
+        if action == "store_preview":
+            out["rows"] = rows
+        if done:
+            self.audit.append("listings", f"bulk_{action}", f"{action.replace('_', ' ').capitalize()}: "
+                              f"{len(done)} piece(s) from the Listings page", by=OWNER["id"], ids=done)
+        return out
+
     def distil(self) -> dict:
         client = self._client()
 
@@ -1540,6 +1660,10 @@ def _unlock(app, m, body): return app.unlock(m.group(1))
 def _meaning(app, m, body): return app.add_meaning(m.group(1), body)
 @route("POST", "/api/draft-selected")
 def _draft_selected(app, m, body): return app.draft_selected(body)
+
+
+@route("POST", "/api/listings/bulk")
+def _bulk(app, m, body): return app.bulk_listings(body)
 @route("POST", "/api/draft-pending")
 def _pending(app, m, body): return app.draft_pending(int(body.get("limit", 5)))
 @route("POST", r"/api/items/([\w.-]+)/publish")

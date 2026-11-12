@@ -36,18 +36,20 @@ class Api(unittest.TestCase):
 
 class Page(unittest.TestCase):
     def test_undrafted_cards_can_be_ticked(self):
-        src = read(REPO / PAGE)
-        self.assertIn("{!i.drafted && (\n              <label className={`card-pick", src)
-        self.assertIn("aria-label={`Draft ${i.source}`}", src)
+        src = read(REPO / PAGE)                    # every card can be ticked since B-087
+        self.assertIn('<li key={i.id} className="pickable">', src)
+        self.assertIn("aria-label={`Select ${i.title || i.source}`}", src)
 
     def test_the_button_drafts_what_is_ticked(self):
-        src = read(REPO / PAGE)
-        self.assertIn("onClick={() => draft(ticked)}>Draft {ticked.length} selected</button>", src)
+        bar = read(REPO / "apps/review-dashboard/src/components/BulkBar.tsx")
+        self.assertIn("onClick={() => onDraft(ids(undrafted))}>Draft {undrafted.length} selected</button>", bar)
+        self.assertIn("onDraft={(ids) => draft(ids)}", read(REPO / PAGE))
         self.assertIn('draftSelected: (ids: string[]) => call<{ job: string }>("POST", "/api/draft-selected", { ids })',
                       read(REPO / "apps/review-dashboard/src/api.ts"))
 
     def test_the_page_says_how_to_start(self):
-        self.assertIn("Tick the pieces you want drafted, then press Draft selected.", read(REPO / PAGE))
+        self.assertIn("Tick the pieces you want to work on, then choose what to do with them: Draft selected",
+                      read(REPO / PAGE))
 
 
 if __name__ == "__main__":

@@ -89,7 +89,16 @@ export interface State {
   storefront: string; display_name: string; site_kind: "artist" | "product" | null;
   brand: { version: number; name: string; proposed_lessons: number } | null;
   items: ItemRow[]; key_configured: boolean; jobs: Job[]; onboarding: Steps; publish_target: "local" | "live";
+  tier_types: string[];
 }
+// Bulk actions on the Listings page (B-087). Each piece follows its own page's rules; the rest are skipped, with why.
+export type BulkAction = "approve_copy" | "facts" | "store_preview" | "approve_store" | "redraft";
+export interface BulkSkip { id: string; title: string; reason: string }
+export interface StoreRow {
+  id: string; title: string; change_set_hash: string; update: boolean; changes: string[];
+  price: { amount_minor: number; currency: string } | null; sold_as: string | null; size: string | null;
+}
+export interface BulkResult { done: string[]; skipped: BulkSkip[]; rows?: StoreRow[]; job?: string | null }
 // First run (B-068). Nothing here ever holds a credential.
 export interface Steps { steps: Array<{ id: string; label: string; done: boolean }>; complete: boolean; next: string | null }
 export interface OnboardingDoc extends Steps {
@@ -255,6 +264,7 @@ export const api = {
   addMeaning: (id: string, body: { scope: string; subject: string; meaning: string; series?: string }) =>
     call<BrandContext>("POST", `/api/items/${id}/meaning`, body),
   draftSelected: (ids: string[]) => call<{ job: string }>("POST", "/api/draft-selected", { ids }),
+  bulk: (action: BulkAction, body: Record<string, unknown>) => call<BulkResult>("POST", "/api/listings/bulk", { action, ...body }),
   draftPending: (limit: number) => call<{ job: string }>("POST", "/api/draft-pending", { limit }),
   job: (id: string) => call<Job>("GET", `/api/jobs/${id}`),
   brand: () => call<{ context: BrandContext | null; history: Array<{ version: number; updated_at: string; updated_by: string }>; storefront: Record<string, unknown> }>("GET", "/api/brand"),
