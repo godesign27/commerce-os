@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
-import { api, Check, Copy, Detail, Draft, Field, Issue, Job, State, waitForJob } from "../api";
+import { api, Check, Copy, Detail, Draft, Field, Issue, Job, State, StorefrontPreview, waitForJob } from "../api";
 import { AboutPiece, PRICE } from "../components/AboutPiece";
 import { StorefrontPanel } from "../components/StorefrontPanel";
 import { StatusBadge, Tracker } from "../components/Status";
@@ -34,6 +34,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
   const [error, setError] = useState<string | null>(null);
   const [showDraft, setShowDraft] = useState(false);
   const [factsRev, setFactsRev] = useState(0);        // the next-step bar saved facts: About this piece reads them again
+  const [storeRev, setStoreRev] = useState(0);        // the next-step bar approved or published: the store panel reads again
 
   const load = useCallback(() => api.item(id).then((x) => {
     setD(x);
@@ -129,7 +130,8 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
         <Tracker status={d.status} pipeline={d.pipeline} />
       </div>
       <NextStep d={d} approve={dr && !locked ? () => { if (leaveOk()) act(() => api.approve(id)); } : null}
-                onSaved={async () => { await load(); setFactsRev((n) => n + 1); onChange(); }} />
+                onSaved={async () => { await load(); setFactsRev((n) => n + 1); onChange(); }}
+                onStore={async () => { await refreshStatus(); setStoreRev((n) => n + 1); onChange(); }} />
       {error && <p className="error">{error}</p>}
 
       <div className="two-col">
@@ -207,7 +209,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
               )}
 
               <MeaningPanel d={d} questions={dr.ask_artist} onSaved={async () => { await load(); onChange(); }} />
-              <div id="store"><StorefrontPanel id={d.item.id} version={JSON.stringify([d.listing, dr.revision])} onChange={() => { refreshStatus(); onChange(); }} /></div>
+              <div id="store"><StorefrontPanel id={d.item.id} version={JSON.stringify([d.listing, dr.revision, storeRev])} onChange={() => { refreshStatus(); onChange(); }} /></div>
             </>
           )}
         </section>
@@ -220,7 +222,12 @@ const toStore = (e: React.MouseEvent) => { e.preventDefault(); document.getEleme
 
 // The one thing to do next, at the top of the page (B-074). Price and "sold as" can be answered right here; they
 // save the same way as About this piece.
-function NextStep({ d, approve, onSaved }: { d: Detail; approve: (() => void) | null; onSaved: () => Promise<void> }) {
+// The store steps a status can be at (B-088): the next-step bar does them itself, so every action is at the top.
+const STORE_STEPS = ["approve-for-store", "ready-to-publish", "changed", "ready-to-update", "needs-look"];
+
+function NextStep({ d, approve, onSaved, onStore }: {
+  d: Detail; approve: (() => void) | null; onSaved: () => Promise<void>; onStore: () => Promise<void>;
+}) {
   const st = d.status;
   const facts = d.listing.facts || {};
   const blockers = st.blockers;
@@ -268,9 +275,47 @@ function NextStep({ d, approve, onSaved }: { d: Detail; approve: (() => void) | 
         <button disabled={busy || badPrice || (needPrice && !price.trim()) || (needSold && !soldAs)} onClick={save}>{busy ? "Saving…" : "Save details"}</button>)}
       {approve && <button onClick={approve}>Approve copy</button>}
       {!approve && others.length > 0 && <a className="button-link secondary-link" href="#store" onClick={toStore}>See the details</a>}
-      {(st.id === "approve-for-store" || st.id === "needs-look") && <a className="button-link" href="#store" onClick={toStore}>Review and approve</a>}
-      {st.id === "ready-to-publish" && <a className="button-link" href="#/publish">Go to Publish</a>}
+      {STORE_STEPS.includes(st.id) && <StoreStep id={d.item.id} status={st.id} onDone={onStore} />}
     </section>
+  );
+}
+
+// Approve for the store, then publish (or approve and send an update), from the top of the page. It reads the same
+// preview as the store panel lower down and acts on the version shown there, by its hash, as that panel does.
+function StoreStep({ id, status, onDone }: { id: string; status: string; onDone: () => Promise<void> }) {
+  const [p, setP] = useState<StorefrontPreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => { api.storefront(id).then(setP).catch((e) => setMsg(String(e.message))); }, [id, status]);
+  if (!p?.available || !p.change_set) return msg ? <p className="error small">{msg}</p> : null;
+  const cs = p.change_set, a = p.approval!, pub = p.publish!, up = !!p.update;
+  const name = p.display_name || "the store";
+  async function act(fn: () => Promise<StorefrontPreview>) {
+    setBusy(true); setMsg(null);
+    try { setP(await fn()); await onDone(); }
+    catch (e) { setMsg(String((e as Error).message)); setP(await api.storefront(id)); }
+    setBusy(false);
+  }
+  const working = pub.state === "QUEUED" || pub.state === "WRITING";
+  const canSend = a.state === "current" && !working && pub.state !== "OUTCOME_UNKNOWN"
+    && (pub.state === null || pub.state === "FAILED" || (up && pub.state === "SUCCEEDED"));
+  return (
+    <div className="next-store">
+      {a.state !== "current" && (
+        <>
+          <button disabled={busy || !p.approvable} onClick={() => act(() => api.approveStorefront(id, cs.change_set_hash, cs.requested_status))}>
+            {busy ? "Approving…" : up ? "Approve update" : `Approve for ${name} as Draft`}</button>
+          <a className="small" href="#store" onClick={toStore}>See what it sends</a>
+        </>)}
+      {canSend && (
+        <button disabled={busy || pub.kill_switch.on} onClick={() => act(() => api.publish(id, cs.change_set_hash))}>
+          {busy ? "Sending…" : up ? (pub.state === "FAILED" ? "Send the update again" : "Update in store")
+            : `${pub.state === "FAILED" ? "Publish again" : "Publish"} to ${pub.target.toLowerCase()}`}</button>)}
+      {working && <span className="small">{pub.state === "QUEUED" ? "Queued for the publisher…" : "Publishing…"}</span>}
+      {pub.state === "OUTCOME_UNKNOWN" && <a className="button-link" href="#store" onClick={toStore}>Check the store</a>}
+      {canSend && pub.kill_switch.on && <span className="small warn-text">Writing is switched off.</span>}
+      {msg && <span className="error small">{msg}</span>}
+    </div>
   );
 }
 

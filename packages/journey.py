@@ -79,7 +79,7 @@ def status(*, stage: str, drafted: bool, copy_approved: bool, publish_state: Opt
         if store_state == "approved":
             if publish_state == "FAILED":
                 return make("needs-look", "See what went wrong, then send the update again.", "The last update failed")
-            return make("ready-to-update", "Send the update from the Publish page.")
+            return make("ready-to-update", "Send the update to the store, here or from the Publish page.")
         changed = f"Changed: {', '.join(changes)}." if changes else "Changed since it was published."
         return make("changed", f"{changed} Check what would change in the store, then approve the update.",
                     failing=open_blockers(blockers or []))
@@ -97,7 +97,7 @@ def status(*, stage: str, drafted: bool, copy_approved: bool, publish_state: Opt
     if store_state == "approved":
         if publish_state == "FAILED":
             return make("needs-look", "See what went wrong, then publish again.", "The last publish failed")
-        return make("ready-to-publish", "Send it from the Publish page.")
+        return make("ready-to-publish", "Publish it to the store, here or from the Publish page.")
     if store_state == "ready":
         return make("approve-for-store", "Check what the store would receive, then approve it.")
     if store_state == "blocked":

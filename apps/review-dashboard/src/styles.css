@@ -508,3 +508,6 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 .bulk-store li { margin: 0.2rem 0; }
 .bulk-replace { display: flex; align-items: center; gap: 0.4rem; margin: 0.25rem 0 0.5rem; }
 .bulk-replace input { margin: 0; width: auto; }
+
+/* The store step in the next-step bar (B-088): the action, with a link to what it sends. */
+.next-store { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; }
