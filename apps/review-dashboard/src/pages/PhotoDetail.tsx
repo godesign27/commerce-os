@@ -5,6 +5,7 @@ import { Drawer } from "../components/Drawer";
 import { AboutPiece } from "../components/AboutPiece";
 import { ago } from "./Photos";
 import { StatusBadge } from "../components/Status";
+import { RoomAdjust, type Adjustment } from "../components/RoomAdjust";
 
 // One photo: the original with the outline the crop found, corners you can drag, and what came out (B-062),
 // and the piece on the wall of its room, which you can change (B-063).
@@ -17,6 +18,7 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
   const [job, setJob] = useState<Job | null>(null);
   const [hanging, setHanging] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
   const [pick, setPick] = useState<string | null>(null);     // in the drawer: a room id, or "auto"
   const tried = useRef<string | null>(null);
   const changeBtn = useRef<HTMLButtonElement | null>(null);
@@ -64,9 +66,9 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
     } catch (e) { setError(String((e as Error).message)); }
   }
   const leave = (e: React.MouseEvent) => { if (dirty && !confirm("Your corner changes aren't saved. Leave anyway?")) e.preventDefault(); };
-  async function hang(body: { room?: string | null } = {}) {
+  async function hang(body: { room?: string | null } | Adjustment = {}) {
     setHanging(true); setError(null);
-    try { setP(await api.photoRoom(p!.id, body)); setChanging(false); }
+    try { setP(await api.photoRoom(p!.id, body)); setChanging(false); setAdjusting(false); }
     catch (e) { setError(String((e as Error).message)); }
     setHanging(false);
   }
@@ -127,7 +129,9 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
           {p.stage === "not-applied" && (
             <div className="panel dirty">
               <strong>Saved, not applied yet.</strong>
-              <p className="small muted">The crop and frame below still show the old {p.rotate !== p.applied.rotate ? "rotation" : "corners"}.</p>
+              <p className="small muted">The crop and frame below still show the old {p.rotate !== p.applied.rotate ? "rotation"
+                : p.mat !== p.applied.mat ? "mat"
+                : JSON.stringify(p.corners) !== JSON.stringify(p.applied.corners) ? "corners" : "frame"}.</p>
               <button disabled={!!job?.running} onClick={apply}>{job?.running ? `Applying ${job.done}/${job.total}…` : "Apply changes"}</button>
             </div>
           )}
@@ -135,6 +139,14 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
             {p.cropped && <figure><img src={`/${p.cropped}`} alt="The cropped artwork" /><figcaption className="small muted">Cropped</figcaption></figure>}
             {p.framed && <figure><img src={`/${p.framed}`} alt="The framed preview" /><figcaption className="small muted">Framed</figcaption></figure>}
           </div>
+          {p.framed && (
+            <div className="mat-switch">
+              <label className="inline small">
+                <input type="checkbox" checked={p.mat} disabled={busy} aria-describedby="mat-help"
+                       onChange={(e) => send({ mat: e.target.checked })} />
+                {" "}White mat</label>
+              <p id="mat-help" className="small muted">Turn it off for canvases and other work framed without one, then apply to see it.</p>
+            </div>)}
           <h2>History</h2>
           <ol className="timeline">
             {p.events.map((e, n) => (
@@ -167,20 +179,31 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
             </>)
             : (<>
               <figure className="room-view">
-                {view.image ? <a href={`/${view.image}`} target="_blank" rel="noreferrer"><img src={`/${view.image}`} alt={`${p.source} on the wall in ${view.name}`} /></a>
+                {adjusting && view.image && view.corners
+                  ? <RoomAdjust image={`/${view.image}`} alt={`${p.source} on the wall in ${view.name}`} corners={view.corners}
+                                scale={view.scale} room={view.name} placed={view.moved} busy={hanging} onSave={(a) => hang(a)} onCancel={() => setAdjusting(false)} />
+                  : view.image ? <a href={`/${view.image}`} target="_blank" rel="noreferrer"><img src={`/${view.image}`} alt={`${p.source} on the wall in ${view.name}`} /></a>
                   : <div className="room-empty small muted">{hanging ? "Hanging it…" : "Not made yet"}</div>}
                 <figcaption className="row between small">
                   <span>{view.name} <span className="muted">{view.auto ? "(picked automatically)" : "(your choice)"}</span>
                     {view.image && view.stale && !hanging && <span className="badge warn">Out of date</span>}</span>
-                  <button ref={changeBtn} className="secondary" disabled={hanging} aria-haspopup="dialog" aria-expanded={changing}
-                          onClick={() => { setPick(current); setChanging(true); }}>Change room</button>
+                  <span className="row">
+                    {view.image && !view.stale && !adjusting &&
+                      <button className="secondary" disabled={hanging}
+                              onClick={async () => { if (!view.corners) await hang(); setAdjusting(true); }}>Size and place</button>}
+                    <button ref={changeBtn} className="secondary" disabled={hanging || adjusting} aria-haspopup="dialog" aria-expanded={changing}
+                            onClick={() => { setPick(current); setChanging(true); }}>Change room</button>
+                  </span>
                 </figcaption>
               </figure>
               {view.unavailable && <p className="small warn-text">{view.unavailable} can't be used any more, so a room was picked for it.</p>}
               <p className="small muted">
                 {view.guessed
                   ? <>Size guessed: {p.dimensions ? `"${p.dimensions}" has no unit` : "no size is given yet"}. Give its size above, under About this piece, to hang it at its real size.</>
+                  : view.scale !== 1 ? <>Sized by hand: {view.scale.toFixed(2)}× its real size ({p.dimensions}).</>
                   : <>Hung at its real size ({p.dimensions}).</>}
+                {view.guessed && view.scale !== 1 && ` Sized by hand: ${view.scale.toFixed(2)}× the guess.`}
+                {view.moved && " Hung where you placed it in this room."}
                 {view.fitted && " Shrunk to fit the wall."}
                 {view.overflows && ` Bigger than the wall area marked in ${view.name}, so it may overlap the furniture there. ${view.fits_elsewhere.length
                   ? `It fits in ${view.fits_elsewhere.join(", ")}: try Change room.` : "No room's wall is big enough for it at this size."}`}

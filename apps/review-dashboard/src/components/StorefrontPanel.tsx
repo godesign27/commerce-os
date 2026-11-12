@@ -8,7 +8,8 @@ const EVIDENCE: Record<string, string> = {
   supplied: "you supplied it", human_confirmed: "you approved it", inferred: "drafted", observed: "from the photo",
   verified_catalog: "from the store",
 };
-const STATUS_WORDS: Record<string, string> = { draft: "Draft (hidden until you set it live)", active: "Live", archived: "Archived" };
+const STATUS_WORDS: Record<string, string> = { draft: "Draft (hidden until you set it live)", active: "Live", archived: "Archived",
+  unchanged: "an update (its status stays as the store has it)" };
 const AFTER_APPROVAL = "assets.delivery";      // copied from packages/adapters/artstore_map.py (AFTER_APPROVAL)
 
 function money(v: unknown) {
@@ -16,7 +17,7 @@ function money(v: unknown) {
   return Number.isFinite(n) ? n.toLocaleString("en-US", { style: "currency", currency: "USD" }) : String(v);
 }
 
-function show(r: PreviewRow): string {
+function show(r: Pick<PreviewRow, "column" | "display">): string {
   const v = r.display;
   if (r.column === "price") return money(v);
   if (r.column === "status") return STATUS_WORDS[String(v)] || String(v);
@@ -92,15 +93,23 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
   const a = p.approval!;
   const pub = p.publish;
   const status = STATUS_WORDS[p.change_set!.requested_status] || p.change_set!.requested_status;
+  const up = p.update;            // already in the store: this is what an update would change (B-085)
 
   return (
     <section className={`panel storefront ${a.state === "out_of_date" ? "dirty" : a.state === "current" ? "is-ready" : ""}`} aria-labelledby={`sf-${id}`}>
       <h2 id={`sf-${id}`}>{name}{" "}
-        {a.state === "current" ? <span className="badge ok">✓ Approved</span>
+        {up ? (a.state === "current" ? <span className="badge ok">✓ Update approved</span>
+                : p.approvable ? <span className="badge">Changed since published</span>
+                : <span className="badge bad">{blocking.length} to resolve</span>)
+          : a.state === "current" ? <span className="badge ok">✓ Approved</span>
           : a.state === "out_of_date" ? <span className="badge bad">Approval out of date</span>
           : p.approvable ? <span className="badge">Ready to approve</span>
           : <span className="badge bad">{blocking.length} to resolve</span>}</h2>
-      {pub?.live
+      {up
+        ? <p className="muted small">This piece is already in {pub?.live ? name : `the ${pub?.target.toLowerCase() || "store"}`} (product {up.product_id}).
+            You changed it here since it was published; these are the changes an update would make. Anything edited in the store's
+            admin is kept as it is, and its status, web address and stock are never touched.</p>
+        : pub?.live
         ? <p className="muted small">What this piece would become, as a new Draft in {name}. Shoppers can't see it until you set it to Active in the store's admin.</p>
         : <p className="muted small">What this piece would become, as a new hidden product. For now it can only be published
             to a local test store on this computer: {name} itself isn't changed.</p>}
@@ -114,7 +123,7 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
           {(p.notes || []).map((n) => <li key={n}>{n}</li>)}</ul>
       )}
 
-      <div className="sf-catalog">
+      {!up && <div className="sf-catalog">
         <h3 className="small">Already in the store?</h3>
         <p className="muted small">
           {p.catalog?.read_at
@@ -146,9 +155,33 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
             ))}
           </ul>
         )}
-      </div>
+      </div>}
 
-      <table className="sf-table">
+      {up && (<>
+        <table className="sf-table sf-update">
+          <thead><tr><th scope="col">Field</th><th scope="col">In the store now</th><th scope="col">Will become</th></tr></thead>
+          <tbody>
+            {(p.rows || []).map((r) => (
+              <tr key={r.column}>
+                <th scope="row">{r.label}</th>
+                <td className="muted">{r.column === "images" ? `${Array.isArray(r.before) ? r.before.length : 0} image(s)` : show({ column: r.column, display: r.before })}</td>
+                <td>{r.column === "images"
+                  ? <span className="sf-images">{(p.images || []).map((im) => <img key={im.kind} src={`/${im.image}`} alt={im.kind === "room" ? "Room view" : "Framed image"} />)}</span>
+                  : <span className={r.column === "description" || r.column === "short_description" ? "sf-long" : ""}>{show(r)}</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {up.kept.length > 0 && (
+          <div className="sf-kept small">
+            <h3 className="small">Kept as the store has it</h3>
+            <p className="muted">You changed these here too, but they were edited in the store's admin since it was published, so the store's version stays.</p>
+            <ul>{up.kept.map((k) => <li key={k.column}><strong>{k.label}:</strong> {show({ column: k.column, display: k.store })}</li>)}</ul>
+          </div>
+        )}
+      </>)}
+
+      {!up && <table className="sf-table">
         <tbody>
           {(p.rows || []).filter((r) => r.column !== "id").map((r) => (
             <tr key={r.column}>
@@ -161,21 +194,21 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
             </tr>
           ))}
         </tbody>
-      </table>
-      <p className="muted small">Left as the store has them: {p.change_set!.not_touched.join(", ")}.</p>
+      </table>}
+      {!up && <p className="muted small">Left as the store has them: {p.change_set!.not_touched.join(", ")}.</p>}
       {delivery && <p className="small muted">Images: {delivery.question}</p>}
 
       {a.state === "current" && a.approval && (
         <p className="banner ok small">Approved {new Date(a.approval.approved_at).toLocaleString()} as {status}. Change set {a.approval.change_set_hash.slice(0, 12)}.</p>
       )}
-      {a.state === "out_of_date" && a.approval && (
+      {a.state === "out_of_date" && a.approval && !up && (
         <p className="small warn-text" role="status">Approved {new Date(a.approval.approved_at).toLocaleString()}, but since then
           these changed: {a.changes.join(", ")}. That approval no longer counts; approve this version to replace it.</p>
       )}
       {a.state !== "current" && (
         <div className="row section-actions">
           <button disabled={!p.approvable || busy} onClick={approve}>
-            {busy ? "Approving…" : `${a.state === "out_of_date" ? "Approve this version" : `Approve for ${name}`} as Draft`}</button>
+            {busy ? "Approving…" : up ? "Approve update" : `${a.state === "out_of_date" ? "Approve this version" : `Approve for ${name}`} as Draft`}</button>
           {!p.approvable && <span className="muted small">Resolve the items above first.</span>}
         </div>
       )}
@@ -188,13 +221,15 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
           {pub!.worker.running && !pub!.worker.ok && pub!.worker.reason && <p className="small warn-text">{pub!.worker.reason}</p>}
 
           {(pub!.state === "QUEUED" || pub!.state === "WRITING") && <p className="small">{pub!.state === "QUEUED" ? "Queued: the worker will run its final check." : "Publishing…"}</p>}
-          {pub!.state === "SUCCEEDED" && (
+          {pub!.state === "SUCCEEDED" && !up && pub!.last_op === "update" && (
+            <p className="banner ok small">Updated in {pub!.live ? name : `the ${pub!.target.toLowerCase()}`}, and confirmed by reading it back. Receipt {pub!.receipt_id}.</p>)}
+          {pub!.state === "SUCCEEDED" && !up && pub!.last_op !== "update" && (
             <p className="banner ok small">{pub!.live
               ? <>Added to {name} as a Draft, and confirmed by reading it back. Product {pub!.product_id}, receipt {pub!.receipt_id}. Set it to Active in the store's admin to make it live.</>
               : <>Published to the {pub!.target.toLowerCase()} as a hidden draft, and confirmed by reading it back.
               Product {pub!.product_id}, receipt {pub!.receipt_id}. {name} itself hasn't changed.</>}</p>)}
           {pub!.state === "FAILED" && (
-            <div className="small"><p className="error">Not published. Nothing went into the store.</p>
+            <div className="small"><p className="error">{up ? "Not updated. Nothing in the store changed." : "Not published. Nothing went into the store."}</p>
               <ul>{pub!.reasons.map((r) => <li key={r}>{r}</li>)}</ul></div>)}
           {pub!.state === "OUTCOME_UNKNOWN" && (
             <div className="small warn-text">
@@ -203,10 +238,11 @@ export function StorefrontPanel({ id, version, onChange }: { id: string; version
                 : <p>The result of the publish wasn't seen, so it may or may not have gone in. Publishing again could add it twice, so check the store first.{pub!.finding === "not_found" ? " It wasn't there at the last check; one more check a minute later settles it." : ""}</p>}
               <button className="secondary" disabled={busy || pub!.checking} onClick={() => run(() => api.publishRecheck(id))}>{pub!.checking ? "Checking…" : "Check again"}</button>
             </div>)}
-          {(pub!.state === null || pub!.state === "FAILED") && (
+          {(pub!.state === null || pub!.state === "FAILED" || (up && pub!.state === "SUCCEEDED")) && (
             <div className="row section-actions">
               <button disabled={busy || pub!.kill_switch.on} onClick={() => run(() => api.publish(id, p.change_set!.change_set_hash))}>
-                {pub!.state === "FAILED" ? "Publish again" : "Publish"} to {pub!.target.toLowerCase()}</button>
+                {up ? (pub!.state === "FAILED" ? "Send the update again" : "Update in store")
+                  : `${pub!.state === "FAILED" ? "Publish again" : "Publish"} to ${pub!.target.toLowerCase()}`}</button>
             </div>)}
           {!pub!.kill_switch.forced && (
             <button className="link" disabled={busy} onClick={() => switchWriting(!pub!.kill_switch.on)}>

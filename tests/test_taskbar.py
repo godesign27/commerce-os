@@ -108,6 +108,23 @@ class Activity(unittest.TestCase):
         self.assertIn('@route("GET", "/api/activity")', read(REPO / "services/local_api/server.py"))
 
 
+class Heartbeat(unittest.TestCase):
+    def test_a_long_batch_keeps_saying_the_worker_is_alive(self):
+        from packages.publisher.worker import Worker
+        log = []
+
+        class Pubs:
+            def in_state(self, state):
+                return ["a", "b", "c"] if state == pub.QUEUED else []
+            def beat(self, ok, reason=None):
+                log.append("beat")
+        w = Worker.__new__(Worker)
+        w.pubs = Pubs()
+        w.publish = lambda item: log.append(item)
+        self.assertEqual(w.run_once(), 3)
+        self.assertEqual(log, ["beat", "a", "beat", "b", "beat", "c"], "a beat before each piece, so 6 in a row never looks stopped")
+
+
 class Bar(unittest.TestCase):
     def test_it_is_on_every_page(self):
         src = read(REPO / "apps/review-dashboard/src/main.tsx")

@@ -19,6 +19,17 @@ BY = "publishing-worker"
 class Worker:
     def __init__(self, app, publications: Publications, adapter, images: asset_store.LocalAssetStore):
         self.app, self.pubs, self.adapter, self.images = app, publications, adapter, images
+        if getattr(app, "_read_product", False) is None:    # rebuilding an update reads the product through this
+            app._read_product = self._store_row             # adapter's checked read login, never the dashboard's (B-085)
+
+    REREAD_SECONDS = 5          # one read of the store serves the products a check asks about together
+
+    def _store_row(self, product_id: str):
+        import time
+        if time.time() - getattr(self, "_read_at", 0.0) > self.REREAD_SECONDS:
+            self.adapter.refresh()
+            self._read_at = time.time()
+        return self.adapter.tables.get("products", {}).get(product_id)
 
     # ------------------------------------------------------------ Gate 4
     def gate4(self, item: str, queued: dict) -> List[str]:
@@ -59,10 +70,12 @@ class Worker:
         self.pubs.audit.append(item, "publish_unknown", f"Publish outcome unknown: {why}", by=BY)
 
     def _succeed(self, item: str, change_set: dict, receipt: Optional[str], operations: list, report: dict):
+        op = change_set["operations"][0]
         self.pubs.append(item, "published", SUCCEEDED, receipt_id=receipt, operations=operations,
-                         product_id=change_set["operations"][0]["key"], report=report)
-        self.pubs.audit.append(item, "published", f"Published to the {self.adapter.environment} store as a hidden "
-                               f"draft (receipt {receipt})", by=BY, receipt_id=receipt,
+                         product_id=op["key"], report=report, change_set_hash=change_set["change_set_hash"], op=op["op"])
+        what = (f"Updated in the {self.adapter.environment} store: " + ", ".join(sorted(op["fields"])) if op["op"] == "update"
+                else f"Published to the {self.adapter.environment} store as a hidden draft")
+        self.pubs.audit.append(item, "published", f"{what} (receipt {receipt})", by=BY, receipt_id=receipt,
                                change_set_hash=change_set["change_set_hash"])
 
     def publish(self, item: str):
@@ -138,9 +151,11 @@ class Worker:
         handled = 0
         for item in self.pubs.in_state(UNKNOWN):
             if self.pubs.recheck_wanted(item):
+                self.pubs.beat(True)                   # still alive: a long batch mustn't look like a stopped worker
                 self.recheck(item)
                 handled += 1
         for item in self.pubs.in_state(QUEUED):
+            self.pubs.beat(True)
             self.publish(item)
             handled += 1
         return handled

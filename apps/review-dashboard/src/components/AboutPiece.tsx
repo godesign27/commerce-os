@@ -29,11 +29,12 @@ export function joinSize(w: string, h: string, unit: Unit | ""): string {
 // like the room set-up, each ticked once saved. Series and edition are extra. A size in the file name
 // ("Animal Art 16x20_0005_Lion.jpg") is pre-filled as inches, for the owner to check and save. Price and
 // "sold as" go to the storefront only: they never reach the copy drafts.
-export function AboutPiece({ itemId, series: series0, facts: facts0, onSaved, note, sizeFromName, tierTypes = [] }: {
+export function AboutPiece({ itemId, series: series0, facts: facts0, onSaved, note, sizeFromName, tierTypes = [], wide = false }: {
   itemId: string; series: string; facts: Facts; onSaved: () => Promise<void> | void;
   note?: string;                        // what saving means for the copy, e.g. "Redraft to use it in the copy."
   sizeFromName?: string | null;         // a size read from the file name, pre-filled when none is saved
   tierTypes?: string[];                 // the storefront's tier types ("Original", "Print", …) for "Sold as"
+  wide?: boolean;                       // across the page under the progress (the listing page, B-090): fields in a row
 }) {
   const start = { series: series0 || "", edition: facts0.edition || "", medium: facts0.medium || "", size: facts0.dimensions || "",
                   price: facts0.price || "", soldAs: facts0.sold_as || "" };
@@ -86,7 +87,7 @@ export function AboutPiece({ itemId, series: series0, facts: facts0, onSaved, no
   const cls = (n: typeof needs[number]) => n.saved && !n.changed ? "done" : n.filled ? "pending" : "";
 
   return (
-    <section className={`panel details ${dirty ? "dirty" : ""}`} aria-labelledby={`about-${itemId}`}>
+    <section className={`panel details ${wide ? "wide" : ""} ${dirty ? "dirty" : ""}`} aria-labelledby={`about-${itemId}`}>
       <h2 id={`about-${itemId}`}>About this piece{" "}
         {toSupply ? <span className="badge bad">{toSupply} to supply</span> : <span className="badge ok">✓ Supplied</span>}{" "}
         {dirty && <span className="badge warn">Not saved</span>}</h2>

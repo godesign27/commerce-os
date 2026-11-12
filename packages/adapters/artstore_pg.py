@@ -21,10 +21,15 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from packages.adapters import artstore_map
+from packages.adapters import updates as updates_mod
 from packages.adapters.contract import Issue, OutcomeUnknown, PublishResult, Refused, approval_issues
-from packages.adapters.fake import ENTITY_TABLES, FakeStorefront
+from packages.adapters.fake import ENTITY_TABLES, FakeStorefront, changed_fields
 
 CONNECT = {"connect_timeout": 10, "options": "-c statement_timeout=15000"}
+
+
+class StoreEdited(Exception):
+    """An update found the product not as the owner approved it; the transaction rolls back (B-085)."""
 
 
 class NotLocal(ValueError):
@@ -105,19 +110,49 @@ class PostgresArtStore(FakeStorefront):
             sql.SQL(", ").join(sql.Placeholder() * len(cols)))
         conn.execute(statement, [param(c, values[c]) for c in cols])
 
+    def _update(self, conn, table: str, key: str, values: dict, expected: dict):
+        """Change only these columns of one row, once the row is locked and still holds what the owner approved
+        over. Raises StoreEdited, so the transaction rolls back, when it doesn't or when the row can't be changed."""
+        def param(col, value):
+            return Jsonb(value) if self.columns(table)[col]["type"] == "jsonb" else value
+        cols = sorted(expected)
+        found = conn.execute(sql.SQL("SELECT {} FROM public.{} WHERE id = %s FOR UPDATE").format(
+            sql.SQL(", ").join(map(sql.Identifier, cols)), sql.Identifier(table)), [key]).fetchone()
+        if found is None:
+            raise StoreEdited("the product isn't in the store any more")
+        row = found if isinstance(found, dict) else dict(zip(cols, found))
+        now = {c: self._value(table, c, row[c]) for c in cols}
+        moved = changed_fields(now, expected)
+        if moved:
+            raise StoreEdited("it was edited in the store since you approved the update ("
+                              + ", ".join(moved) + "): look at it again and approve the update again")
+        updated = conn.execute(sql.SQL("UPDATE public.{} SET {} WHERE id = %s RETURNING id").format(
+            sql.Identifier(table), sql.SQL(", ").join(sql.SQL("{} = %s").format(sql.Identifier(c)) for c in values)),
+            [param(c, values[c]) for c in values] + [key]).fetchone()
+        if updated is None:                           # row-level security hid it: no update rule for this login
+            raise StoreEdited("the store didn't let the write login change it: add the update rule from the "
+                              "write-login runbook (docs/runbooks/write-role.md)")
+
     def publish_approved(self, change_set: dict, approval: dict) -> PublishResult:
         self._log("publish_approved", change_set)
         cs_id = change_set.get("change_set_id")
         issues = approval_issues(change_set, approval)
         if change_set.get("simulated"):
             issues.append(Issue("simulated", "a simulated change set can only be dry-run"))
-        if change_set.get("requested_status") != artstore_map.STATUS or any(
-                (op.get("fields", {}).get("status") or {}).get("value") != artstore_map.STATUS for op in change_set.get("operations", [])):
+        ops = change_set.get("operations", [])
+        updates = [op for op in ops if op.get("op") == "update"]
+        creates = [op for op in ops if op.get("op") != "update"]      # anything that isn't an update adds a Draft
+        if not updates and (change_set.get("requested_status") != artstore_map.STATUS or any(
+                (op.get("fields", {}).get("status") or {}).get("value") != artstore_map.STATUS for op in creates)):
             issues.append(Issue("not_a_draft", "Commerce OS only adds Drafts: you make a product live in the store's admin"))
+        if updates and (creates or change_set.get("requested_status") != updates_mod.UPDATE_STATUS or any(
+                set(op.get("fields", {})) - set(updates_mod.UPDATABLE)
+                or "expected_fields" not in op.get("precondition", {}) for op in updates)):
+            issues.append(Issue("update_out_of_bounds", "An update may only change the listing's own fields, each "
+                                "checked against what the store holds; never its status, web address or id"))
         if issues:
             raise Refused(issues)
         self.refresh()
-        ops = change_set.get("operations", [])
         if ops and all(self._matches(op) for op in ops):       # a repeat of what's already there adds nothing
             return PublishResult(cs_id, f"att-{uuid.uuid4().hex[:12]}", "SUCCEEDED", f"rcpt-{uuid.uuid4().hex[:12]}",
                                  [{"seq": op["seq"], "key": op["key"], "result": "already_present"} for op in ops],
@@ -143,12 +178,21 @@ class PostgresArtStore(FakeStorefront):
             with conn:                                 # commits on leaving; rolls back on any error
                 for op in ops:
                     table = ENTITY_TABLES[op["entity"]]
-                    self._insert(conn, table, {c: self._to_destination(table, c, f["value"])
-                                               for c, f in op.get("fields", {}).items()})
+                    values = {c: self._to_destination(table, c, f["value"]) for c, f in op.get("fields", {}).items()}
+                    if op["op"] == "update":
+                        self._update(conn, table, op["key"], values, op["precondition"]["expected_fields"])
+                    else:
+                        self._insert(conn, table, values)
                 if self._fail == "lose_before_commit":
                     self._fail = None
                     conn.close()
                     raise psycopg.OperationalError("injected: connection lost before commit")
+        except StoreEdited as e:                       # checked inside the transaction: rolled back, nothing written
+            return PublishResult(cs_id, attempt, "FAILED", None, not_written, str(e))
+        except psycopg.errors.InsufficientPrivilege:  # refused before anything changed: rolled back
+            return PublishResult(cs_id, attempt, "FAILED", None, not_written,
+                                 "the store's write login can't update products yet: run the update step of the "
+                                 "write-login runbook (docs/runbooks/write-role.md)")
         except psycopg.errors.IntegrityError as e:    # the store refused it: rolled back, nothing written
             why = ("another product already uses this web address. Change the title, then approve it again"
                    if "slug" in (e.diag.constraint_name or "") else e.diag.message_primary)

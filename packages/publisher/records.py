@@ -83,14 +83,32 @@ class Publications:
             raise PublishError("This piece is already being published.")
         if state == UNKNOWN:
             raise PublishError("The last publish has an unknown outcome. Check again first: publishing now could add it twice.")
-        if state == SUCCEEDED:
-            raise PublishError("This piece is already published. Only new products can go in for now.")
+        update = (change_set.get("operations") or [{}])[0].get("op") == "update"
+        if state == SUCCEEDED and not update:
+            raise PublishError("This piece is already published: approve an update to change it in the store.")
+        if update and not self.latest(item, "published"):
+            raise PublishError("This piece isn't in the store yet, so there's nothing to update.")
         if self.kill_switch()["on"]:
             raise PublishError("Writing is switched off, so nothing was queued.")
         rec = self.append(item, "queued", QUEUED, by=by, change_set_id=change_set["change_set_id"],
-                          change_set_hash=change_set["change_set_hash"], approval_id=approval["approval_id"])
-        self.audit.append(item, "publish_requested", f"Asked to publish change set {change_set['change_set_hash'][:12]}", by=by)
+                          change_set_hash=change_set["change_set_hash"], approval_id=approval["approval_id"],
+                          op="update" if update else "create")
+        self.audit.append(item, "publish_requested", f"Asked to {'update' if update else 'publish'} change set "
+                          f"{change_set['change_set_hash'][:12]}", by=by)
         return rec
+
+    def published_hashes(self, item: str) -> List[str]:
+        """The change sets that reached the store, oldest first: each publish that succeeded, by the hash it wrote
+        (recorded since B-085), or else the hash it was queued with."""
+        out, queued = [], None
+        for e in self.events(item):
+            if e["event"] == "queued":
+                queued = e.get("change_set_hash")
+            elif e["event"] == "published":
+                h = e.get("change_set_hash") or queued
+                if h:
+                    out.append(h)
+        return out
 
     def ask_recheck(self, item: str, by: str):
         if self.state(item) != UNKNOWN:

@@ -377,11 +377,18 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 .next-step > button { white-space: nowrap; }
 .detail-nav { margin-bottom: 0.6rem; font-size: 0.92rem; }
 .detail-head { margin-bottom: 1rem; } .detail-head h1 { margin: 0 0 0.5rem; }
-.tracker { list-style: none; display: flex; flex-wrap: wrap; gap: 0.2rem 1.1rem; margin: 0; padding: 0; font-size: 0.85rem; color: var(--muted); }
-.tracker li { display: flex; align-items: center; gap: 0.4rem; }
-.tracker li::before { content: ""; width: 0.6rem; height: 0.6rem; border-radius: 50%; border: 1.5px solid var(--control); }
-.tracker li.done { color: var(--ink); } .tracker li.done::before { background: var(--ok); border-color: var(--ok); }
-.tracker li.here { color: var(--accent); font-weight: 600; } .tracker li.here::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.tracker { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0; margin: 0; padding: 0;
+  font-size: 0.8rem; color: var(--muted); }
+.tracker li { display: flex; align-items: center; gap: 0.35rem; }
+.tracker li + li::before { content: ""; width: 1.1rem; height: 2px; margin: 0 0.4rem; border-radius: 1px; background: var(--line); }
+.tracker li.done + li::before { background: var(--ok); }
+.tracker .step-dot { display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; border-radius: 50%;
+  border: 1.5px solid var(--control); font-size: 0.7rem; font-weight: 700; line-height: 1; background: var(--panel); }
+.tracker li.done { color: var(--ink); }
+.tracker li.done .step-dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+.tracker li.here { color: var(--accent); font-weight: 600; }
+.tracker li.here .step-dot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .two-col { margin-top: 0; gap: 2rem; }
 .draft-info { margin: 0 0 1rem; } .draft-info .panel { margin-top: 0.6rem; }
 #store { scroll-margin-top: 1rem; }
@@ -431,12 +438,22 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 }
 
 /* The task bar (B-077): pinned to the bottom of the sheet, on every page, only while there's something to show. */
-.taskbar { position: sticky; bottom: 0.5rem; margin: 0 1.25rem 0.5rem; background: var(--panel); border: 1px solid var(--line);
-  border-left: 4px solid var(--accent); border-radius: 10px; box-shadow: 0 6px 20px rgb(0 0 0 / 0.08); z-index: 5; }
+/* The bar is the page's opposite (dark on the light theme, light on the dark one) so it can't be missed (B-077).
+   It sets its own colours, so the dot, links and stages inside it stay readable on it. */
+.taskbar { --tb-bg: #1c2326; --ink: #f4f4f1; --muted: #b9bdbd; --line: #3a4245; --accent: #8fd3e3; --ok: #86d9a9; --warn: #f2b86e; --bad: #f7a29a;
+  position: sticky; bottom: 0.5rem; margin: 0 1.25rem 0.5rem; background: var(--tb-bg); color: var(--ink); border: 1px solid var(--tb-bg);
+  border-left: 6px solid var(--accent); border-radius: 10px; box-shadow: 0 10px 30px rgb(0 0 0 / 0.28); z-index: 5; }
+@media (prefers-color-scheme: dark) {
+  .taskbar { --tb-bg: #f4f4f1; --ink: #17181a; --muted: #4f5254; --line: #d6d5d0; --accent: #1b6c80; --ok: #1e7b4f; --warn: #92400e; --bad: #b3261e;
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.6); }
+}
+.taskbar .taskbar-summary { font-weight: 600; font-size: 0.95rem; }
+.taskbar button.link, .taskbar a { color: var(--accent); font-weight: 600; }
+.taskbar :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .taskbar.held { border-left-color: var(--warn); } .taskbar.done { border-left-color: var(--ok); } .taskbar.bad { border-left-color: var(--bad); }
 .taskbar-line { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0.9rem; }
 .taskbar-summary { flex: 1; margin: 0; min-width: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
-.taskbar-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--accent); flex: none; }
+.taskbar-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--accent); flex: none; }
 .taskbar.busy .taskbar-dot { animation: taskbar-pulse 1.2s ease-in-out infinite; }
 .taskbar.held .taskbar-dot { background: var(--warn); } .taskbar.done .taskbar-dot { background: var(--ok); } .taskbar.bad .taskbar-dot { background: var(--bad); }
 @keyframes taskbar-pulse { 50% { opacity: 0.25; transform: scale(0.8); } }
@@ -463,3 +480,55 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 .ladder-basis { margin: 0.1rem 0 0 1.6rem; }
 .ladder-tiers { margin: 0.3rem 0 0 1.6rem; padding: 0; list-style: none; columns: 2; column-gap: 1.5rem; }
 @media (max-width: 760px) { .ladder-tiers { columns: 1; } }
+.room-adjust-stage { position: relative; touch-action: none; user-select: none; overflow: hidden; border-radius: var(--radius); }
+.room-adjust-stage img { width: 100%; display: block; border-radius: var(--radius); }
+.room-adjust-box { position: absolute; outline: 2px dashed #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 0 9999px rgba(0, 0, 0, 0.25); cursor: move; }
+.room-adjust-box:focus-visible { outline: 3px solid var(--accent, #2b7a8c); }
+.room-adjust-handle { position: absolute; right: -9px; bottom: -9px; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid rgba(0, 0, 0, 0.6); cursor: nwse-resize; }
+.room-adjust { display: grid; gap: 0.5rem; }
+.mat-switch { margin: 0.25rem 0 0.75rem; }
+.mat-switch p { margin: 0.1rem 0 0 1.6rem; }
+.pickable { position: relative; }
+.card-pick { position: absolute; top: 0.5rem; left: 0.5rem; z-index: 1; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 6px; background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+.card-pick input { width: 1.15rem; height: 1.15rem; margin: 0; cursor: pointer; }
+.card-pick.on { border-color: var(--accent); }
+.card.is-picked { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.draft-help { margin: -0.4rem 0 0.8rem; }
+
+/* An update to a piece already in the store (B-085): what the store has now beside what it would become. */
+.sf-update thead th { text-align: left; font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.sf-update td.muted { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.sf-kept { border-left: 3px solid var(--warn, #b45309); padding: 0.4rem 0.75rem; margin: 0.75rem 0; }
+.sf-kept h3 { margin: 0 0 0.25rem; }
+.sf-kept p { margin: 0 0 0.35rem; }
+.sf-kept ul { margin: 0; padding-left: 1.1rem; }
+
+/* Bulk actions on the Listings page (B-087): stays in view while you scroll the grid. */
+.bulk-bar { position: sticky; top: 0.5rem; z-index: 5; background: var(--panel); border: 1px solid var(--line);
+  border-left: 4px solid var(--accent); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.5rem 0 1rem;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.08); }
+.bulk-actions { flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.bulk-panel { border-top: 1px solid var(--line); margin-top: 0.6rem; padding-top: 0.6rem; }
+.bulk-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.6rem; margin: 0.5rem 0; }
+.bulk-fields label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
+.bulk-store { max-height: 16rem; overflow: auto; margin: 0.4rem 0; padding-left: 1.1rem; }
+.bulk-store li { margin: 0.2rem 0; }
+.bulk-replace { display: flex; align-items: center; gap: 0.4rem; margin: 0.25rem 0 0.5rem; }
+.bulk-replace input { margin: 0; width: auto; }
+
+/* The store step in the next-step bar (B-088): the action, with a link to what it sends. */
+.next-store { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* About this piece across the listing page, under the progress (B-090): the four details in one row, the extras
+   beside them, so each piece's details are filled in without scrolling. */
+.details.wide { margin: 0.8rem 0 1rem; }
+.details.wide > p.muted { margin: 0.2rem 0 0.4rem; }
+.details.wide .steps { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 0.6rem 1rem; margin: 0.5rem 0; }
+.details.wide .steps li { grid-template-columns: 1.6rem 1fr; gap: 0.45rem; }
+.details.wide .step-n { width: 1.6rem; height: 1.6rem; }
+.details.wide .size-row input { width: 3.8rem; }
+.details.wide .size-row select { width: 5.4rem; }
+.details.wide .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .details.wide .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .details.wide .steps, .details.wide .facts { grid-template-columns: 1fr; } }

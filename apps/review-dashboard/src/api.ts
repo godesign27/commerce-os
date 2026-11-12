@@ -18,7 +18,7 @@ export interface ItemRow {
 }
 // One status per piece, from packages/journey.py (B-074). Every page shows this and works nothing out for itself.
 export type StatusId = "review-photo" | "ready-to-draft" | "review-copy" | "add-details" | "approve-for-store"
-  | "ready-to-publish" | "publishing" | "published" | "needs-look" | "rejected";
+  | "ready-to-publish" | "publishing" | "published" | "changed" | "ready-to-update" | "needs-look" | "rejected";
 export type StatusTone = "todo" | "wait" | "done" | "bad" | "off";
 export interface StatusLabel { id: StatusId; label: string; tone: StatusTone }
 export interface PieceStatus extends StatusLabel {
@@ -36,12 +36,14 @@ export interface PublishDoc {
   target: string; live: boolean; state: PublishState | null; kill_switch: KillSwitch; worker: WorkerStatus;
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
+  last_op: "create" | "update" | null;      // what the last successful publish did (B-085)
 }
 // The publish page (B-071): every drafted listing, sorted by what it needs next.
 export interface QueueRow {
   id: string; source: string; title: string | null; image: string | null;
   price: { amount_minor: number; currency: string } | null; sold_as: string | null; size: string | null;
   status: PieceStatus; state: PublishState | null; change_set_hash: string | null; approved_at: string | null; next: string[];
+  update: boolean;                          // already in the store, and this is an update (B-085)
   product_id: string | null; receipt_id: string | null; published_at: string | null;
   reasons: string[]; finding: "mismatch" | "not_found" | null; fields: string[]; checking: boolean;
 }
@@ -56,7 +58,7 @@ export interface Activity {
 }
 export interface PublishQueue {
   available: boolean; reason?: string; target: string; live: boolean; display_name: string; kill_switch: KillSwitch; worker: WorkerStatus;
-  ready: QueueRow[]; working: QueueRow[]; problems: QueueRow[]; waiting: QueueRow[]; published: QueueRow[]; not_drafted: number;
+  ready: QueueRow[]; working: QueueRow[]; problems: QueueRow[]; waiting: QueueRow[]; changed: QueueRow[]; published: QueueRow[]; not_drafted: number;
 }
 // A product in the store that may already be this piece (B-065). Shown for the owner to answer; never a source of facts.
 export interface MatchCandidate {
@@ -68,7 +70,9 @@ export interface StorefrontPreview {
   available: boolean; reason?: string; storefront?: string; display_name?: string; environment?: string;
   change_set?: { change_set_id: string; change_set_hash: string; requested_status: string; mapping_version: number;
                  canonical_revision: number; asset_manifest_hash: string; not_touched: string[] };
-  rows?: PreviewRow[]; images?: Array<{ kind: "framed" | "room"; image: string }>; blockers?: Issue[]; notes?: string[];
+  rows?: PreviewRow[];
+  update?: { product_id: string; kept: Array<{ column: string; label: string; store: unknown; ours: unknown }> } | null;
+  images?: Array<{ kind: "framed" | "room"; image: string }>; blockers?: Issue[]; notes?: string[];
   dry_run?: { would_publish: boolean; issues: Array<{ code: string; message: string }> }; approvable?: boolean;
   approval?: { state: "none" | "current" | "out_of_date"; changes: string[];
                approval: { approval_id: string; approved_at: string; change_set_hash: string; requested_status: string } | null };
@@ -85,7 +89,16 @@ export interface State {
   storefront: string; display_name: string; site_kind: "artist" | "product" | null;
   brand: { version: number; name: string; proposed_lessons: number } | null;
   items: ItemRow[]; key_configured: boolean; jobs: Job[]; onboarding: Steps; publish_target: "local" | "live";
+  tier_types: string[];
 }
+// Bulk actions on the Listings page (B-087). Each piece follows its own page's rules; the rest are skipped, with why.
+export type BulkAction = "approve_copy" | "facts" | "store_preview" | "approve_store" | "redraft";
+export interface BulkSkip { id: string; title: string; reason: string }
+export interface StoreRow {
+  id: string; title: string; change_set_hash: string; update: boolean; changes: string[];
+  price: { amount_minor: number; currency: string } | null; sold_as: string | null; size: string | null;
+}
+export interface BulkResult { done: string[]; skipped: BulkSkip[]; rows?: StoreRow[]; job?: string | null }
 // First run (B-068). Nothing here ever holds a credential.
 export interface Steps { steps: Array<{ id: string; label: string; done: boolean }>; complete: boolean; next: string | null }
 export interface OnboardingDoc extends Steps {
@@ -171,13 +184,15 @@ export interface PhotoDetail extends Photo {
   photo_size?: [number, number]; photo_preview_size?: [number, number]; cropped?: string; original?: string;
   art_size?: [number, number];
   detected: { corners: Pt[] | null; method: string | null; ok: boolean | null; reasons: string[] };
-  corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number };
+  corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number; mat: boolean }; mat: boolean;
+  frame_outdated: boolean;   // framed with an older version of its frame recipe; applying reframes it
   prev: string | null; next: string | null; listing_title: string | null;
   dimensions: string | null; facts: { edition?: string; medium?: string; dimensions?: string; price?: string; sold_as?: string }; series: string;
   room: RoomView | null; room_options: RoomOption[]; size_from_name: string | null; tier_types: string[];
 }
 export interface RoomOption { id: string; name: string; status: RoomStatus; image: string; preview: string | null }
-export interface RoomView { room: string; name: string; auto: boolean; unavailable: string | null; image: string | null; stale: boolean; guessed: boolean; fitted: boolean; overflows: boolean; frame_cm: [number, number] | null; fits_elsewhere: string[] }
+export interface RoomView { room: string; name: string; auto: boolean; unavailable: string | null; image: string | null; stale: boolean; guessed: boolean; fitted: boolean; overflows: boolean; frame_cm: [number, number] | null; fits_elsewhere: string[];
+  scale: number; moved: boolean; corners: [number, number][] | null }
 export type RoomStatus = "ready" | "needs-licence" | "needs-wall" | "off";
 export interface Room {
   id: string; name: string; file: string; image: string; preview: string | null; size: [number, number];
@@ -248,6 +263,8 @@ export const api = {
     call<StorefrontPreview>("POST", `/api/items/${id}/storefront/approve`, { change_set_hash, status }),
   addMeaning: (id: string, body: { scope: string; subject: string; meaning: string; series?: string }) =>
     call<BrandContext>("POST", `/api/items/${id}/meaning`, body),
+  draftSelected: (ids: string[]) => call<{ job: string }>("POST", "/api/draft-selected", { ids }),
+  bulk: (action: BulkAction, body: Record<string, unknown>) => call<BulkResult>("POST", "/api/listings/bulk", { action, ...body }),
   draftPending: (limit: number) => call<{ job: string }>("POST", "/api/draft-pending", { limit }),
   job: (id: string) => call<Job>("GET", `/api/jobs/${id}`),
   brand: () => call<{ context: BrandContext | null; history: Array<{ version: number; updated_at: string; updated_by: string }>; storefront: Record<string, unknown> }>("GET", "/api/brand"),
@@ -259,7 +276,7 @@ export const api = {
   distil: () => call<{ job: string }>("POST", "/api/learning/distil"),
   photos: () => call<PhotosDoc>("GET", "/api/photos"),
   photo: (id: string) => call<PhotoDetail>("GET", `/api/photos/${id}`),
-  decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null }) =>
+  decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null; mat?: boolean }) =>
     call<Photo>("PUT", `/api/photos/${id}`, body),
   applyPhotos: () => call<{ job: string }>("POST", "/api/photos/apply"),
   publish: (id: string, change_set_hash: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish`, { change_set_hash }),
@@ -282,7 +299,8 @@ export const api = {
   answerMatch: (id: string, product_id: string, answer: "same" | "different" | null) =>
     call<StorefrontPreview>("PUT", `/api/items/${id}/catalog-match`, { product_id, answer }),
   // {} hangs the piece in its room; {room} chooses that room first; {room: null} goes back to the automatic pick.
-  photoRoom: (id: string, body: { room?: string | null } = {}) => call<PhotoDetail>("POST", `/api/photos/${id}/room`, body),
+  // {scale} sizes it by hand in its room (null: real size); {centre} moves where art hangs in that room, for every piece.
+  photoRoom: (id: string, body: { room?: string | null; scale?: number | null; centre?: [number, number] | null } = {}) => call<PhotoDetail>("POST", `/api/photos/${id}/room`, body),
   rooms: () => call<RoomsDoc>("GET", "/api/rooms"),
   room: (id: string) => call<Room>("GET", `/api/rooms/${id}`),
   saveRoom: (id: string, body: RoomChanges) => call<Room>("PUT", `/api/rooms/${id}`, body),

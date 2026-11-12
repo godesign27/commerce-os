@@ -9,6 +9,8 @@ import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from packages.image_pipeline import framing
+
 # In pipeline order; `stage()` picks the first that applies, most urgent first.
 STAGES = [
     ("to-review", "To review"),          # a phone photo nobody has accepted or corrected yet, or a failed one
@@ -122,6 +124,8 @@ def photo_detail(item: dict, row: dict, decision: dict, neighbours: List[Optiona
         "detected": {"corners": crop.get("corners"), "method": crop.get("method"), "ok": crop.get("ok"),
                      "reasons": crop.get("reasons") or []},
         "corners": decision.get("corners"),
-        "applied": item.get("applied") or {"corners": None, "rotate": 0},
+        "applied": dict({"corners": None, "rotate": 0, "mat": True}, **(item.get("applied") or {})),
+        "mat": decision.get("mat", True),
+        "frame_outdated": framing.outdated(item.get("frame")),
         "prev": neighbours[0], "next": neighbours[1],
     })

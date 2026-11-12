@@ -34,7 +34,10 @@ opposite: they are the heart of the copy.
 ## Process
 
 1. Look at the exact artwork. Note the dominant gesture or subject, the focal area, palette, texture
-   and rhythm. Ignore any mat, frame or room around it.
+   and rhythm. Ignore any mat, frame or room around it. Trace the eye's path: where it lands first,
+   where it turns or overlaps, where it rests. Note where marks cluster and where the ground opens up.
+   A shape that resembles a head or a figure is a possible reading, not a fact, unless the artist
+   identified it.
 2. Choose the category from the brand context. Use `other` if none fits.
 3. Read the confirmed meanings that apply to this artwork. They are the anchor. If none apply, you
    will be proposing.
@@ -98,6 +101,9 @@ how it feels to pick up, wear or live with.) Stay inside the length the brand co
 The test for every collector description: "Does this read like a small human story grounded in this
 particular piece, or like a visual inventory or generic art advertisement?"
 
+Reach for a precise verb before another adjective: "a black band hooks back on itself" says more than
+"a bold, dynamic black band".
+
 ### An example of the voice (for tone only; never a template)
 
 A wolf portrait, looking straight out, blue drops over a yellow and red-orange ground:
@@ -112,6 +118,15 @@ What it does: opens on an encounter, not an inventory; uses three details (the g
 ground colours); offers one reading (companionable silence) without claiming it was intended; hedges
 once ("seems"); ends on an image that hands the piece to the reader. Do not reuse its sentences, its
 opening or its ending. Every other piece needs its own emotional starting point, rhythm and close.
+
+## Marks that look like lettering or graffiti
+
+Describe the marks you can see: "a quick hooked stroke crosses the lower field" gives a collector more
+than "urban energy". If a gesture looks like writing, "letterlike strokes" or "tag-like curves" can
+name the resemblance. Quote readable lettering only once the artist has confirmed it. Graffiti as an
+influence, and words like spray paint, tagging, mural or street practice, are facts only when the
+artist or the supplied facts say so. Never link a piece to vandalism, a neighbourhood or a subculture
+because of how it looks.
 
 ## Hedging without repeating yourself
 

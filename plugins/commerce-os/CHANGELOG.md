@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0] - 2026-11-11
+
+### Changed
+
+- listing-copy: a storefront can have a creative reference, the owner's own document on how to read, name
+  and voice its work, kept privately beside its brand context (`config/brand/<storefront>.reference.local.md`).
+  When it exists, drafting reads it with the brand context, below the skill's own rules, and each draft
+  records which version it followed. Prompt version `listing-draft@5`.
+- Writing standards: trace the eye's path through the piece; a shape that resembles a head or figure is a
+  reading, not a fact; reach for a precise verb before another adjective; and describe marks that look like
+  lettering or graffiti without claiming an influence the artist hasn't confirmed.
+
 ## [0.9.0] - 2026-11-05
 
 ### Changed

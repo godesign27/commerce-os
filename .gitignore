@@ -8,6 +8,7 @@ config/storefronts.local.json
 config/mappings/*.local.json
 # Brand and artist context, and its version history (the artist's own words)
 config/brand/*.local.json
+config/brand/*.local.md
 config/brand/history/
 
 # Local working output from agents and dry runs (never committed)

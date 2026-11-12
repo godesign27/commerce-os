@@ -216,6 +216,8 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
                            **({"stock": x["stock"]} if x.get("stock") is not None else {}))
                       for i, x in enumerate(ladder["tiers"], 1)]
             not_touched.remove("pricing_tiers[].stock")
+        for t in value:                                  # the store won't save a product with a blank tier description
+            t["description"] = tier_ladders.describe(t)
         fields["pricing_tiers"] = {"value": value, "status": "supplied"}
     if sold_as:
         fields["is_original"] = {"value": sold_as == ORIGINAL, "status": "supplied"}
@@ -229,6 +231,9 @@ def build(*, item: dict, entry: dict, record: Optional[dict], copy: Optional[dic
                    f"{' sold as ' + sold_as if sold_as else ''}. Add it with /edit-mappings.", resolver="administrator")
 
     tag_ids, unknown = _tags(copy.get("store_tags") or [], store)
+    series_tag = _series_tag(entry.get("series"), store)       # the owner's series, when it names a store tag (B-091)
+    if series_tag and series_tag not in tag_ids:
+        tag_ids.append(series_tag)
     fields["tags"] = {"value": tag_ids, "status": copy_status}
     for name in unknown:
         issues.add("product.tags", f"\"{name}\" isn't a tag in the store, so it's left off.", severity="warning")
@@ -305,6 +310,19 @@ def _category(kind, sold_as, mapping: dict, store: FakeStorefront) -> Optional[s
         return row["id"] if row else None
     cid = test_id("category", key)
     return cid if cid in store.tables["categories"] else None
+
+
+def _series_tag(series, store: FakeStorefront) -> Optional[str]:
+    """The store tag a series names, if any: "Animal" or "animals" is the Animal tag. A series that isn't a tag
+    ("Nautical 1") adds nothing."""
+    name = str(series or "").strip().lower()
+    if not name:
+        return None
+    by_name = {r["name"].strip().lower(): r["id"] for r in store.tables["tags"].values() if r.get("name")}
+    for candidate in (name, name[:-1] if name.endswith("s") else None, name + "s"):
+        if candidate and candidate in by_name:
+            return by_name[candidate]
+    return None
 
 
 def _tags(names: List[str], store: FakeStorefront):

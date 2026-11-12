@@ -11,7 +11,9 @@ const STEP: Record<string, string> = {
   "approve-for-store": "Store approval", "ready-to-publish": "Publish", published: "Published",
 };
 // Publishing sits between the last two steps; a problem sits where the piece last was.
-const WHERE: Record<string, string> = { publishing: "published", "needs-look": "ready-to-publish" };
+// A published piece with a change waiting (B-085) is still at the last step: it's in the store.
+const WHERE: Record<string, string> = { publishing: "published", "needs-look": "ready-to-publish", changed: "published",
+  "ready-to-update": "published" };
 
 export function Tracker({ status, pipeline }: { status: PieceStatus; pipeline: StatusLabel[] }) {
   const here = pipeline.findIndex((s) => s.id === (WHERE[status.id] || status.id));
@@ -20,7 +22,13 @@ export function Tracker({ status, pipeline }: { status: PieceStatus; pipeline: S
     <ol className="tracker" aria-label="Progress">
       {pipeline.map((s, i) => {
         const cls = i < here || (finished && i === here) ? "done" : i === here ? "here" : "";
-        return <li key={s.id} className={cls} aria-current={i === here && !finished ? "step" : undefined}>{STEP[s.id]}</li>;
+        // A small wizard (B-089): numbered steps on a line, a tick once done, the current one filled.
+        return (
+          <li key={s.id} className={cls} aria-current={i === here && !finished ? "step" : undefined}>
+            <span className="step-dot" aria-hidden="true">{cls === "done" ? "✓" : i + 1}</span>
+            <span className="step-label">{STEP[s.id]}</span>
+            {cls === "done" && <span className="visually-hidden"> (done)</span>}
+          </li>);
       })}
     </ol>
   );

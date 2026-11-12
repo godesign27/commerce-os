@@ -56,13 +56,16 @@ def list_sources(source_dir: Path) -> list:
                   if p.is_file() and p.suffix.lower() in IMAGE_EXT and not p.name.startswith("."))
 
 
+MAT_RECIPE, NO_MAT_RECIPE = "framed-oak-white-mat", "framed-oak-no-mat"   # the owner turns the mat off per piece
+
+
 def load_decisions(out: Path = OUT) -> dict:
     p = out / DECISIONS
     return json.loads(p.read_text()) if p.exists() else {}
 
 
 def validate_decisions(data) -> dict:
-    """Accept only the shape the page sends: {id: {decision, corners?, rotate?, note?}}."""
+    """Accept only the shape the page sends: {id: {decision, corners?, rotate?, mat?, note?}}."""
     if not isinstance(data, dict):
         raise ValueError("decisions must be an object")
     clean = {}
@@ -83,6 +86,10 @@ def validate_decisions(data) -> dict:
             if d["rotate"] not in ROTATIONS:
                 raise ValueError(f"bad rotation for {key}")
             entry["rotate"] = int(d["rotate"])
+        if "mat" in d and d["mat"] is not True:           # only "no mat" is stored; the mat is the default
+            if d["mat"] is not False:
+                raise ValueError(f"bad mat for {key}: true or false")
+            entry["mat"] = False
         if d.get("note"):
             entry["note"] = str(d["note"])[:1000]
         if d.get("decided_at") is not None:
@@ -108,7 +115,7 @@ def stamp_changes(old: dict, new: dict, at: str) -> dict:
         before = old.get(key, {})
         d = dict(d)
         changed = any(d.get(k) != before.get(k) for k in ("decision", "corners")) or \
-            d.get("rotate", 0) != before.get("rotate", 0)
+            d.get("rotate", 0) != before.get("rotate", 0) or d.get("mat", True) != before.get("mat", True)
         if changed:
             d["decided_at"] = at
         elif before.get("decided_at"):
@@ -134,7 +141,7 @@ def _rotate(src: Path, dst: Path, degrees: int) -> Path:
     return dst
 
 
-def process(source: Path, out: Path, corners=None, rotate: int = 0) -> dict:
+def process(source: Path, out: Path, corners=None, rotate: int = 0, mat: bool = True) -> dict:
     """Crop (photos), rotate if asked, and frame one source. Returns the page's record for it."""
     from PIL import Image
     from packages.image_pipeline import crop, framing
@@ -170,13 +177,13 @@ def process(source: Path, out: Path, corners=None, rotate: int = 0) -> dict:
         art_path = _rotate(art_path, img / f"{sid}.rotated.png", rotate)
         if item["kind"] == "photo":
             _thumb(art_path, img / f"{sid}.crop.jpg")
-    item["applied"] = {"corners": corners, "rotate": rotate}
+    item["applied"] = {"corners": corners, "rotate": rotate, "mat": mat}
     if art_path is not None:                      # the image drafting reads (B-055)
         art = Path(art_path).resolve()
         item["art_file"] = str(art.relative_to(REPO)) if REPO in art.parents else str(art)
     if art_path is not None:
         framed = img / f"{sid}.framed.png"
-        rec = framing.frame_artwork(art_path, framed)
+        rec = framing.frame_artwork(art_path, framed, MAT_RECIPE if mat else NO_MAT_RECIPE)
         _thumb(framed, img / f"{sid}.framed.jpg", 900)
         item["framed"] = f"img/{sid}.framed.jpg"
         item["framed_full"] = f"img/{sid}.framed.png"
@@ -191,12 +198,14 @@ def process(source: Path, out: Path, corners=None, rotate: int = 0) -> dict:
 
 
 def pending(decisions: dict, items: list) -> set:
-    """Items whose saved corners or rotation differ from what was last applied."""
+    """Items whose saved corners, rotation or mat differ from what was last applied, or whose frame is out of date."""
+    from packages.image_pipeline import framing
     out = set()
     for item in items:
         d = decisions.get(item["id"], {})
         applied = item.get("applied") or {"corners": None, "rotate": 0}
-        if d.get("corners") != applied.get("corners") or d.get("rotate", 0) != applied.get("rotate", 0):
+        if d.get("corners") != applied.get("corners") or d.get("rotate", 0) != applied.get("rotate", 0) \
+                or d.get("mat", True) != applied.get("mat", True) or framing.outdated(item.get("frame")):
             out.add(item["id"])
     return out
 
@@ -223,7 +232,7 @@ def build(source_dir: Path = DEFAULT_SOURCE, out: Path = OUT, only=None, log=pri
             continue
         fix = decisions.get(sid, {})
         try:
-            item = process(src, out, corners=fix.get("corners"), rotate=fix.get("rotate", 0))
+            item = process(src, out, corners=fix.get("corners"), rotate=fix.get("rotate", 0), mat=fix.get("mat", True))
         except Exception as e:                        # one bad file never stops the batch
             item = {"id": sid, "source": src.name, "kind": "photo" if is_photo(src.name) else "artwork",
                     "error": f"{type(e).__name__}: {e}"}

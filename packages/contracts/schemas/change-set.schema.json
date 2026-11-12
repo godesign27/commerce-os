@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "change-set.schema.json",
   "title": "Destination change set",
-  "description": "The exact operations proposed for ONE storefront and environment. Immutable once approved; any change is a new change set needing new approval (PRD §13, §15).",
+  "description": "The exact operations proposed for ONE storefront and environment. Immutable once approved; any change is a new change set needing new approval (PRD \u00a713, \u00a715).",
   "type": "object",
   "required": [
     "contract",
@@ -106,6 +106,10 @@
               },
               "expected_row_hash": {
                 "$ref": "common.schema.json#/$defs/sha256"
+              },
+              "expected_fields": {
+                "description": "An update only: the value each sent field must still hold in the store when it is written. Any other value stops the update.",
+                "type": "object"
               }
             }
           },
@@ -358,8 +362,18 @@
             "then": {
               "properties": {
                 "precondition": {
-                  "required": [
-                    "expected_row_hash"
+                  "description": "An update checks the store first: the whole row's hash, or the value of each field it sends (B-085).",
+                  "anyOf": [
+                    {
+                      "required": [
+                        "expected_row_hash"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "expected_fields"
+                      ]
+                    }
                   ]
                 }
               }
@@ -417,6 +431,27 @@
     },
     "simulated": {
       "type": "boolean"
+    },
+    "kept": {
+      "description": "An update only: fields changed in Commerce OS that were also edited in the store's admin. The store's edits win, so these are not sent (B-085).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "column",
+          "store",
+          "ours"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "column": {
+            "type": "string",
+            "minLength": 1
+          },
+          "store": {},
+          "ours": {}
+        }
+      }
     }
   }
 }
