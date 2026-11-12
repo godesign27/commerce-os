@@ -878,12 +878,14 @@ MUTANTS = [
   '{STORE_STEPS.includes(st.id) && <StoreStep id={d.item.id} status={st.id} onDone={onStore} />}',
   '{STORE_STEPS.includes(st.id) && <a className="button-link" href="#store" onClick={toStore}>Review and approve</a>}',
   'tests.test_next_step_store'),
+ ('About this piece goes back down under the image', 'apps/review-dashboard/src/pages/ListingDetail.tsx',
+  'tierTypes={d.tier_types} wide', 'tierTypes={d.tier_types}', 'tests.test_listing_edit'),
  ('a changed piece keeps its old thumbnail', 'services/local_api/server.py',
   'or target.stat().st_mtime < source.stat().st_mtime', '', 'tests.test_journey'),
  ('the green outline goes back to approved copy', 'apps/review-dashboard/src/pages/Listings.tsx',
   'i.status.id === "published" ? "is-published"', 'i.approved ? "is-approved"', 'tests.test_journey'),
- ('the bar remounts About this piece too early', 'apps/review-dashboard/src/pages/ListingDetail.tsx',
-  'await load(); setFactsRev((n) => n + 1);', 'setFactsRev((n) => n + 1); await load();', 'tests.test_journey'),
+ ('the bar stops pointing to About this piece', 'apps/review-dashboard/src/pages/ListingDetail.tsx',
+  'in About this piece, above.</p>}', 'below.</p>}', 'tests.test_journey'),
 ]
 
 

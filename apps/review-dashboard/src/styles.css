@@ -377,11 +377,18 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 .next-step > button { white-space: nowrap; }
 .detail-nav { margin-bottom: 0.6rem; font-size: 0.92rem; }
 .detail-head { margin-bottom: 1rem; } .detail-head h1 { margin: 0 0 0.5rem; }
-.tracker { list-style: none; display: flex; flex-wrap: wrap; gap: 0.2rem 1.1rem; margin: 0; padding: 0; font-size: 0.85rem; color: var(--muted); }
-.tracker li { display: flex; align-items: center; gap: 0.4rem; }
-.tracker li::before { content: ""; width: 0.6rem; height: 0.6rem; border-radius: 50%; border: 1.5px solid var(--control); }
-.tracker li.done { color: var(--ink); } .tracker li.done::before { background: var(--ok); border-color: var(--ok); }
-.tracker li.here { color: var(--accent); font-weight: 600; } .tracker li.here::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.tracker { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0; margin: 0; padding: 0;
+  font-size: 0.8rem; color: var(--muted); }
+.tracker li { display: flex; align-items: center; gap: 0.35rem; }
+.tracker li + li::before { content: ""; width: 1.1rem; height: 2px; margin: 0 0.4rem; border-radius: 1px; background: var(--line); }
+.tracker li.done + li::before { background: var(--ok); }
+.tracker .step-dot { display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; border-radius: 50%;
+  border: 1.5px solid var(--control); font-size: 0.7rem; font-weight: 700; line-height: 1; background: var(--panel); }
+.tracker li.done { color: var(--ink); }
+.tracker li.done .step-dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+.tracker li.here { color: var(--accent); font-weight: 600; }
+.tracker li.here .step-dot { background: var(--accent); border-color: var(--accent); color: var(--accent-ink, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
 .two-col { margin-top: 0; gap: 2rem; }
 .draft-info { margin: 0 0 1rem; } .draft-info .panel { margin-top: 0.6rem; }
 #store { scroll-margin-top: 1rem; }
@@ -511,3 +518,17 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 
 /* The store step in the next-step bar (B-088): the action, with a link to what it sends. */
 .next-store { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.9rem; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* About this piece across the listing page, under the progress (B-090): the four details in one row, the extras
+   beside them, so each piece's details are filled in without scrolling. */
+.details.wide { margin: 0.8rem 0 1rem; }
+.details.wide > p.muted { margin: 0.2rem 0 0.4rem; }
+.details.wide .steps { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: 0.6rem 1rem; margin: 0.5rem 0; }
+.details.wide .steps li { grid-template-columns: 1.6rem 1fr; gap: 0.45rem; }
+.details.wide .step-n { width: 1.6rem; height: 1.6rem; }
+.details.wide .size-row input { width: 3.8rem; }
+.details.wide .size-row select { width: 5.4rem; }
+.details.wide .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .details.wide .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .details.wide .steps, .details.wide .facts { grid-template-columns: 1fr; } }

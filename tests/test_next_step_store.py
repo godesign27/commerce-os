@@ -30,5 +30,16 @@ class TopActions(unittest.TestCase):
             self.assertIn(s, journey.LABELS)
 
 
+class Wizard(unittest.TestCase):
+    def test_the_progress_reads_as_numbered_steps(self):
+        """B-089: numbered steps on a line, a tick once done (said in words too), the current one marked."""
+        src = read(REPO / "apps/review-dashboard/src/components/Status.tsx")
+        self.assertIn('<span className="step-dot" aria-hidden="true">{cls === "done" ? "✓" : i + 1}</span>', src)
+        self.assertIn('<span className="visually-hidden"> (done)</span>', src)
+        self.assertIn('aria-current={i === here && !finished ? "step" : undefined}', src)
+        css = read(REPO / "apps/review-dashboard/src/styles.css")
+        self.assertIn(".tracker li.done + li::before { background: var(--ok); }", css)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -22,7 +22,13 @@ export function Tracker({ status, pipeline }: { status: PieceStatus; pipeline: S
     <ol className="tracker" aria-label="Progress">
       {pipeline.map((s, i) => {
         const cls = i < here || (finished && i === here) ? "done" : i === here ? "here" : "";
-        return <li key={s.id} className={cls} aria-current={i === here && !finished ? "step" : undefined}>{STEP[s.id]}</li>;
+        // A small wizard (B-089): numbered steps on a line, a tick once done, the current one filled.
+        return (
+          <li key={s.id} className={cls} aria-current={i === here && !finished ? "step" : undefined}>
+            <span className="step-dot" aria-hidden="true">{cls === "done" ? "✓" : i + 1}</span>
+            <span className="step-label">{STEP[s.id]}</span>
+            {cls === "done" && <span className="visually-hidden"> (done)</span>}
+          </li>);
       })}
     </ol>
   );
