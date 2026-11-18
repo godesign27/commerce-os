@@ -185,7 +185,7 @@ export interface PhotoDetail extends Photo {
   photo_size?: [number, number]; photo_preview_size?: [number, number]; cropped?: string; original?: string;
   art_size?: [number, number];
   detected: { corners: Pt[] | null; method: string | null; ok: boolean | null; reasons: string[] };
-  corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number; mat: boolean }; mat: boolean;
+  corners: Pt[] | null; applied: { corners: Pt[] | null; rotate: number; mat: boolean; crop: boolean }; mat: boolean; crop: boolean;
   frame_outdated: boolean;   // framed with an older version of its frame recipe; applying reframes it
   prev: string | null; next: string | null; listing_title: string | null;
   dimensions: string | null; facts: { edition?: string; medium?: string; dimensions?: string; price?: string; sold_as?: string }; series: string;
@@ -280,7 +280,7 @@ export const api = {
   distil: () => call<{ job: string }>("POST", "/api/learning/distil"),
   photos: () => call<PhotosDoc>("GET", "/api/photos"),
   photo: (id: string) => call<PhotoDetail>("GET", `/api/photos/${id}`),
-  decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null; mat?: boolean }) =>
+  decidePhoto: (id: string, body: { decision?: "accept" | "reject" | null; rotate?: number; note?: string; corners?: Pt[] | null; mat?: boolean ; crop?: boolean }) =>
     call<Photo>("PUT", `/api/photos/${id}`, body),
   applyPhotos: () => call<{ job: string }>("POST", "/api/photos/apply"),
   publish: (id: string, change_set_hash: string) => call<StorefrontPreview>("POST", `/api/items/${id}/publish`, { change_set_hash }),

@@ -124,8 +124,9 @@ def photo_detail(item: dict, row: dict, decision: dict, neighbours: List[Optiona
         "detected": {"corners": crop.get("corners"), "method": crop.get("method"), "ok": crop.get("ok"),
                      "reasons": crop.get("reasons") or []},
         "corners": decision.get("corners"),
-        "applied": dict({"corners": None, "rotate": 0, "mat": True}, **(item.get("applied") or {})),
+        "applied": dict({"corners": None, "rotate": 0, "mat": True, "crop": False}, **(item.get("applied") or {})),
         "mat": decision.get("mat", True),
+        "crop": decision.get("crop", False),            # crop a file that isn't the artwork alone (B-093)
         "frame_outdated": framing.outdated(item.get("frame")),
         "prev": neighbours[0], "next": neighbours[1],
     })

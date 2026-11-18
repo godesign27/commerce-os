@@ -130,6 +130,7 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
             <div className="panel dirty">
               <strong>Saved, not applied yet.</strong>
               <p className="small muted">The crop and frame below still show the old {p.rotate !== p.applied.rotate ? "rotation"
+                : p.crop !== p.applied.crop ? "crop"
                 : p.mat !== p.applied.mat ? "mat"
                 : JSON.stringify(p.corners) !== JSON.stringify(p.applied.corners) ? "corners" : "frame"}.</p>
               <button disabled={!!job?.running} onClick={apply}>{job?.running ? `Applying ${job.done}/${job.total}…` : "Apply changes"}</button>
@@ -139,6 +140,15 @@ export function PhotoDetailPage({ id, onChange }: { id: string; onChange: () => 
             {p.cropped && <figure><img src={`/${p.cropped}`} alt="The cropped artwork" /><figcaption className="small muted">Cropped</figcaption></figure>}
             {p.framed && <figure><img src={`/${p.framed}`} alt="The framed preview" /><figcaption className="small muted">Framed</figcaption></figure>}
           </div>
+          {(p.kind === "artwork" || p.crop) && (
+            <div className="mat-switch">
+              <label className="inline small">
+                <input type="checkbox" checked={p.crop} disabled={busy} aria-describedby="crop-help"
+                       onChange={(e) => send({ crop: e.target.checked })} />
+                {" "}Crop it</label>
+              <p id="crop-help" className="small muted">Turn it on when the file shows more than the artwork, such as a framed piece
+                on a wall or a mock-up with a mat. Apply, then check the outline the crop finds.</p>
+            </div>)}
           {p.framed && (
             <div className="mat-switch">
               <label className="inline small">

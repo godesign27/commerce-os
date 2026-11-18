@@ -1333,9 +1333,11 @@ class App:
         as the image review page. Saving corners marks the photo corrected ("fix"); null corners go back to
         the outline the crop found."""
         it = self.item(item_id)
-        if not isinstance(body, dict) or not body or set(body) - {"decision", "rotate", "note", "corners", "mat"}:
+        if not isinstance(body, dict) or not body or set(body) - {"decision", "rotate", "note", "corners", "mat", "crop"}:
             raise ApiError(400, 'send any of {"decision": "accept"|"reject"|null, "rotate": 0|90|180|270, '
-                                '"corners": [[x, y] ×4] | null, "mat": true|false, "note": "…"}')
+                                '"corners": [[x, y] ×4] | null, "mat": true|false, "crop": true|false, "note": "…"}')
+        if "crop" in body and not isinstance(body["crop"], bool):
+            raise ApiError(400, "crop is true (find the artwork in the file) or false (the file is the artwork)")
         if "mat" in body and not isinstance(body["mat"], bool):
             raise ApiError(400, "mat is true (a white mat) or false (the frame against the artwork)")
         if "decision" in body and body["decision"] not in ("accept", "reject", None):
@@ -1354,6 +1356,11 @@ class App:
             for k in ("decision", "rotate", "note"):
                 if k in body:
                     entry[k] = body[k]
+            if body.get("crop") is True:
+                entry["crop"] = True
+            elif body.get("crop") is False:
+                entry.pop("crop", None)
+                entry.pop("corners", None)              # corners belong to the cropped version
             if body.get("mat") is True:
                 entry.pop("mat", None)
             elif body.get("mat") is False:

@@ -86,6 +86,10 @@ def validate_decisions(data) -> dict:
             if d["rotate"] not in ROTATIONS:
                 raise ValueError(f"bad rotation for {key}")
             entry["rotate"] = int(d["rotate"])
+        if "crop" in d and d["crop"] is not False:        # only "crop it" is stored: a file is cut already by default
+            if d["crop"] is not True:
+                raise ValueError(f"bad crop for {key}: true or false")
+            entry["crop"] = True
         if "mat" in d and d["mat"] is not True:           # only "no mat" is stored; the mat is the default
             if d["mat"] is not False:
                 raise ValueError(f"bad mat for {key}: true or false")
@@ -115,7 +119,8 @@ def stamp_changes(old: dict, new: dict, at: str) -> dict:
         before = old.get(key, {})
         d = dict(d)
         changed = any(d.get(k) != before.get(k) for k in ("decision", "corners")) or \
-            d.get("rotate", 0) != before.get("rotate", 0) or d.get("mat", True) != before.get("mat", True)
+            d.get("rotate", 0) != before.get("rotate", 0) or d.get("mat", True) != before.get("mat", True) \
+            or d.get("crop", False) != before.get("crop", False)
         if changed:
             d["decided_at"] = at
         elif before.get("decided_at"):
@@ -141,14 +146,16 @@ def _rotate(src: Path, dst: Path, degrees: int) -> Path:
     return dst
 
 
-def process(source: Path, out: Path, corners=None, rotate: int = 0, mat: bool = True) -> dict:
+def process(source: Path, out: Path, corners=None, rotate: int = 0, mat: bool = True, force_crop: bool = False) -> dict:
     """Crop (photos), rotate if asked, and frame one source. Returns the page's record for it."""
     from PIL import Image
     from packages.image_pipeline import crop, framing
     img = out / "img"
     img.mkdir(parents=True, exist_ok=True)
     sid = slug(source.name)
-    item = {"id": sid, "source": source.name, "kind": "photo" if is_photo(source.name) else "artwork",
+    # A phone photo is cropped; so is any file the owner asked to crop (B-093): a photo of a framed piece on a wall,
+    # or a mock-up with a mat and frame, isn't the artwork alone.
+    item = {"id": sid, "source": source.name, "kind": "photo" if is_photo(source.name) or force_crop else "artwork",
             "processed_at": now()}
     art_path = source
     if item["kind"] == "photo":
@@ -177,7 +184,7 @@ def process(source: Path, out: Path, corners=None, rotate: int = 0, mat: bool = 
         art_path = _rotate(art_path, img / f"{sid}.rotated.png", rotate)
         if item["kind"] == "photo":
             _thumb(art_path, img / f"{sid}.crop.jpg")
-    item["applied"] = {"corners": corners, "rotate": rotate, "mat": mat}
+    item["applied"] = {"corners": corners, "rotate": rotate, "mat": mat, "crop": force_crop}
     if art_path is not None:                      # the image drafting reads (B-055)
         art = Path(art_path).resolve()
         item["art_file"] = str(art.relative_to(REPO)) if REPO in art.parents else str(art)
@@ -205,7 +212,8 @@ def pending(decisions: dict, items: list) -> set:
         d = decisions.get(item["id"], {})
         applied = item.get("applied") or {"corners": None, "rotate": 0}
         if d.get("corners") != applied.get("corners") or d.get("rotate", 0) != applied.get("rotate", 0) \
-                or d.get("mat", True) != applied.get("mat", True) or framing.outdated(item.get("frame")):
+                or d.get("mat", True) != applied.get("mat", True) or framing.outdated(item.get("frame")) \
+                or d.get("crop", False) != applied.get("crop", False):
             out.add(item["id"])
     return out
 
@@ -232,7 +240,8 @@ def build(source_dir: Path = DEFAULT_SOURCE, out: Path = OUT, only=None, log=pri
             continue
         fix = decisions.get(sid, {})
         try:
-            item = process(src, out, corners=fix.get("corners"), rotate=fix.get("rotate", 0), mat=fix.get("mat", True))
+            item = process(src, out, corners=fix.get("corners"), rotate=fix.get("rotate", 0), mat=fix.get("mat", True),
+                           force_crop=fix.get("crop", False))
         except Exception as e:                        # one bad file never stops the batch
             item = {"id": sid, "source": src.name, "kind": "photo" if is_photo(src.name) else "artwork",
                     "error": f"{type(e).__name__}: {e}"}
