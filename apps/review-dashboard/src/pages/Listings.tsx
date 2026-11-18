@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { api, ItemRow, State, StatusId, waitForJob, Job } from "../api";
+import { BulkBar } from "../components/BulkBar";
 import { NameSizes } from "../components/NameSizes";
 import { StatusBadge } from "../components/Status";
 
@@ -17,18 +18,33 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
   const [filter, setFilter] = useState<Filter>("drafted");
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());   // ticked pieces, for the bulk actions (B-081, B-087)
   const items = useMemo(() => state.items.filter((i) => i.has_art && i.crop_decision !== "reject"), [state.items]);
   const test = (i: ItemRow, f: Filter) => (f in VIEWS ? VIEWS[f as View](i) : i.status.id === f);
   const shown = items.filter((i) => test(i, filter));
   const toDraft = items.filter((i) => !i.drafted).length;
+  const ticked = items.filter((i) => picked.has(i.id));
+  const allShownTicked = shown.length > 0 && shown.every((i) => picked.has(i.id));
+  const busy = !!job?.running;
 
-  async function draft(n: number) {
+  function toggle(id: string) {
+    setPicked((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function tickShown() {
+    setPicked((p) => { const n = new Set(p); shown.forEach((i) => (allShownTicked ? n.delete(i.id) : n.add(i.id))); return n; });
+  }
+  async function draft(n: number | string[]) {
     setError(null);
     try {
-      const { job: id } = await api.draftPending(n);
+      const { job: id } = typeof n === "number" ? await api.draftPending(n) : await api.draftSelected(n);
       await waitForJob(id, setJob);
+      if (typeof n !== "number") setPicked(new Set());
       onChange();
     } catch (e) { setError(String((e as Error).message)); }
+  }
+  async function follow(id: string) {
+    await waitForJob(id, setJob);
+    onChange();
   }
 
   const statuses = state.statuses.filter((s) => items.some((i) => i.status.id === s.id));
@@ -40,11 +56,20 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
           {job?.running && <span className="muted">{job.label}: {job.done}/{job.total}…</span>}
           {job && !job.running && <span className="muted">Done · ${job.cost_usd.toFixed(2)}{job.error ? ` · ${job.error}` : ""}</span>}
           <NameSizes onSaved={onChange} />
-          <button disabled={!state.key_configured || !toDraft || !!job?.running} onClick={() => draft(5)}>
-            Draft next {Math.min(5, toDraft)}
-          </button>
+          {!ticked.length && <button disabled={!state.key_configured || !toDraft || busy} onClick={() => draft(5)}>Draft next {Math.min(5, toDraft)}</button>}
         </div>
       </div>
+      <p className="small muted draft-help">
+        {state.key_configured || !toDraft
+          ? <>Tick the pieces you want to work on, then choose what to do with them: Draft selected, approve their copy, supply
+            their details, approve them for the store, or redraft them.{toDraft > 0 && <> Draft next {Math.min(5, toDraft)} drafts the first pieces in the list instead.</>}</>
+          : <>Add your Claude API key on Getting started to draft listings.</>}
+        {shown.length > 0 && <>{" "}<button type="button" className="link" disabled={busy} onClick={tickShown}>
+          {allShownTicked ? "Untick" : "Tick"} all {shown.length} shown</button></>}
+      </p>
+      {ticked.length > 0 && (
+        <BulkBar ticked={ticked} tierTypes={state.tier_types || []} keyConfigured={state.key_configured} busy={busy}
+                 onDraft={(ids) => draft(ids)} onJob={follow} onDone={onChange} onClear={() => setPicked(new Set())} />)}
       {error && <p className="error">{error}</p>}
       <div className="row between filter-row">
         <div className="filters" role="group" aria-label="Status">
@@ -64,8 +89,12 @@ export function Listings({ state, onChange }: { state: State; onChange: () => vo
       </div>
       <ul className="grid">
         {shown.map((i) => (
-          <li key={i.id}>
-            <a className={`card ${i.status.id === "published" ? "is-published" : ""}`} href={`#/listings/${i.id}`}>
+          <li key={i.id} className="pickable">
+            <label className={`card-pick ${picked.has(i.id) ? "on" : ""}`}>
+              <input type="checkbox" checked={picked.has(i.id)} disabled={busy} onChange={() => toggle(i.id)}
+                     aria-label={`Select ${i.title || i.source}`} />
+            </label>
+            <a className={`card ${i.status.id === "published" ? "is-published" : ""} ${picked.has(i.id) ? "is-picked" : ""}`} href={`#/listings/${i.id}`}>
               {i.image && <img src={`/${i.image}`} alt="" loading="lazy" />}
               <div className="card-body">
                 <strong>{i.title || <span className="muted">Not drafted</span>}</strong>

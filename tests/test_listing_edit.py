@@ -218,7 +218,10 @@ class Wiring(unittest.TestCase):
     def test_listing_layout(self):
         page = read(REPO / "apps" / "review-dashboard" / "src" / "pages" / "ListingDetail.tsx")
         left = page[page.index('<section className="art">'):page.index('<section className="copy">')]
-        self.assertIn("<AboutPiece", left, "series, edition, medium and size sit under the image")
+        self.assertNotIn("<AboutPiece", left, "the details moved up, under the progress (B-090)")
+        top = page[page.index("<Tracker status={d.status}"):page.index("<NextStep d={d}")]
+        self.assertIn("<AboutPiece key={d.item.id}", top, "About this piece sits between the progress and the next step")
+        self.assertIn("tierTypes={d.tier_types} wide", top)
         self.assertIn("<ReviewTabs", left, "checks and evidence are tabs under the image")
         right = page[page.index('<section className="copy">'):]
         self.assertIn("<MeaningPanel d={d} questions={dr.ask_artist}", right, "the artist's questions sit with the meaning")

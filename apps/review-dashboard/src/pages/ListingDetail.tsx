@@ -1,6 +1,6 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
-import { api, Check, Copy, Detail, Draft, Field, Issue, Job, State, waitForJob } from "../api";
-import { AboutPiece, PRICE } from "../components/AboutPiece";
+import { api, Check, Copy, Detail, Draft, Field, Issue, Job, State, StoreProduct, StorefrontPreview, waitForJob } from "../api";
+import { AboutPiece } from "../components/AboutPiece";
 import { StorefrontPanel } from "../components/StorefrontPanel";
 import { StatusBadge, Tracker } from "../components/Status";
 
@@ -33,7 +33,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDraft, setShowDraft] = useState(false);
-  const [factsRev, setFactsRev] = useState(0);        // the next-step bar saved facts: About this piece reads them again
+  const [storeRev, setStoreRev] = useState(0);        // the next-step bar approved or published: the store panel reads again
 
   const load = useCallback(() => api.item(id).then((x) => {
     setD(x);
@@ -128,15 +128,17 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
         <h1>{copy?.title || d.item.source} <StatusBadge status={d.status} /></h1>
         <Tracker status={d.status} pipeline={d.pipeline} />
       </div>
+      {/* Under the progress, so the details for each piece are filled in without scrolling (B-090). */}
+      <AboutPiece key={d.item.id} itemId={d.item.id} series={d.listing.series || ""} facts={d.listing.facts || {}} sizeFromName={d.size_from_name} tierTypes={d.tier_types} wide
+                      note={dr ? "Redraft to use it in the copy." : undefined} onSaved={async () => { await load(); onChange(); }} />
+
       <NextStep d={d} approve={dr && !locked ? () => { if (leaveOk()) act(() => api.approve(id)); } : null}
-                onSaved={async () => { await load(); setFactsRev((n) => n + 1); onChange(); }} />
+                onStore={async () => { await refreshStatus(); setStoreRev((n) => n + 1); onChange(); }} />
       {error && <p className="error">{error}</p>}
 
       <div className="two-col">
         <section className="art">
           {d.image && <img src={`/${d.image}`} alt={copy?.title || d.item.source} />}
-          <AboutPiece key={`${d.item.id}:${factsRev}`} itemId={d.item.id} series={d.listing.series || ""} facts={d.listing.facts || {}} sizeFromName={d.size_from_name} tierTypes={d.tier_types}
-                      note={dr ? "Redraft to use it in the copy." : undefined} onSaved={async () => { await load(); onChange(); }} />
           <details className="draft-info" open={!!dr && dr.issues.some((i) => i.severity === "blocking" && !d.listing.facts?.[i.target === "product.material" ? "medium" : "dimensions"])}>
             <summary>How this was drafted</summary>
             <p className="muted small">{d.item.source}{dr ? ` · revision ${dr.revision} · ${dr.model}${dr.cost_usd != null ? ` · $${dr.cost_usd.toFixed(3)}` : ""}` : ""}</p>
@@ -147,6 +149,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
 
         <section className="copy">
           {!dr && <p className="muted">Not drafted yet. Use “Draft next” on the Listings page, or add a note first.</p>}
+          {!dr && !IN_STORE.includes(d.status.id) && <LinkToStore id={id} onLinked={async () => { await load(); onChange(); }} />}
           {dr && copy && (
             <>
               {locked && <p className="banner ok">Approved {new Date(d.listing.approved!.at).toLocaleString()}. Unlock to change it.</p>}
@@ -207,7 +210,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
               )}
 
               <MeaningPanel d={d} questions={dr.ask_artist} onSaved={async () => { await load(); onChange(); }} />
-              <div id="store"><StorefrontPanel id={d.item.id} version={JSON.stringify([d.listing, dr.revision])} onChange={() => { refreshStatus(); onChange(); }} /></div>
+              <div id="store"><StorefrontPanel id={d.item.id} version={JSON.stringify([d.listing, dr.revision, storeRev])} onChange={() => { refreshStatus(); onChange(); }} /></div>
             </>
           )}
         </section>
@@ -220,57 +223,109 @@ const toStore = (e: React.MouseEvent) => { e.preventDefault(); document.getEleme
 
 // The one thing to do next, at the top of the page (B-074). Price and "sold as" can be answered right here; they
 // save the same way as About this piece.
-function NextStep({ d, approve, onSaved }: { d: Detail; approve: (() => void) | null; onSaved: () => Promise<void> }) {
-  const st = d.status;
-  const facts = d.listing.facts || {};
-  const blockers = st.blockers;
-  const needPrice = blockers.some((b) => b.target === "product.price");
-  const needSold = blockers.some((b) => b.target === "product.sold_as");
-  const others = blockers.filter((b) => b.target !== "product.price" && b.target !== "product.sold_as");
-  const [price, setPrice] = useState(facts.price || "");
-  const [soldAs, setSoldAs] = useState(facts.sold_as || "");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const badPrice = !!price.trim() && !PRICE.test(price.trim());
+// The store steps a status can be at (B-088): the next-step bar does them itself, so every action is at the top.
+const STORE_STEPS = ["approve-for-store", "ready-to-publish", "changed", "ready-to-update", "needs-look"];
 
-  async function save() {
-    setBusy(true); setMsg(null);
-    try {
-      await api.saveListing(d.item.id, { facts: { ...facts, price: needPrice ? price : facts.price, sold_as: needSold ? soldAs : facts.sold_as } });
-      await onSaved();
-    } catch (e) { setMsg(String((e as Error).message)); }
-    setBusy(false);
-  }
-  const heading = st.id === "add-details" && (needPrice || needSold)
-    ? `Add ${[needPrice && "the price", needSold && "what it's sold as"].filter(Boolean).join(" and ")} so this can go to the store`
-    : st.next;
+// The details a piece needs for the store (B-090): About this piece, just above the bar, asks for them.
+const DETAIL_TARGETS = ["product.price", "product.sold_as", "product.material", "product.dimensions"];
+
+function NextStep({ d, approve, onStore }: {
+  d: Detail; approve: (() => void) | null; onStore: () => Promise<void>;
+}) {
+  const st = d.status;
+  const details = st.blockers.filter((b) => DETAIL_TARGETS.includes(b.target));
+  const others = st.blockers.filter((b) => !DETAIL_TARGETS.includes(b.target));
   return (
     <section className={`next-step tone-${st.tone}`} aria-label="Next step">
       <div className="next-text">
-        <h2>{heading}</h2>
-        {st.id === "add-details" && (needPrice || needSold) && <p className="muted small">These go to the store only. They never change the copy.</p>}
+        <h2>{st.next}</h2>
+        {details.length > 0 && <p className="small muted">Fill in {details.length === 1 ? "the missing detail" : `the ${details.length} missing details`} in About this piece, above.</p>}
         {others.length > 0 && <ul className="small">{others.map((b) => <li key={b.target}>{b.question}</li>)}</ul>}
-        {msg && <p className="error small">{msg}</p>}
       </div>
-      {needPrice && (
-        <label className="next-field">Price (US dollars)
-          <input inputMode="decimal" placeholder="e.g. 450" value={price} aria-invalid={badPrice || undefined} onChange={(e) => setPrice(e.target.value)} />
-          {badPrice && <span className="small warn-text">A dollar amount, like 450 or 1,250.00.</span>}
-        </label>)}
-      {needSold && (
-        <label className="next-field">Sold as
-          <select value={soldAs} onChange={(e) => setSoldAs(e.target.value)}>
-            <option value="">Choose…</option>
-            {d.tier_types.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </label>)}
-      {(needPrice || needSold) && (
-        <button disabled={busy || badPrice || (needPrice && !price.trim()) || (needSold && !soldAs)} onClick={save}>{busy ? "Saving…" : "Save details"}</button>)}
       {approve && <button onClick={approve}>Approve copy</button>}
       {!approve && others.length > 0 && <a className="button-link secondary-link" href="#store" onClick={toStore}>See the details</a>}
-      {(st.id === "approve-for-store" || st.id === "needs-look") && <a className="button-link" href="#store" onClick={toStore}>Review and approve</a>}
-      {st.id === "ready-to-publish" && <a className="button-link" href="#/publish">Go to Publish</a>}
+      {STORE_STEPS.includes(st.id) && <StoreStep id={d.item.id} status={st.id} onDone={onStore} />}
     </section>
+  );
+}
+
+// Already in the store, made in its admin (B-092): link the piece to that product, so its images can be updated from
+// here. Linking writes nothing to the store, and nothing there but the images is ever sent for it.
+const IN_STORE = ["published", "changed", "ready-to-update", "publishing"];
+
+function LinkToStore({ id, onLinked }: { id: string; onLinked: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [products, setProducts] = useState<StoreProduct[] | null>(null);
+  const [pick, setPick] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function show() {
+    setOpen(true); setMsg(null);
+    try { setProducts((await api.storeProducts()).products); } catch (e) { setMsg(String((e as Error).message)); }
+  }
+  async function link() {
+    setBusy(true); setMsg(null);
+    try { await api.adopt(id, pick); await onLinked(); setOpen(false); }
+    catch (e) { setMsg(String((e as Error).message)); }
+    setBusy(false);
+  }
+  return (
+    <section className="panel link-store" aria-label="Already in the store">
+      <h2 className="small">Already in the store?</h2>
+      {!open ? (
+        <p className="small muted">If this piece was added in the store's admin, link it to that product. Then only its images are updated from
+          here, with a room view at its real size; its title, copy, price and status stay as the store has them.{" "}
+          <button className="link" onClick={show}>Link to a store product</button></p>
+      ) : (
+        <div className="row link-store-pick">
+          <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Store product">
+            <option value="">{products ? "Choose the product…" : "Loading…"}</option>
+            {(products || []).map((p) => <option key={p.id} value={p.id}>{[p.name || p.id, p.dimensions, p.medium].filter(Boolean).join(" · ")}</option>)}
+          </select>
+          <button disabled={busy || !pick} onClick={link}>{busy ? "Linking…" : "Link"}</button>
+          <button className="secondary" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+        </div>)}
+      {msg && <p className="error small">{msg}</p>}
+    </section>
+  );
+}
+
+// Approve for the store, then publish (or approve and send an update), from the top of the page. It reads the same
+// preview as the store panel lower down and acts on the version shown there, by its hash, as that panel does.
+function StoreStep({ id, status, onDone }: { id: string; status: string; onDone: () => Promise<void> }) {
+  const [p, setP] = useState<StorefrontPreview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => { api.storefront(id).then(setP).catch((e) => setMsg(String(e.message))); }, [id, status]);
+  if (!p?.available || !p.change_set) return msg ? <p className="error small">{msg}</p> : null;
+  const cs = p.change_set, a = p.approval!, pub = p.publish!, up = !!p.update;
+  const name = p.display_name || "the store";
+  async function act(fn: () => Promise<StorefrontPreview>) {
+    setBusy(true); setMsg(null);
+    try { setP(await fn()); await onDone(); }
+    catch (e) { setMsg(String((e as Error).message)); setP(await api.storefront(id)); }
+    setBusy(false);
+  }
+  const working = pub.state === "QUEUED" || pub.state === "WRITING";
+  const canSend = a.state === "current" && !working && pub.state !== "OUTCOME_UNKNOWN"
+    && (pub.state === null || pub.state === "FAILED" || (up && pub.state === "SUCCEEDED"));
+  return (
+    <div className="next-store">
+      {a.state !== "current" && (
+        <>
+          <button disabled={busy || !p.approvable} onClick={() => act(() => api.approveStorefront(id, cs.change_set_hash, cs.requested_status))}>
+            {busy ? "Approving…" : up ? "Approve update" : `Approve for ${name} as Draft`}</button>
+          <a className="small" href="#store" onClick={toStore}>See what it sends</a>
+        </>)}
+      {canSend && (
+        <button disabled={busy || pub.kill_switch.on} onClick={() => act(() => api.publish(id, cs.change_set_hash))}>
+          {busy ? "Sending…" : up ? (pub.state === "FAILED" ? "Send the update again" : "Update in store")
+            : `${pub.state === "FAILED" ? "Publish again" : "Publish"} to ${pub.target.toLowerCase()}`}</button>)}
+      {working && <span className="small">{pub.state === "QUEUED" ? "Queued for the publisher…" : "Publishing…"}</span>}
+      {pub.state === "OUTCOME_UNKNOWN" && <a className="button-link" href="#store" onClick={toStore}>Check the store</a>}
+      {canSend && pub.kill_switch.on && <span className="small warn-text">Writing is switched off.</span>}
+      {msg && <span className="error small">{msg}</span>}
+    </div>
   );
 }
 

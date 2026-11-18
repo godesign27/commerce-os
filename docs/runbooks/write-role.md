@@ -29,7 +29,7 @@ CREATE POLICY commerce_os_write_add ON public.products FOR INSERT TO commerce_os
 ```
 
 The last line is what forces Draft: the database refuses anything else from this login, even if Commerce OS had a
-bug. The login can't edit or delete anything, and it can't see customers or orders.
+bug. The login can't edit or delete anything (step 6 lets it edit a listing's own fields, if you want that), and it can't see customers or orders.
 
 Don't grant anything else. Never give this role `BYPASSRLS`, and don't add it to any other role.
 
@@ -92,6 +92,28 @@ Listings approved for the test store need approving again, because an approval n
 piece first, and confirm in store admin that it's a Draft and its images show. Then confirm it isn't on the art wall
 or the shop, and that its direct link says not found when you're signed out.
 
+## 6. Let it update products it published (optional)
+
+Without this step Commerce OS only adds products. With it, **Update in store** on the Publish page can change a
+piece you already published: only the listing's own fields that you changed in Commerce OS and that nobody edited in
+the store's admin since. Run this in the SQL Editor:
+
+```sql
+GRANT UPDATE (name, short_description, description, medium, dimensions, price, pricing_tiers, is_original, category_id, tags, images) ON public.products TO commerce_os_write;
+CREATE POLICY commerce_os_write_update ON public.products FOR UPDATE TO commerce_os_write USING (true) WITH CHECK (true);
+```
+
+The grant names every column the login may change. It can't change `status`, so a product you made live stays live
+and nothing goes back to Draft; it can't change `slug` or `id`, so links keep working; and it still can't delete
+anything. Restart Commerce OS afterwards; Check everything (step 4) also checks that no other column can be changed.
+
+To take it away again:
+
+```sql
+DROP POLICY commerce_os_write_update ON public.products;
+REVOKE UPDATE ON public.products FROM commerce_os_write;
+```
+
 ## Turning it off
 
 ```bash
@@ -104,6 +126,7 @@ Publish page. To remove access completely, run this in the SQL Editor and delete
 ```sql
 DROP POLICY commerce_os_upload ON storage.objects;
 DROP POLICY commerce_os_write_add ON public.products;
+DROP POLICY IF EXISTS commerce_os_write_update ON public.products;
 DROP POLICY commerce_os_write_read ON public.products;
 DROP POLICY commerce_os_write_read ON public.categories;
 DROP POLICY commerce_os_write_read ON public.tags;

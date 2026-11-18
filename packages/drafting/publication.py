@@ -24,6 +24,7 @@ from packages.drafting.audit import Audit
 REPO = Path(__file__).resolve().parents[2]
 APPROVALS = REPO / ".commerce-os" / "approvals"
 _LOCK = threading.Lock()
+_TEXT: dict = {}            # path -> ((size, mtime_ns, inode), text): pages read every piece's approvals on each load
 
 
 class ApprovalError(ValueError):
@@ -42,7 +43,16 @@ class Approvals:
 
     def records(self, item: str) -> List[dict]:
         p = self._path(item)
-        return [json.loads(x) for x in p.read_text().splitlines() if x.strip()] if p.exists() else []
+        try:
+            st = p.stat()
+        except OSError:
+            return []
+        key = (st.st_size, st.st_mtime_ns, st.st_ino)       # an append changes the size: read it again then
+        hit = _TEXT.get(str(p))
+        if not hit or hit[0] != key:
+            hit = (key, p.read_text())
+            _TEXT[str(p)] = hit
+        return [json.loads(x) for x in hit[1].splitlines() if x.strip()]    # parsed fresh: callers get their own copy
 
     def _append(self, item: str, rec: dict):
         self.root.mkdir(parents=True, exist_ok=True)

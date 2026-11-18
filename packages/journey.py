@@ -15,6 +15,8 @@ STATUSES = [
     {"id": "ready-to-publish", "label": "Ready to publish", "tone": "todo"},
     {"id": "publishing", "label": "Publishing", "tone": "wait"},
     {"id": "published", "label": "Published", "tone": "done"},
+    {"id": "changed", "label": "Changed since published", "tone": "todo"},     # B-085: an update is waiting
+    {"id": "ready-to-update", "label": "Update ready", "tone": "todo"},
     {"id": "needs-look", "label": "Needs a look", "tone": "bad"},
     {"id": "rejected", "label": "Rejected", "tone": "off"},
 ]
@@ -52,10 +54,12 @@ def summary(blockers: List[dict]) -> str:
 
 
 def status(*, stage: str, drafted: bool, copy_approved: bool, publish_state: Optional[str], store_state: Optional[str],
-           blockers: Optional[List[dict]] = None, changes: Optional[List[str]] = None) -> dict:
+           blockers: Optional[List[dict]] = None, changes: Optional[List[str]] = None, published: bool = False,
+           update: bool = False) -> dict:
     """`stage` is the photo's (image_pipeline/stages.py), `store_state` the listing's against the store (blocked,
-    ready, approved, out_of_date, or None with no store connected). What's already happened comes first: only new
-    products can go in, so a published piece stays published whatever has changed since."""
+    ready, approved, out_of_date, or None with no store connected). What's already happened comes first. A piece
+    already in the store (`published`) stays Published until its listing changes (`update`); then the change waits
+    for an approved update (B-085)."""
     blocking = open_blockers(blockers or [])
 
     def make(sid: str, next_step: str, detail: str = "", failing: Optional[List[dict]] = None) -> dict:
@@ -65,12 +69,20 @@ def status(*, stage: str, drafted: bool, copy_approved: bool, publish_state: Opt
 
     if stage == "rejected":
         return make("rejected", "Undo the rejection on its photo page to use this piece.")
-    if publish_state == "SUCCEEDED":
-        return make("published", "Nothing to do: it's in the store as a hidden draft.")
     if publish_state in ("QUEUED", "WRITING"):
         return make("publishing", "The worker has it. This updates by itself.")
     if publish_state == "OUTCOME_UNKNOWN":
         return make("needs-look", "Check the store before publishing again.", "The publish result wasn't seen")
+    if published or publish_state == "SUCCEEDED":
+        if not update:
+            return make("published", "Nothing to do: it's in the store.")
+        if store_state == "approved":
+            if publish_state == "FAILED":
+                return make("needs-look", "See what went wrong, then send the update again.", "The last update failed")
+            return make("ready-to-update", "Send the update to the store, here or from the Publish page.")
+        changed = f"Changed: {', '.join(changes)}." if changes else "Changed since it was published."
+        return make("changed", f"{changed} Check what would change in the store, then approve the update.",
+                    failing=open_blockers(blockers or []))
     if stage == "not-applied":
         return make("review-photo", "Apply your saved changes on the Photos page.", "Saved changes not applied")
     if stage == "to-review":
@@ -85,7 +97,7 @@ def status(*, stage: str, drafted: bool, copy_approved: bool, publish_state: Opt
     if store_state == "approved":
         if publish_state == "FAILED":
             return make("needs-look", "See what went wrong, then publish again.", "The last publish failed")
-        return make("ready-to-publish", "Send it from the Publish page.")
+        return make("ready-to-publish", "Publish it to the store, here or from the Publish page.")
     if store_state == "ready":
         return make("approve-for-store", "Check what the store would receive, then approve it.")
     if store_state == "blocked":

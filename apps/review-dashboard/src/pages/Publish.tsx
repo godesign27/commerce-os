@@ -123,9 +123,9 @@ export function Publish({ onChange }: { onChange: () => void }) {
             {q.problems.map((r) => (
               <Row key={r.id} r={r}>
                 {r.state === "FAILED" ? (
-                  <div className="small"><p className="error">Not published. Nothing went into the store.</p>
+                  <div className="small"><p className="error">{r.update ? "Not updated. Nothing in the store changed." : "Not published. Nothing went into the store."}</p>
                     <ul>{r.reasons.map((x) => <li key={x}>{x}</li>)}</ul>
-                    <button className="secondary" disabled={busy || off} onClick={() => send([r])}>Publish again</button></div>
+                    <button className="secondary" disabled={busy || off} onClick={() => send([r])}>{r.update ? "Send the update again" : "Publish again"}</button></div>
                 ) : (
                   <div className="small warn-text">
                     {r.finding === "mismatch"
@@ -145,7 +145,7 @@ export function Publish({ onChange }: { onChange: () => void }) {
             {q.ready.map((r) => (
               <Row key={r.id} r={r} lead={
                 <input type="checkbox" checked={chosen.has(r.id)} aria-label={`Select ${r.title || r.source}`} onChange={() => toggle(r.id)} />}>
-                <span className="muted small">Approved {ago(r.approved_at)}</span>
+                <span className="muted small">{r.update ? <><span className="badge">Update</span> to the product already in the store, approved {ago(r.approved_at)}</> : <>Approved {ago(r.approved_at)}</>}</span>
                 {refused[r.id] && <span className="small error">{refused[r.id]}</span>}
               </Row>))}
           </ul>
@@ -176,6 +176,20 @@ export function Publish({ onChange }: { onChange: () => void }) {
           </ul>
         </section>)}
       {q.not_drafted > 0 && <p className="muted small">{plural(q.not_drafted)} not drafted yet. <a href="#/listings">Go to Listings →</a></p>}
+
+      {q.changed.length > 0 && (
+        <section className="pq-section" aria-labelledby="pq-changed">
+          <h2 id="pq-changed">Changed since published <span className="muted">{q.changed.length}</span></h2>
+          <p className="muted small">These are already in the store, and you've changed them here since. Open one to see what an update
+            would change, then approve the update. Anything edited in the store's admin is kept.</p>
+          <ul className="pq-list">
+            {q.changed.map((r) => (
+              <Row key={r.id} r={r}>
+                <ul className="small pq-next">{r.next.map((x) => <li key={x}>{x}</li>)}</ul>
+                <a className="small" href={`#/listings/${r.id}`}>Review the update →</a>
+              </Row>))}
+          </ul>
+        </section>)}
 
       {q.published.length > 0 && (
         <section className="pq-section" aria-labelledby="pq-published">

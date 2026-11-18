@@ -11,7 +11,11 @@ argument-hint: "<review item id | image path> [note]"
 The copy part of a canonical draft (canonical-drafting step 3). The craft is in two references, read
 in full before writing: [writing-standards.md](references/writing-standards.md) and
 [rubric.md](references/rubric.md). Everything about one storefront's voice is in its brand context,
-not here, so the artist's philosophy can change without editing this skill.
+not here, so the artist's philosophy can change without editing this skill. A storefront may also
+have a creative reference: the owner's own document, kept privately beside its brand context in
+`config/brand/<storefront>.reference.local.md`. When it exists, read it too, for how to read the work,
+name it and voice it. Its examples belong to their own works, and this skill's output format,
+evidence policy, lengths and rubric still apply.
 
 ## Inputs
 
@@ -27,7 +31,7 @@ not here, so the artist's philosophy can change without editing this skill.
 
 ## Outputs
 
-One structured result (the drafting service's `listing-draft@4` schema), mapped onto a canonical
+One structured result (the drafting service's `listing-draft@5` schema), mapped onto a canonical
 draft revision:
 
 - `category` with confidence; `moment` with basis `confirmed` or `proposed`.

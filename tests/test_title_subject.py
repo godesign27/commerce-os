@@ -40,7 +40,7 @@ class Drafting(unittest.TestCase):
     def test_the_prompt_and_schema_ask_for_it(self):
         schema = listing.response_schema(["painting"], ["Animals"], ["animal"])
         self.assertIn("subject_name", schema["required"])
-        self.assertEqual(listing.PROMPT_VERSION, "listing-draft@4")
+        self.assertEqual(listing.PROMPT_VERSION, "listing-draft@5")
         self.assertIn("When subject_name is set, every option contains it.", " ".join(listing.SYSTEM.split()))
         self.assertIn("**Name the subject.**", brand.standards_text())
 

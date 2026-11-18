@@ -21,6 +21,18 @@ def load_recipe(recipe_id: str = "framed-oak-white-mat") -> dict:
     return json.loads((RECIPES / f"{recipe_id}.json").read_text())
 
 
+def outdated(frame: Optional[dict]) -> bool:
+    """True when a framed image was made with an older version of its recipe than the one in the repo (B-084), so
+    framing it again would change it. Unknown recipes and records without a version are never out of date."""
+    fr = frame or {}
+    if not fr.get("recipe") or not isinstance(fr.get("recipe_version"), int):
+        return False
+    try:
+        return fr["recipe_version"] < load_recipe(fr["recipe"])["version"]
+    except (OSError, ValueError, KeyError):
+        return False
+
+
 @dataclass(frozen=True)
 class Layout:
     canvas: Tuple[int, int]

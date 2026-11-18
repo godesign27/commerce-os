@@ -31,6 +31,12 @@ def _load(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
+def changed_fields(row: dict, expected: dict) -> list:
+    """The columns of `row` that no longer hold what an update expects there (B-085)."""
+    from packages.adapters.updates import same
+    return sorted(c for c, v in expected.items() if not same(row.get(c), v))
+
+
 class FakeStorefront(Adapter):
 
     def __init__(self, storefront_id: str, environment: str, profile: dict, structure: dict, *,
@@ -155,7 +161,12 @@ class FakeStorefront(Adapter):
             issues.append(Issue("schema_changed", "the destination schema fingerprint differs; re-map and re-approve"))
         status_rule = self.profile["product"]["status"]
         requested = change_set.get("requested_status")
-        if requested not in status_rule["values"]:
+        ops = change_set.get("operations", [])
+        only_updates = bool(ops) and all(op.get("op") == "update" and status_rule["column"] not in op.get("fields", {})
+                                         and "expected_fields" in (op.get("precondition") or {}) for op in ops)
+        if only_updates and requested != "unchanged":      # updates.UPDATE_STATUS: an update never sends a status
+            issues.append(Issue("invalid_status", "an update keeps the store's status, so it must ask for 'unchanged'"))
+        elif not only_updates and requested not in status_rule["values"]:
             issues.append(Issue("invalid_status", f"{requested!r} isn't a destination status"))
         seqs = [op.get("seq") for op in change_set.get("operations", [])]
         if seqs != sorted(set(seqs)):
@@ -214,6 +225,11 @@ class FakeStorefront(Adapter):
                 issue = Issue("already_exists", f"{op['key']} already exists", op["seq"])
             elif op["op"] == "update" and before is None:
                 issue = Issue("not_found", f"{op['key']} doesn't exist", op["seq"])
+            elif op["op"] == "update" and "expected_fields" in op["precondition"]:
+                moved = changed_fields(before, op["precondition"]["expected_fields"])
+                if moved:
+                    issue = Issue("row_changed", f"{op['key']} was edited in the store since you approved it "
+                                  f"({', '.join(moved)}): look again and approve the update again", op["seq"])
             elif op["op"] == "update" and row_hash(before) != op["precondition"].get("expected_row_hash"):
                 issue = Issue("row_changed", f"{op['key']} changed since the change set was made", op["seq"])
             after = None

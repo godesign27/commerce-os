@@ -236,8 +236,10 @@ class Words(unittest.TestCase):
         self.assertIn('i.status.id === "published" ? "is-published"', read(SRC / "pages/Listings.tsx"))
         self.assertNotIn("is-approved", read(SRC / "pages/Listings.tsx"))
 
-    def test_a_bar_save_reads_back_before_about_this_piece_remounts(self):
-        self.assertIn("await load(); setFactsRev((n) => n + 1);", read(SRC / "pages/ListingDetail.tsx"))
+    def test_the_bar_points_to_about_this_piece_instead_of_repeating_it(self):
+        page = read(SRC / "pages/ListingDetail.tsx")      # B-090: one place to fill in details, right above the bar
+        self.assertNotIn('className="next-field"', page)
+        self.assertIn("in About this piece, above.", page)
 
     def test_the_font_is_stored_locally(self):
         self.assertIn('"@fontsource/ibm-plex-sans"', read(REPO / "apps/review-dashboard/package.json"))

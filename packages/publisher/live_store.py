@@ -15,7 +15,7 @@ import psycopg
 from psycopg.conninfo import conninfo_to_dict
 
 from packages import onboarding
-from packages.adapters import artstore_map
+from packages.adapters import artstore_map, updates
 from packages.adapters.artstore_pg import CONNECT, PgRows, PostgresArtStore
 from packages.adapters.catalog import ALLOWED, WRITE_PRIVILEGES, _privileges
 from packages.publisher.assets import DeliveryError, SupabaseAssetStore
@@ -77,6 +77,14 @@ def check_settings(found: Dict[str, str]) -> List[str]:
     return problems
 
 
+def updatable_columns(pg) -> List[str]:
+    """The products columns the connected login may UPDATE (B-085). Empty means it can only add products."""
+    rows = pg.rows("SELECT a.attname AS col FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid "
+                   "JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'products' "
+                   "AND a.attnum > 0 AND NOT a.attisdropped AND has_column_privilege(c.oid, a.attnum, 'UPDATE')")
+    return sorted(r["col"] for r in rows)
+
+
 def check_write_login(pg) -> List[str]:
     """Is the connected login as narrow as the runbook says? `pg` has .rows(sql). Empty means yes."""
     problems = []
@@ -101,6 +109,9 @@ def check_write_login(pg) -> List[str]:
             problems.append(f"The write login can read beyond the catalog: {table}.")
     if not privileges.get(ADD_ONLY, {}).get("INSERT"):
         problems.append("The write login can't add products.")
+    beyond = sorted(c for c in updatable_columns(pg) if c not in updates.UPDATABLE)
+    if beyond:                                     # updates may change the listing's fields, never status or links
+        problems.append("The write login can change columns Commerce OS never updates: " + ", ".join(beyond) + ".")
     secured = pg.rows("SELECT c.relrowsecurity AS rls, pg_get_userbyid(c.relowner) = current_user AS owner FROM pg_class c "
                       "JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'products'")
     if not secured or not secured[0]["rls"] or secured[0]["owner"]:

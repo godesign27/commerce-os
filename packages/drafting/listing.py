@@ -26,7 +26,7 @@ from packages.drafting import brand, checks
 
 REPO = Path(__file__).resolve().parents[2]
 MODEL = "claude-opus-5-5"
-PROMPT_VERSION = "listing-draft@4"
+PROMPT_VERSION = "listing-draft@5"     # @5: the storefront's creative reference, when it has one (B-086)
 EVIDENCE_POLICY = "evidence-policy@0.1.0"
 IMAGE_LONG_EDGE = 1568          # larger images are downscaled by the API anyway; this saves tokens
 ROTATIONS = ("0", "90", "180", "270")
@@ -176,6 +176,7 @@ def encode_image(path: Path):
 def build_request(image: bytes, media_type: str, product_types: dict, store_tags: List[str],
                   model: str = MODEL, *, brand_ctx: Optional[dict] = None, meanings: List[dict] = (),
                   facts: Optional[dict] = None, note: str = "", series: str = "", others: List[dict] = (),
+                  reference: str = "",
                   edit_pairs: str = "") -> dict:
     """Keyword arguments for `client.beta.messages.create`. Deterministic for the same inputs.
 
@@ -187,7 +188,7 @@ def build_request(image: bytes, media_type: str, product_types: dict, store_tags
         "max_tokens": 16000,
         "system": [{"type": "text", "text": SYSTEM + "\n\n" + RUBRIC_TEXT},
                    {"type": "text", "text": brand.standards_text()},
-                   {"type": "text", "text": brand.render(brand_ctx), "cache_control": {"type": "ephemeral"}}],
+                   {"type": "text", "text": brand.render(brand_ctx, reference), "cache_control": {"type": "ephemeral"}}],
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": media_type,
                                          "data": base64.standard_b64encode(image).decode("ascii")}},
@@ -304,7 +305,8 @@ def parse_dimensions(text: str) -> Optional[dict]:
 
 def to_canonical_draft(output: dict, *, item_id: str, file_id: str, product_types: dict, model: str,
                        store_tags: List[str], brand_ctx: Optional[dict] = None, meanings: List[dict] = (),
-                       facts: Optional[dict] = None, others: List[dict] = (), revision: int = 1) -> dict:
+                       facts: Optional[dict] = None, others: List[dict] = (), revision: int = 1,
+                       reference: str = "") -> dict:
     """Map the model's JSON to a canonical-draft document. Never trusts the model's own claims."""
     tid = output["product_type"]["id"]
     ptype = product_types[tid]
@@ -427,6 +429,8 @@ def to_canonical_draft(output: dict, *, item_id: str, file_id: str, product_type
         attributes["edition"] = _field(facts["edition"], "supplied", supplied_ref("edition"))
     versions = {"evidence_policy": EVIDENCE_POLICY, "prompt": PROMPT_VERSION,
                 f"product_type:{tid}": str(ptype["version"]), "model": model}
+    if reference:                                  # which version of the owner's creative reference it followed
+        versions["brand_reference"] = brand.reference_version(reference)
     if brand_ctx:
         versions["brand_context"] = f"{brand_ctx['storefront_id']}@{brand_ctx['version']}"
     return {

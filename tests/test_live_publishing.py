@@ -10,7 +10,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest import mock
 
-from packages.adapters import artstore_map
+from packages.adapters import artstore_map, updates
 from packages.publisher.assets import DeliveryError, SupabaseAssetStore
 from tests._helpers import REPO, read
 from tests.test_listing_copy import load_server, record_for, tmp
@@ -101,6 +101,23 @@ class Target(unittest.TestCase):
         with self.assertRaises(Refused) as e:
             store.publish_approved(change, {"approval_id": "a"})
         self.assertIn("not_a_draft", [i.code for i in e.exception.issues])
+
+    def test_an_update_only_changes_the_listings_own_fields(self):
+        store = PostgresArtStore("s", "production", {}, {"tables": {}}, write_dsn=self.GOOD, read_dsn=self.GOOD, currency="USD",
+                                 features=[], live_host=HOST)
+        base = {"change_set_id": "c", "change_set_hash": "a" * 64, "requested_status": updates.UPDATE_STATUS,
+                "environment": "production", "destination": "s"}
+        op = {"op": "update", "precondition": {"expected_fields": {"name": "A"}}, "fields": {"name": {"value": "B"}}}
+        for bad in ([dict(op, fields={"status": {"value": "active"}})],              # never the status
+                    [dict(op, fields={"slug": {"value": "x"}})],                     # never the web address
+                    [dict(op, precondition={})],                                      # always checked against the store
+                    [op, {"op": "create", "fields": {}}]):                            # never mixed with an add
+            with self.assertRaises(Refused) as e:
+                store.publish_approved(dict(base, operations=bad), {"approval_id": "a"})
+            self.assertIn("update_out_of_bounds", [i.code for i in e.exception.issues], bad)
+        with self.assertRaises(Refused) as e:
+            store.publish_approved(dict(base, requested_status="active", operations=[op]), {"approval_id": "a"})
+        self.assertIn("update_out_of_bounds", [i.code for i in e.exception.issues], "an update never asks for a status")
 
 
 class Bucket:
@@ -206,7 +223,7 @@ class LiveListing(unittest.TestCase):
 
 
 class Rows:
-    def __init__(self, role=None, member=(), privileges=None, secured=None, policies=None, upload=None):
+    def __init__(self, role=None, member=(), privileges=None, secured=None, policies=None, upload=None, columns=()):
         self.role = role or {"rolname": WRITE_ROLE, "rolsuper": False, "rolcreaterole": False, "rolcreatedb": False,
                              "rolbypassrls": False, "rolreplication": False}
         self.member, self.secured = list(member), secured if secured is not None else [{"rls": True, "owner": False}]
@@ -214,8 +231,11 @@ class Rows:
                                          {"t": "categories", "SELECT": True}, {"t": "tags", "SELECT": True}, {"t": "orders", "SELECT": False}]
         self.policies = policies if policies is not None else [{"policyname": "p", "permissive": "PERMISSIVE", "with_check": "(status = 'draft'::text)"}]
         self.upload = upload
+        self.columns = list(columns)           # products columns the login may UPDATE (B-085)
 
     def rows(self, query):
+        if "has_column_privilege" in query:
+            return [{"col": c} for c in self.columns]
         if "FROM pg_roles WHERE" in query:
             return [dict(self.role)]
         if "pg_auth_members" in query:
@@ -233,6 +253,8 @@ class Rows:
 class WriteLoginCheck(unittest.TestCase):
     def test_the_narrow_login_passes(self):
         self.assertEqual(live_store.check_write_login(Rows()), [])
+        self.assertEqual(live_store.check_write_login(Rows(columns=list(updates.UPDATABLE))), [],
+                         "the runbook's update step (B-085) is narrow enough")
 
     def test_anything_wider_fails(self):
         base = Rows().privileges
@@ -250,7 +272,10 @@ class WriteLoginCheck(unittest.TestCase):
                  "no add rule": Rows(policies=[]),
                  "adds anything": Rows(policies=[{"policyname": "p", "permissive": "PERMISSIVE", "with_check": "true"}]),
                  "a draft check that isn't only that": Rows(policies=[{"policyname": "p", "permissive": "PERMISSIVE", "with_check": "((status = 'draft'::text) OR true)"}]),
-                 "a second wide rule": Rows(policies=Rows().policies + [{"policyname": "q", "permissive": "PERMISSIVE", "with_check": "true"}])}
+                 "a second wide rule": Rows(policies=Rows().policies + [{"policyname": "q", "permissive": "PERMISSIVE", "with_check": "true"}]),
+                 "can change the status": Rows(columns=["name", "status"]),
+                 "can change the web address": Rows(columns=["slug"]),
+                 "can change stock": Rows(columns=["stock"])}
         for why, rows in cases.items():
             self.assertTrue(live_store.check_write_login(rows), why)
 

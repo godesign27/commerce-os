@@ -119,6 +119,21 @@ class OnTheListing(unittest.TestCase):
         self.assertEqual(len({t["id"] for t in got}), 3, "every tier has its own id")
         self.assertNotIn("pricing_tiers[].stock", cs["not_touched"])
 
+    def test_every_tier_has_a_description(self):
+        got = tiers_of(build(mapping=self.CONFIRMED)[0])
+        self.assertEqual([t["description"] for t in got],
+                         ["16 × 20 in original", "Limited Edition Print.", "16 × 20 in canvas print"],
+                         "the store refuses to save a product when any tier's description is blank")
+        self.assertEqual(tiers_of(build()[0])[0]["description"], "16 × 20 in original", "a lone original too")
+
+    def test_a_description_is_its_own_unless_blank_or_the_placeholder(self):
+        d = tl.describe
+        self.assertEqual(d({"type": "Print", "size": "16 x 20", "description": " Signed. "}), "Signed.")
+        self.assertEqual(d({"type": "Print", "size": "16 x 20", "description": "Enter description"}), "16 × 20 in print")
+        self.assertEqual(d({"type": "Original", "size": "Large", "description": None}), "Large original")
+        self.assertEqual(d({"type": "Original"}), "Original")
+        self.assertEqual(d({}), "Piece")
+
     def test_the_same_listing_gives_the_same_tiers_every_time(self):
         self.assertEqual(build(mapping=self.CONFIRMED)[0]["change_set_hash"], build(mapping=self.CONFIRMED)[0]["change_set_hash"])
 

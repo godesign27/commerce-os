@@ -42,7 +42,8 @@ LICENCES = {
     "purchased": "Bought or subscribed (a stock or mockup service's licence)",
     "other": "Other: say which in the note",
 }
-EDITABLE = {"name", "wall", "wall_width_cm", "light", "shadow", "enabled", "licence", "credit", "url", "note"}
+EDITABLE = {"name", "wall", "wall_width_cm", "light", "shadow", "enabled", "licence", "credit", "url", "note", "hang"}
+MIN_SCALE, MAX_SCALE = 0.25, 4.0   # a piece sized by hand stays between these multiples of its real size
 STATUSES = [("ready", "Ready"), ("needs-licence", "Needs a licence"), ("needs-wall", "Wall not marked"),
             ("off", "Turned off")]
 
@@ -99,6 +100,11 @@ def update(room: dict, changes: dict) -> dict:
             if isinstance(v, bool) or not isinstance(v, (int, float)) or not lo <= v <= hi:
                 raise ValueError(f"{k} is between {lo} and {hi}")
             r[k] = round(float(v), 2)
+        elif k == "hang":                              # where art hangs: the frame's centre, as a share of the area
+            if v is not None and not (isinstance(v, (list, tuple)) and len(v) == 2 and all(
+                    isinstance(n, (int, float)) and not isinstance(n, bool) and 0 <= n <= 1 for n in v)):
+                raise ValueError("hang is [across, down], each between 0 and 1, or null to centre it")
+            r[k] = None if v is None else [round(float(n), 4) for n in v]
         elif k == "enabled":
             if not isinstance(v, bool):
                 raise ValueError("enabled is true or false")
@@ -264,15 +270,17 @@ def wall_height_cm(room: dict) -> float:
 
 
 def placement(room: dict, frame_px: Tuple[int, int], art_px: Tuple[int, int],
-              art_cm: Optional[Tuple[float, float]]) -> dict:
+              art_cm: Optional[Tuple[float, float]], scale: float = 1.0) -> dict:
     """Where the frame goes on the wall: its four corners in the room photo, and the size it was hung at.
 
     frame_px and art_px come from the framing layout (the frame's outside and the artwork inside it), so the
     frame's real size is the artwork's real size scaled by the same mat and frame. A piece of known size is
     never shrunk: one bigger than the hanging area is hung at its real size and marked `overflows`. With no
     art_cm the frame spans GUESS_FILL of the hanging area, shrunk if needed to MAX_FILL of either side
-    (`fitted`). Either way it is centred."""
+    (`fitted`). `scale` is the owner's hand sizing for this piece in this room, applied last. The frame is
+    centred on the room's `hang` spot, the middle of the hanging area unless the owner moved it."""
     fw, fh = frame_px
+    hand = scale
     wall_w, wall_h = room["wall_width_cm"], wall_height_cm(room)
     guessed = art_cm is None
     if not guessed:
@@ -287,26 +295,30 @@ def placement(room: dict, frame_px: Tuple[int, int], art_px: Tuple[int, int],
     scale = fit if guessed else 1.0               # a real size is never changed to suit the room
     fitted = scale < 1.0
     overflows = not guessed and (frame_w_cm > wall_w or frame_h_cm > wall_h)
-    frame_w_cm, frame_h_cm = frame_w_cm * scale, frame_h_cm * scale
+    frame_w_cm, frame_h_cm = frame_w_cm * scale * hand, frame_h_cm * scale * hand
+    if hand != 1.0:
+        overflows = frame_w_cm > wall_w or frame_h_cm > wall_h
     u, v = frame_w_cm / wall_w, frame_h_cm / wall_h      # share of the hanging area
-    u0, v0 = (1 - u) / 2, (1 - v) / 2
+    cu, cv = room.get("hang") or (0.5, 0.5)
+    u0, v0 = cu - u / 2, cv - v / 2
     h = homography([[0, 0], [1, 0], [1, 1], [0, 1]], room["wall"])
     corners = [list(apply_h(h, x, y)) for x, y in ((u0, v0), (u0 + u, v0), (u0 + u, v0 + v), (u0, v0 + v))]
     return {"corners": [[round(x, 1), round(y, 1)] for x, y in corners],
             "frame_cm": [round(frame_w_cm, 1), round(frame_h_cm, 1)], "guessed": guessed, "fitted": fitted,
-            "overflows": overflows}
+            "overflows": overflows, "scale": hand}
 
 
 # ---------------------------------------------------------------- rendering (Pillow)
 
-def framed_piece(art_file: Path):
-    """The frame, mat and artwork alone (no canvas, no shadow), and the layout it came from."""
-    recipe = framing.load_recipe()
+def framed_piece(art_file: Path, recipe_id: str = "framed-oak-white-mat"):
+    """The frame, mat (if the recipe has one) and artwork alone (no canvas, no shadow), and its layout."""
+    recipe = framing.load_recipe(recipe_id)
     image, lay = framing.render(Path(art_file), recipe, canvas_width=1800)
     return image.crop(lay.frame), lay
 
 
-def render_view(room: dict, root: Path, art_file: Path, dimensions: Optional[str], out_path: Path) -> dict:
+def render_view(room: dict, root: Path, art_file: Path, dimensions: Optional[str], out_path: Path,
+                scale: float = 1.0, recipe_id: str = "framed-oak-white-mat") -> dict:
     """Hang one piece in one room and save the view. Returns what was rendered, for the manifest."""
     from PIL import Image, ImageEnhance, ImageFilter
     if not room.get("wall") or not room.get("wall_width_cm"):
@@ -316,10 +328,10 @@ def render_view(room: dict, root: Path, art_file: Path, dimensions: Optional[str
     if k != 1.0:
         base = base.resize((VIEW_WIDTH, round(base.height * k)), Image.LANCZOS)
     scaled = dict(room, wall=[[x * k, y * k] for x, y in room["wall"]])
-    piece, lay = framed_piece(art_file)
+    piece, lay = framed_piece(art_file, recipe_id)
     art_px = (lay.art[2] - lay.art[0], lay.art[3] - lay.art[1])
     art_cm = parse_size(dimensions)
-    place = placement(scaled, piece.size, art_px, art_cm)
+    place = placement(scaled, piece.size, art_px, art_cm, scale)
     pw, ph = piece.size
     coeffs = homography(place["corners"], [[0, 0], [pw, 0], [pw, ph], [0, ph]])   # view pixel -> piece pixel
     light = room.get("light", 0.95)
@@ -341,7 +353,9 @@ def render_view(room: dict, root: Path, art_file: Path, dimensions: Optional[str
     base.save(out_path, "JPEG", quality=88)
     return {"room": room["id"], "room_updated_at": room.get("updated_at"), "file": out_path.name,
             "rendered_at": now(), "dimensions": dimensions or "", "frame_cm": place["frame_cm"],
-            "guessed": place["guessed"], "fitted": place["fitted"], "overflows": place["overflows"]}
+            "guessed": place["guessed"], "fitted": place["fitted"], "overflows": place["overflows"],
+            "scale": place["scale"], "hang": room.get("hang"),
+            "corners": [[round(x / base.width, 4), round(y / base.height, 4)] for x, y in place["corners"]]}
 
 
 # ---------------------------------------------------------------- views per piece
@@ -355,9 +369,14 @@ def load_views(out: Path) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
-def is_stale(view: dict, room: dict, item: dict, dimensions: Optional[str]) -> bool:
+def is_stale(view: dict, room: dict, item: dict, dimensions: Optional[str], scale: float = 1.0) -> bool:
     return (view.get("room_updated_at") != room.get("updated_at") or view.get("processed_at") != item.get("processed_at")
-            or view.get("dimensions", "") != (dimensions or ""))
+            or view.get("dimensions", "") != (dimensions or "") or view.get("scale", 1.0) != scale)
+
+
+def recipe_of(item: dict) -> str:
+    """The frame recipe the piece's framed image was made with, so its room view matches it."""
+    return (item.get("frame") or {}).get("recipe") or "framed-oak-white-mat"
 
 
 def render_item(item: dict, lib: dict, root: Path, out: Path, dimensions: Optional[str],
@@ -372,7 +391,8 @@ def render_item(item: dict, lib: dict, root: Path, out: Path, dimensions: Option
         raise ValueError("only ready rooms (licence recorded, wall set, turned on) are used for listings")
     records = []
     for room in rooms:
-        rec = render_view(room, root, art, dimensions, Path(out) / "img" / f"{item['id']}.room-{room['id']}.jpg")
+        rec = render_view(room, root, art, dimensions, Path(out) / "img" / f"{item['id']}.room-{room['id']}.jpg",
+                          size_for(out, item["id"], room["id"]), recipe_of(item))
         rec["processed_at"] = item.get("processed_at")
         records.append(rec)
     views = load_views(out)
@@ -409,6 +429,46 @@ def save_choice(out: Path, item_id: str, room_id: Optional[str]) -> None:
     tmp = choices_path(out).with_suffix(".tmp")
     tmp.write_text(json.dumps(choices, indent=1))
     tmp.replace(choices_path(out))
+
+
+def sizes_path(out: Path) -> Path:
+    return Path(out) / "room_sizes.json"
+
+
+def size_for(out: Path, item_id: str, room_id: str) -> float:
+    """How big the owner made this piece in this room, as a multiple of its size; 1.0 when it wasn't changed."""
+    p = sizes_path(out)
+    sizes = json.loads(p.read_text()) if p.exists() else {}
+    return float((sizes.get(item_id) or {}).get(room_id, 1.0))
+
+
+def save_size(out: Path, item_id: str, room_id: str, scale: Optional[float]) -> None:
+    """Size a piece by hand in one room; None (or 1) goes back to its real size. Other rooms are untouched."""
+    if scale is not None and (isinstance(scale, bool) or not isinstance(scale, (int, float))
+                              or not MIN_SCALE <= scale <= MAX_SCALE):
+        raise ValueError(f"the size is between {MIN_SCALE} and {MAX_SCALE} times its real size")
+    p = sizes_path(out)
+    sizes = json.loads(p.read_text()) if p.exists() else {}
+    mine = sizes.get(item_id) or {}
+    if scale is None or round(scale, 3) == 1.0:
+        mine.pop(room_id, None)
+    else:
+        mine[room_id] = round(float(scale), 3)
+    if mine:
+        sizes[item_id] = mine
+    else:
+        sizes.pop(item_id, None)
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(sizes, indent=1))
+    tmp.replace(p)
+
+
+def centre_on_wall(room: dict, at: Tuple[float, float]) -> List[float]:
+    """A point on a room view (each side a share of the view, 0 to 1; the view is the room photo scaled) as a
+    `hang` spot: its place in the hanging area, kept inside it."""
+    h = homography(room["wall"], [[0, 0], [1, 0], [1, 1], [0, 1]])
+    u, v = apply_h(h, at[0] * room["size"][0], at[1] * room["size"][1])
+    return [round(min(1.0, max(0.0, u)), 4), round(min(1.0, max(0.0, v)), 4)]
 
 
 def _real_size(item: dict, dimensions: Optional[str]) -> Optional[Tuple[float, float]]:
@@ -458,9 +518,11 @@ def room_view(item: dict, lib: dict, out: Path, dimensions: Optional[str]) -> Op
     if not room:
         return None
     v = load_views(out).get(item["id"], {}).get(room["id"])
+    scale = size_for(out, item["id"], room["id"])
     return {"room": room["id"], "name": room["name"], "auto": auto, "unavailable": lost,
             "image": f"img/{v['file']}?v={v['rendered_at']}" if v else None,
-            "stale": not v or is_stale(v, room, item, dimensions),
+            "stale": not v or is_stale(v, room, item, dimensions, scale), "scale": scale,
+            "moved": bool(room.get("hang")), "corners": v.get("corners") if v else None,
             "guessed": v["guessed"] if v else parse_size(dimensions) is None,
             "fitted": bool(v and v.get("fitted")), "overflows": bool(v and v.get("overflows")),
             "frame_cm": v["frame_cm"] if v else None,

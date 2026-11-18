@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-from packages.adapters import artstore_map
+from packages.adapters import artstore_map, updates
 from packages.adapters.artstore_pg import PostgresArtStore
 
 REPO = Path(__file__).resolve().parents[2]
@@ -34,6 +34,14 @@ CREATE POLICY commerce_os_write_read ON public.products FOR SELECT TO {WRITE_ROL
 CREATE POLICY commerce_os_write_add ON public.products FOR INSERT TO {WRITE_ROLE} WITH CHECK (true);
 CREATE POLICY commerce_os_write_read ON public.categories FOR SELECT TO {WRITE_ROLE} USING (true);
 CREATE POLICY commerce_os_write_read ON public.tags FOR SELECT TO {WRITE_ROLE} USING (true);
+"""
+
+# Updates (B-085): only the listing's own columns, never status, slug or id. The same as the runbook's update step,
+# made safe to run again, so a test store built before updates existed gets it on its next start.
+UPDATE_ROLE_SQL = f"""
+GRANT UPDATE ({", ".join(updates.UPDATABLE)}) ON public.products TO {WRITE_ROLE};
+DROP POLICY IF EXISTS commerce_os_write_update ON public.products;
+CREATE POLICY commerce_os_write_update ON public.products FOR UPDATE TO {WRITE_ROLE} USING (true) WITH CHECK (true);
 """
 
 
@@ -77,6 +85,7 @@ class LocalStore:
             self.cluster.run_sql((self.base / "schema.sql").read_text())
             self.cluster.run_sql(self.ldb.runbook_read_role_sql(secrets.token_urlsafe(24)))
             self.cluster.run_sql(WRITE_ROLE_SQL)
+        self.cluster.run_sql(UPDATE_ROLE_SQL)
         self.sync(mapping)
 
     def sync(self, mapping: dict):

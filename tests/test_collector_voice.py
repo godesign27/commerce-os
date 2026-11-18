@@ -47,7 +47,7 @@ class Direction(unittest.TestCase):
         self.assertIn("12 of 14", RUBRIC_MD)
         schema = listing.response_schema(["painting"], ["Animals"], ["animal"])
         self.assertIn("human_story", schema["properties"]["self_review"]["required"])
-        self.assertEqual(listing.PROMPT_VERSION, "listing-draft@4")
+        self.assertEqual(listing.PROMPT_VERSION, "listing-draft@5")
 
     def test_the_prompt_sends_the_direction(self):
         req = listing.build_request(b"x", "image/jpeg", {"painting": {"display_name": "Painting"}}, ["Animals"],
@@ -135,7 +135,7 @@ class VoiceWarnings(unittest.TestCase):
 class Docs(unittest.TestCase):
     def test_the_skill_and_docs_point_at_the_direction(self):
         skill = (REPO / "plugins/commerce-os/skills/listing-copy/SKILL.md").read_text()
-        self.assertIn("listing-draft@4", skill)
+        self.assertIn("listing-draft@5", skill)
         self.assertIn(" ".join(CRITERION.split()), " ".join(skill.split()))
         self.assertIn("B-060", (REPO / "docs/listing-copy.md").read_text())
         page = (REPO / "apps/review-dashboard/src/pages/ListingDetail.tsx").read_text()
