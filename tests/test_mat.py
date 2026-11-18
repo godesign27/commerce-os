@@ -18,8 +18,12 @@ class Recipe(unittest.TestCase):
     def test_no_mat_floats_the_art_in_the_frame_and_keeps_everything_else(self):
         mat, bare = framing.load_recipe(ri.MAT_RECIPE), framing.load_recipe(ri.NO_MAT_RECIPE)
         self.assertEqual(bare["id"], ri.NO_MAT_RECIPE)
-        for k in ("canvas", "frame", "shadow", "output"):
+        for k in ("canvas", "shadow", "output"):
             self.assertEqual(bare[k], mat[k], k)
+        self.assertEqual({k: v for k, v in bare["frame"].items() if k not in ("width_ratio", "note")},
+                         {k: v for k, v in mat["frame"].items() if k not in ("width_ratio", "note")}, "the same oak")
+        self.assertAlmostEqual(bare["frame"]["width_ratio"], mat["frame"]["width_ratio"] / 2, 4,
+                               "a canvas's floater frame is half as thick (owner, 2026-11-18)")
         lay = framing.layout((400, 500), bare)
         art_w = lay.art[2] - lay.art[0]
         gaps = (lay.art[0] - lay.opening[0], lay.art[1] - lay.opening[1],

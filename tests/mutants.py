@@ -902,6 +902,8 @@ MUTANTS = [
   'if is_photo(source.name) or force_crop else "artwork"', 'if is_photo(source.name) else "artwork"', 'tests.test_crop_it'),
  ('turning Crop it on never waits for Apply', 'scripts/review_images.py',
   '                or d.get("crop", False) != applied.get("crop", False):', '                or False:', 'tests.test_crop_it'),
+ ('a canvas gets the thick matted frame again', 'resources/image-recipes/framed-oak-no-mat.json',
+  '"width_ratio": 0.02165', '"width_ratio": 0.0433', 'tests.test_mat'),
  ('a changed piece keeps its old thumbnail', 'services/local_api/server.py',
   'or target.stat().st_mtime < source.stat().st_mtime', '', 'tests.test_journey'),
  ('the green outline goes back to approved copy', 'apps/review-dashboard/src/pages/Listings.tsx',

@@ -1,6 +1,6 @@
 {
   "id": "framed-oak-no-mat",
-  "version": 2,
+  "version": 3,
   "status": "draft",
   "display_name": "Framed listing image: thin oak floater frame with a narrow shadow gap around the artwork, no mat, soft shadow",
   "purpose": "For work framed without a mat, such as canvases (B-080). Same frame, canvas and shadow as framed-oak-white-mat; the canvas floats in the frame with a narrow gap (B-084). The artwork is placed unchanged, so this derivative is not consequential.",
@@ -60,7 +60,7 @@
     }
   },
   "frame": {
-    "width_ratio": 0.0433,
+    "width_ratio": 0.02165,
     "texture": {
       "asset": "oak-frame",
       "bar": {
@@ -86,7 +86,8 @@
       "left": 1.0,
       "right": 0.97,
       "bottom": 0.98
-    }
+    },
+    "note": "Half the matted frame's width: a thin floater frame around a canvas (owner, 2026-11-18)."
   },
   "shadow": {
     "offset_y_ratio": 0.012,
