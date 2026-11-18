@@ -119,14 +119,27 @@ def _number(price: str):
     return int(d) if d == d.to_integral_value() else float(d)
 
 
+_HASHES: dict = {}          # path -> ((size, mtime_ns, inode), hash): pages ask about every image on every load
+
+
 def file_hash(path: Path) -> Optional[str]:
+    """A file's SHA-256, read again only when its size, modified time or inode changes. Reading every listing image
+    on every page load took most of a page's time on a slow (synced) disk. Delivery still re-reads the bytes and
+    checks them against the approved hash, so a stale entry here can never send a different file."""
     p = Path(path)
-    if not p.exists():
+    try:
+        st = p.stat()
+    except OSError:
         return None
+    key = (st.st_size, st.st_mtime_ns, st.st_ino)
+    hit = _HASHES.get(str(p))
+    if hit and hit[0] == key:
+        return hit[1]
     h = hashlib.sha256()
     with p.open("rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
+    _HASHES[str(p)] = (key, h.hexdigest())
     return h.hexdigest()
 
 
