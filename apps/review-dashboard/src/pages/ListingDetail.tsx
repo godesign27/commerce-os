@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
-import { api, Check, Copy, Detail, Draft, Field, Issue, Job, State, StorefrontPreview, waitForJob } from "../api";
+import { api, Check, Copy, Detail, Draft, Field, Issue, Job, State, StoreProduct, StorefrontPreview, waitForJob } from "../api";
 import { AboutPiece } from "../components/AboutPiece";
 import { StorefrontPanel } from "../components/StorefrontPanel";
 import { StatusBadge, Tracker } from "../components/Status";
@@ -149,6 +149,7 @@ export function ListingDetail({ id, state, onChange }: { id: string; state: Stat
 
         <section className="copy">
           {!dr && <p className="muted">Not drafted yet. Use “Draft next” on the Listings page, or add a note first.</p>}
+          {!dr && !IN_STORE.includes(d.status.id) && <LinkToStore id={id} onLinked={async () => { await load(); onChange(); }} />}
           {dr && copy && (
             <>
               {locked && <p className="banner ok">Approved {new Date(d.listing.approved!.at).toLocaleString()}. Unlock to change it.</p>}
@@ -244,6 +245,47 @@ function NextStep({ d, approve, onStore }: {
       {approve && <button onClick={approve}>Approve copy</button>}
       {!approve && others.length > 0 && <a className="button-link secondary-link" href="#store" onClick={toStore}>See the details</a>}
       {STORE_STEPS.includes(st.id) && <StoreStep id={d.item.id} status={st.id} onDone={onStore} />}
+    </section>
+  );
+}
+
+// Already in the store, made in its admin (B-092): link the piece to that product, so its images can be updated from
+// here. Linking writes nothing to the store, and nothing there but the images is ever sent for it.
+const IN_STORE = ["published", "changed", "ready-to-update", "publishing"];
+
+function LinkToStore({ id, onLinked }: { id: string; onLinked: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [products, setProducts] = useState<StoreProduct[] | null>(null);
+  const [pick, setPick] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  async function show() {
+    setOpen(true); setMsg(null);
+    try { setProducts((await api.storeProducts()).products); } catch (e) { setMsg(String((e as Error).message)); }
+  }
+  async function link() {
+    setBusy(true); setMsg(null);
+    try { await api.adopt(id, pick); await onLinked(); setOpen(false); }
+    catch (e) { setMsg(String((e as Error).message)); }
+    setBusy(false);
+  }
+  return (
+    <section className="panel link-store" aria-label="Already in the store">
+      <h2 className="small">Already in the store?</h2>
+      {!open ? (
+        <p className="small muted">If this piece was added in the store's admin, link it to that product. Then only its images are updated from
+          here, with a room view at its real size; its title, copy, price and status stay as the store has them.{" "}
+          <button className="link" onClick={show}>Link to a store product</button></p>
+      ) : (
+        <div className="row link-store-pick">
+          <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Store product">
+            <option value="">{products ? "Choose the product…" : "Loading…"}</option>
+            {(products || []).map((p) => <option key={p.id} value={p.id}>{[p.name || p.id, p.dimensions, p.medium].filter(Boolean).join(" · ")}</option>)}
+          </select>
+          <button disabled={busy || !pick} onClick={link}>{busy ? "Linking…" : "Link"}</button>
+          <button className="secondary" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+        </div>)}
+      {msg && <p className="error small">{msg}</p>}
     </section>
   );
 }

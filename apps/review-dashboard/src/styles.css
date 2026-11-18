@@ -532,3 +532,9 @@ button.link.quiet-danger { color: var(--muted); } button.link.quiet-danger:hover
 .details.wide .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 1000px) { .details.wide .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .details.wide .steps, .details.wide .facts { grid-template-columns: 1fr; } }
+
+/* Link a piece to a product made in the store's admin (B-092). */
+.link-store { margin-top: 0.8rem; }
+.link-store h2 { margin: 0 0 0.3rem; }
+.link-store-pick { flex-wrap: wrap; gap: 0.5rem; }
+.link-store-pick select { min-width: 16rem; flex: 1 1 16rem; }

@@ -98,6 +98,7 @@ export interface StoreRow {
   id: string; title: string; change_set_hash: string; update: boolean; changes: string[];
   price: { amount_minor: number; currency: string } | null; sold_as: string | null; size: string | null;
 }
+export interface StoreProduct { id: string; name: string | null; dimensions: string | null; medium: string | null; status: string | null }
 export interface BulkResult { done: string[]; skipped: BulkSkip[]; rows?: StoreRow[]; job?: string | null }
 // First run (B-068). Nothing here ever holds a credential.
 export interface Steps { steps: Array<{ id: string; label: string; done: boolean }>; complete: boolean; next: string | null }
@@ -258,6 +259,9 @@ export const api = {
   approve: (id: string) => call<{ edits_recorded: number }>("POST", `/api/items/${id}/approve`),
   unlock: (id: string) => call<Listing>("POST", `/api/items/${id}/unlock`),
   storefront: (id: string) => call<StorefrontPreview>("GET", `/api/items/${id}/storefront`),
+  // Link a piece to a product made in the store's admin (B-092), so its images can be updated from here.
+  storeProducts: () => call<{ read_at: string | null; products: StoreProduct[] }>("GET", "/api/store-products"),
+  adopt: (id: string, product_id: string) => call<{ product_id: string; name: string | null }>("POST", `/api/items/${id}/adopt`, { product_id }),
   // Gate 3: approve the exact change set shown, by its hash; refused if the listing changed since.
   approveStorefront: (id: string, change_set_hash: string, status: string) =>
     call<StorefrontPreview>("POST", `/api/items/${id}/storefront/approve`, { change_set_hash, status }),

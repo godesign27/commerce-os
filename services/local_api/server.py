@@ -148,7 +148,7 @@ class App:
                 "crop_decision": decisions.get(it["id"], {}).get("decision"),
                 "has_art": bool(it.get("art_file")),
                 "drafted": bool(rec), "revision": rec["draft"]["revision"] if rec else None,
-                "title": (self.store.effective(it["id"], rec) or {}).get("title") if rec else None,
+                "title": (self.store.effective(it["id"], rec) or {}).get("title") if rec else (self._adopted(it["id"]) or {}).get("name"),
                 "approved": bool(entry.get("approved")), "edited": bool(entry.get("edits") or entry.get("chosen_title")),
                 "blocking": sum(i["severity"] == "blocking" and not listing.supplied(i, entry.get("facts")) for i in issues),
                 "supplied": sum(listing.supplied(i, entry.get("facts")) for i in issues),   # answered: redraft to use
@@ -349,14 +349,86 @@ class App:
                                 store=self.fake_store(), catalog_issues=catalog.issues(self._candidates(item_id, entry, rec)),
                                 taken_slugs=catalog.taken_slugs(self.catalog.load()), simulated=False)
         sets, product_id = self._published(item_id)
+        adopted = self._adopted(item_id)
+        if adopted:                               # made in the store's admin, linked here (B-092): only images change
+            sets, product_id = [self._adoption_baseline(cs, adopted)] + sets, adopted["product_id"]
         if sets and product_id:                   # in the store already: what changed goes as an update (B-085)
-            cs = self._as_update(cs, sets, product_id)
+            cs = self._as_update(cs, sets, product_id, images_only=bool(adopted))
         return cs, assets, notes
 
     # ------------------------------------------------------------ updates (B-085)
     PRODUCT_ID = re.compile(r"[A-Za-z0-9_.:-]{1,128}")
     STORE_ROW_SECONDS = 60                     # one look at the store serves a minute of page loads (the write
                                                # checks every field it sends again, inside its transaction)
+
+    # ------------------------------------------------------------ linking a product made in the store's admin (B-092)
+    def _adopted(self, item_id: str) -> Optional[dict]:
+        """The link to a store product this piece was matched to, if it was made in the store's admin."""
+        return next((e for e in self.pubs.events(item_id) if e["event"] == "published" and e.get("op") == "adopt"), None)
+
+    def _in_store(self, item_id: str) -> Optional[str]:
+        """This piece's product id in the store, whether Commerce OS published it or it was linked."""
+        return (self.pubs.latest(item_id, "published") or {}).get("product_id")
+
+    @staticmethod
+    def _adoption_baseline(cs: dict, adopted: dict) -> dict:
+        """What the store held when the piece was linked, as a change set: the listing as it is now, with the store's
+        images at the time. Only the images can then differ, so only they are ever sent."""
+        op = dict(cs["operations"][0], op="create",
+                  fields=dict(cs["operations"][0]["fields"], images={"value": list(adopted.get("images") or []),
+                                                                     "status": "observed"}))
+        return dict(cs, operations=[op], change_set_hash=f"adopted-{adopted['product_id']}")
+
+    @staticmethod
+    def _store_size(text) -> str:
+        """The store's size as Commerce OS writes it: 16"x20" and 16 x 20 inches are both 16 x 20 in."""
+        from packages.adapters import tier_ladders
+        key = tier_ladders.size_key(text)
+        if not key:
+            return ""
+        cm = "cm" in str(text).lower()
+        return key.replace("x", " x ") + (" cm" if cm else " in")
+
+    def store_choices(self) -> dict:
+        """Store products a piece can be linked to: from the last read of the catalog, less those already linked."""
+        snap = self.catalog.load() or {}
+        taken = {self._in_store(i) for i in self.pubs.items()}
+        rows = [{"id": r["id"], "name": r.get("name"), "dimensions": r.get("dimensions"), "medium": r.get("medium"),
+                 "status": r.get("status")} for r in snap.get("products") or [] if r.get("id") not in taken]
+        return {"read_at": snap.get("read_at"), "products": sorted(rows, key=lambda r: (r["name"] or "").lower())}
+
+    def adopt(self, item_id: str, body: dict) -> dict:
+        """Link a piece to the product already in the store for it (made in the store's admin, not by Commerce OS).
+        Nothing is written to the store: from now on the piece's images go to that product as an update, and
+        everything else there (title, copy, price, tiers, status) is left as the store has it."""
+        it = self.item(item_id)
+        pid = body.get("product_id") if isinstance(body, dict) else None
+        if not isinstance(pid, str) or not self.PRODUCT_ID.fullmatch(pid):
+            raise ApiError(400, 'send {"product_id": "<the store product>"}')
+        if not it.get("art_file"):
+            raise ApiError(400, "Accept and frame the photo first.")
+        if self._in_store(item_id):
+            raise ApiError(409, "This piece is already linked to a product in the store.")
+        if pid in {self._in_store(i) for i in self.pubs.items()}:
+            raise ApiError(409, "Another piece is already linked to that product.")
+        try:
+            row = self.store_product(pid, fresh=True)
+        except catalog.CatalogError as e:
+            raise ApiError(400, f"Couldn't read the store: {e}")
+        if not row:
+            raise ApiError(404, "That product isn't in the store.")
+        facts = dict(self.store.listing(item_id).get("facts") or {})
+        size = self._store_size(row.get("dimensions"))
+        if size and not facts.get("dimensions"):
+            facts["dimensions"] = size          # so it hangs in its room at its real size
+        if row.get("medium") and not facts.get("medium"):
+            facts["medium"] = str(row["medium"])[:200]
+        self.update_listing(item_id, {"facts": facts})
+        self.pubs.append(item_id, "published", publishing.SUCCEEDED, op="adopt", product_id=pid,
+                         images=list(row.get("images") or []), name=row.get("name"))
+        self.audit.append(item_id, "adopted", f"Linked to the store product {row.get('name') or pid}, made in the "
+                          "store's admin: its images can now be updated from here", by=OWNER["id"], product_id=pid)
+        return {"status": self._status_of(item_id), "product_id": pid, "name": row.get("name")}
 
     def _published(self, item_id: str):
         """The change sets that reached the store for this piece, oldest first, and its product id there."""
@@ -425,7 +497,7 @@ class App:
                         for c, f in updates.published_fields(sets).items()}
         return None
 
-    def _as_update(self, cs: dict, sets: list, product_id: str) -> dict:
+    def _as_update(self, cs: dict, sets: list, product_id: str, images_only: bool = False) -> dict:
         """For a piece already in the store: the last published change set while nothing changed, otherwise the
         update that sends what changed here and keeps what was edited in the store."""
         published = updates.published_fields(sets)
@@ -444,6 +516,9 @@ class App:
                 if row is not None else {"send": {}, "expected": {}, "kept": []})
         if not problem and not plan["send"]:       # every change was also made in the store, whose edits win
             return sets[-1]
+        if images_only:                            # a linked product: only the images are Commerce OS's to send
+            cs = dict(cs, blockers=[b for b in cs["blockers"] if b["target"] == "assets.delivery"
+                                    or b["target"].startswith("product.images")])
         return updates.build(cs, product_id, plan, problem)
 
     def _candidates(self, item_id: str, entry: dict, rec: dict) -> list:
@@ -486,9 +561,10 @@ class App:
 
     def _journey(self, it: dict, decision: dict, pending: bool, entry: dict, rec: dict):
         """The listing's state against the store, and the piece's one status (packages/journey.py)."""
-        store_state, blockers, changes = self._store_check(it, entry, rec) if rec else (None, [], [])
+        adopted = bool(self._adopted(it["id"]))
+        store_state, blockers, changes = self._store_check(it, entry, rec) if rec or adopted else (None, [], [])
         stage = stages.stage(it, decision, pending, bool(rec), bool(entry.get("approved")))
-        published = bool(self.pubs.published_hashes(it["id"]))
+        published = bool(self.pubs.published_hashes(it["id"])) or adopted
         update = published and store_state is not None and bool(changes)
         return store_state, journey.status(stage=stage, drafted=bool(rec), copy_approved=bool(entry.get("approved")),
                                            publish_state=self.pubs.state(it["id"]), store_state=store_state,
@@ -643,7 +719,8 @@ class App:
             nxt = ["Check what the store would receive, then approve it."]
         else:
             nxt = [b["question"] for b in cs["blockers"] if b["severity"] == "blocking" and b["target"] != "assets.delivery"]
-        row = {"id": it["id"], "source": it["source"], "title": (self.store.effective(it["id"], rec) or {}).get("title"),
+        row = {"id": it["id"], "source": it["source"],
+               "title": ((self.store.effective(it["id"], rec) or {}).get("title") if rec else None) or (self._adopted(it["id"]) or {}).get("name"),
                "image": assets[0]["image"] if assets else self._image(it), "price": (fields.get("price") or {}).get("value"),
                "sold_as": tiers[0].get("type"), "size": tiers[0].get("size"),
                "change_set_hash": cs["change_set_hash"] if section in ("ready", "problems") else None,
@@ -666,7 +743,7 @@ class App:
             if decisions.get(it["id"], {}).get("decision") == "reject":
                 continue
             rec = drafts.get(it["id"])
-            if not rec:
+            if not rec and not self._adopted(it["id"]):       # a linked store product needs no draft (B-092)
                 doc["not_drafted"] += 1 if it.get("art_file") else 0
                 continue
             section, row = self._queue_row(it, rec)
@@ -1593,7 +1670,7 @@ class App:
                         self.update_listing(i, {"facts": dict(have, **new)})
                         done.append(i)
                 else:
-                    if not self.store.draft(i):
+                    if not self.store.draft(i) and not self._adopted(i):
                         skip(i, "Not drafted yet.")
                         continue
                     if self.pubs.state(i) in (publishing.QUEUED, publishing.WRITING):
@@ -1681,6 +1758,14 @@ def _unlock(app, m, body): return app.unlock(m.group(1))
 def _meaning(app, m, body): return app.add_meaning(m.group(1), body)
 @route("POST", "/api/draft-selected")
 def _draft_selected(app, m, body): return app.draft_selected(body)
+
+
+@route("GET", "/api/store-products")
+def _store_products(app, m, body): return app.store_choices()
+
+
+@route("POST", r"/api/items/([\w.-]+)/adopt")
+def _adopt(app, m, body): return app.adopt(m.group(1), body)
 
 
 @route("POST", "/api/listings/bulk")
